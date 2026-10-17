@@ -1,0 +1,72 @@
+name: in-three
+
+services:
+  snapchain:
+    image: farcasterxyz/snapchain:0.14.3@sha256:fa9c9de2fb5205680ef8dbfd29e42dd60c889bcaff57589c9bb7a66d59fb9694
+    init: true
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/opt/in-three/snapchain-entrypoint.sh"]
+    environment:
+      RUST_BACKTRACE: "1"
+      ONCHAIN_CONFIG_ENABLED: "false"
+    ports:
+      - "127.0.0.1:3381:3381/tcp"
+      - "3382:3382/udp"
+      - "127.0.0.1:3383:3383/tcp"
+    volumes:
+      - /srv/in-three/data/rocks:/app/.rocks
+      - /srv/in-three/data/snapshot:/app/.rocks.snapshot
+      - ./validators.toml:/opt/in-three/validators.toml:ro
+      - ./snapchain-entrypoint.sh:/opt/in-three/snapchain-entrypoint.sh:ro
+    networks: [protocol, node-egress]
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3381/v1/info"]
+      interval: 30s
+      timeout: 8s
+      retries: 10
+      start_period: 3m
+
+  client:
+    build:
+      context: ./source
+      dockerfile: apps/client/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./client.env
+    depends_on:
+      snapchain:
+        condition: service_healthy
+    networks: [protocol, web]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+
+  caddy:
+    image: caddy:2.10.2-alpine@sha256:d8c17a862962def15cde69863a3a463f25a2664942eafd7bdbf050e9c3116b83
+    restart: unless-stopped
+    environment:
+      CLIENT_DOMAIN: "${CLIENT_DOMAIN}"
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /srv/in-three/data/caddy-data:/data
+      - /srv/in-three/data/caddy-config:/config
+    depends_on: [client]
+    networks: [web]
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  protocol:
+    internal: true
+  node-egress:
+  web:

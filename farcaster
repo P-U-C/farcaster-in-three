@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IN_THREE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export IN_THREE_ROOT
+
+usage() {
+  cat <<'EOF'
+IN THREE -- a sovereign Farcaster client in three commands
+
+Usage:
+  ./farcaster provision [options]   Provision compute and a 2 TiB data volume
+  ./farcaster node up               Install and start a Snapchain read node
+  ./farcaster node status           Show sync state and recent logs
+  ./farcaster client create         Register an app key and deploy the client
+  ./farcaster client status         Check the deployed client
+  ./farcaster destroy               Delete provisioned Hetzner resources
+  ./farcaster doctor                Check local prerequisites
+
+Quickstart:
+  ./farcaster provision
+  ./farcaster node up
+  ./farcaster client create
+EOF
+}
+
+command="${1:-help}"
+shift || true
+
+case "$command" in
+  provision)
+    exec "$IN_THREE_ROOT/scripts/provision.sh" "$@"
+    ;;
+  node)
+    subcommand="${1:-status}"
+    shift || true
+    exec "$IN_THREE_ROOT/scripts/node.sh" "$subcommand" "$@"
+    ;;
+  client)
+    subcommand="${1:-status}"
+    shift || true
+    exec "$IN_THREE_ROOT/scripts/client.sh" "$subcommand" "$@"
+    ;;
+  destroy)
+    exec "$IN_THREE_ROOT/scripts/destroy.sh" "$@"
+    ;;
+  doctor)
+    exec "$IN_THREE_ROOT/scripts/doctor.sh" "$@"
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 1
+    ;;
+esac

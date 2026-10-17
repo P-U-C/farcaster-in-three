@@ -1,0 +1,28 @@
+{
+  "name": "farcaster-in-three",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A three-command path from bare compute to a sovereign Farcaster client.",
+  "workspaces": [
+    "apps/client",
+    "site"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @in-three/client && npm run build --workspace @in-three/site",
+    "check": "npm run typecheck --workspace @in-three/client && npm run typecheck --workspace @in-three/site && npm test",
+    "dev:client": "npm run dev --workspace @in-three/client",
+    "dev:site": "npm run dev --workspace @in-three/site",
+    "test": "npm test --workspace @in-three/client"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  },
+  "overrides": {
+    "@faker-js/faker": "10.6.0",
+    "@grpc/grpc-js": "1.14.6"
+  },
+  "license": "MIT"
+}

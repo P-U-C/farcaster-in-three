@@ -1,0 +1,8 @@
+.git
+.github
+.state
+node_modules
+**/node_modules
+site/dist
+apps/client/dist
+*.log
