@@ -129,7 +129,7 @@ const cleanup = async () => {
 
 try {
   await waitFor("http://127.0.0.1:3333/");
-  await waitFor("http://127.0.0.1:4173/farcaster-in-three/");
+  await waitFor("http://127.0.0.1:4173/");
 
   const browser = await chromium.launch({
     executablePath: "/home/ubuntu/.local/bin/chromium",
@@ -179,7 +179,7 @@ try {
     if (response.status() >= 400) errors.push(`HTTP ${response.status()} ${response.url()}`);
   });
   await sitePage.setViewportSize({ width: 1440, height: 1000 });
-  await sitePage.goto("http://127.0.0.1:4173/farcaster-in-three/", { waitUntil: "networkidle" });
+  await sitePage.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
   await sitePage.screenshot({ path: "/tmp/in-three-site-desktop.png", fullPage: true });
   await assertNoOverflow(sitePage, "site desktop");
 

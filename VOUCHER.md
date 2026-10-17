@@ -115,7 +115,7 @@ Publish a Farcaster cast in your own words. It should link to the tutorial, stat
 
 Suggested structure, not mandatory wording:
 
-> I independently followed In Three from a clean machine. I provisioned the host, synced a Snapchain read node, registered a delegated signer, and posted this cast from the included client. Reads came from my node; the custody phrase never reached the host. [One specific observation.] Tutorial: https://p-u-c.github.io/farcaster-in-three/
+> I independently followed In Three from a clean machine. I provisioned the host, synced a Snapchain read node, registered a delegated signer, and posted this cast from the included client. Reads came from my node; the custody phrase never reached the host. [One specific observation.] Tutorial: https://farcaster.permanentupperclass.com/
 
 Add the endorsement URL below in the repository only after it is public:
 

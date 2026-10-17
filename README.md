@@ -2,7 +2,7 @@
 
 **A three-command path from bare compute to a sovereign Farcaster client.**
 
-[Microsite and tutorial](https://p-u-c.github.io/farcaster-in-three/) | [Architecture](docs/ARCHITECTURE.md) | [Security model](SECURITY.md) | [Human voucher](VOUCHER.md)
+[Microsite and tutorial](https://farcaster.permanentupperclass.com/) | [Architecture](docs/ARCHITECTURE.md) | [Security model](SECURITY.md) | [Human voucher](VOUCHER.md)
 
 In Three provisions compute, starts a Snapchain read node, registers a delegated Farcaster app key, and deploys a responsive client. Reads come from the node you operate. Signed writes go directly to a validator. The custody phrase is used locally for one Optimism transaction and is never installed on the host.
 
