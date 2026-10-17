@@ -81,27 +81,47 @@ printf '%s\n' "$wait_output" | grep -F 'ready' >/dev/null ||
   fail "client wait flow did not continue after readiness"
 
 pending_env="$(mktemp)"
-fixture_deployment_env="$(mktemp)"
-trap 'rm -f "$checksum_file" "$pending_env" "$fixture_deployment_env"' EXIT
+fixture_client_env="$(mktemp)"
+fixture_gateway_env="$(mktemp)"
+fixture_access_env="$(mktemp)"
+trap 'rm -f "$checksum_file" "$pending_env" "$fixture_client_env" "$fixture_gateway_env" "$fixture_access_env"' EXIT
 cat > "$pending_env" <<'EOF'
 FID=37
 SIGNER_PRIVATE_KEY=delegated-key
+AGENT_PUBLIC_ORIGIN=https://client.example
+AGENT_WRITE_TOKEN=agent-capability
+BUY_PAY_TO=0x000000000000000000000000000000000000c0Fe
+BUY_FACILITATOR_API_KEY=x402_facilitator-secret
 SIGNER_REGISTRATION_STATUS=signed
 SIGNER_REGISTRATION_TX=0x1234
 SIGNER_REGISTRATION_RAW_TX=0xabcd
 EOF
 (
   source "$ROOT/scripts/client.sh"
-  write_deployment_env "$pending_env" "$fixture_deployment_env"
+  PENDING_CLIENT_ENV="$pending_env"
+  write_client_env "$pending_env" "$fixture_client_env"
+  write_agent_gateway_env "$pending_env" "$fixture_gateway_env"
+  write_agent_access_env "$pending_env" "$fixture_access_env"
+  pending_has_agent_config
 )
-grep -F 'SIGNER_PRIVATE_KEY=delegated-key' "$fixture_deployment_env" >/dev/null ||
-  fail "deployment environment lost the delegated app key"
-if grep -F 'SIGNER_REGISTRATION_' "$fixture_deployment_env" >/dev/null; then
-  fail "registration recovery state would be copied to the server"
+grep -F 'SIGNER_PRIVATE_KEY=delegated-key' "$fixture_client_env" >/dev/null ||
+  fail "client environment lost the delegated app key"
+if grep -E '^(SIGNER_REGISTRATION_|AGENT_|BUY_)' "$fixture_client_env" >/dev/null; then
+  fail "payment or recovery secrets would be copied to the client container"
+fi
+grep -F 'BUY_FACILITATOR_API_KEY=x402_facilitator-secret' "$fixture_gateway_env" >/dev/null ||
+  fail "gateway environment lost the facilitator key"
+if grep -E '^(SIGNER_PRIVATE_KEY|SIGNER_REGISTRATION_)' "$fixture_gateway_env" >/dev/null; then
+  fail "Farcaster signer or recovery state would be copied to the payment container"
+fi
+grep -F 'AGENT_WRITE_TOKEN=agent-capability' "$fixture_access_env" >/dev/null ||
+  fail "local agent access file lost the write capability"
+if grep -E '^(SIGNER_|BUY_)' "$fixture_access_env" >/dev/null; then
+  fail "local agent access file contains server secrets"
 fi
 
 printf 'ok - generated cloud-init preserves remote variables\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'
 printf 'ok - client create waits and continues after node bootstrap\n'
-printf 'ok - deployment excludes local registration recovery state\n'
+printf 'ok - deployment separates client, payment, and local agent secrets\n'

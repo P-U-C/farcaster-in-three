@@ -93,6 +93,7 @@ async function main() {
       "read-node-url": { type: "string" },
       "validator-urls": { type: "string" },
       "rpc-url": { type: "string" },
+      "public-origin": { type: "string" },
       "cookie-secure": { type: "boolean", default: false },
       recover: { type: "boolean", default: false },
     },
@@ -111,6 +112,15 @@ async function main() {
   if (password !== confirmation) throw new Error("Passwords did not match; no transaction was sent");
   const passwordHash = await hashPassword(password);
   const sessionSecret = randomBytes(32).toString("base64url");
+  const facilitatorApiKey = validateFacilitatorApiKey(
+    await readHidden(
+      "\nCelo x402 facilitator API key (created at https://x402.celo.org): ",
+    ),
+  );
+  const publicOrigin = values["public-origin"];
+  if (!publicOrigin?.match(/^https:\/\/[^/]+\/?$/)) {
+    throw new Error("--public-origin must be the public HTTPS origin");
+  }
 
   let mnemonic = await readHidden(
     "\nCustody recovery phrase (used in memory for this transaction only): ",
@@ -200,6 +210,7 @@ async function main() {
 
   const signerSecretHex = Buffer.from(signerPrivateKey).toString("hex");
   signerPrivateKey.fill(0);
+  const agentWriteToken = randomBytes(32).toString("base64url");
   const baseEnv = [
     "PORT=3333",
     `FID=${fid}`,
@@ -210,6 +221,16 @@ async function main() {
     `READ_NODE_URL=${values["read-node-url"] ?? "http://snapchain:3381"}`,
     `VALIDATOR_URLS=${values["validator-urls"] ?? DEFAULT_VALIDATORS.join(",")}`,
     `COOKIE_SECURE=${values["cookie-secure"] ? "true" : "false"}`,
+    "AGENT_GATEWAY_PORT=3334",
+    "AGENT_CLIENT_UPSTREAM=http://client:3333",
+    `AGENT_PUBLIC_ORIGIN=${publicOrigin.replace(/\/$/, "")}`,
+    `AGENT_WRITE_TOKEN=${agentWriteToken}`,
+    `BUY_PAY_TO=${account.address}`,
+    "BUY_FACILITATOR_URL=https://api.x402.celo.org",
+    `BUY_FACILITATOR_API_KEY=${facilitatorApiKey}`,
+    "BUY_AGENT_READ_PRICE=0.005 USDC",
+    "BUY_AGENT_METADATA_PRICE=0.002 USDC",
+    "BUY_AGENT_WRITE_PRICE=0.02 USDC",
   ];
 
   console.log("\nOne Optimism transaction will register this revocable app key.");
@@ -460,7 +481,16 @@ async function assertStorage(fid: number, configuredValidators?: string) {
 function printHeader() {
   console.log("\nIN THREE / APP KEY CEREMONY");
   console.log("The phrase stays in this process and is never sent to the server.");
-  console.log("Only a revocable Ed25519 app key will be stored after setup.\n");
+  console.log("Only a revocable Ed25519 app key will be stored after setup.");
+  console.log("The Celo facilitator key enables paid agent requests and stays server-side.\n");
+}
+
+export function validateFacilitatorApiKey(input: string): string {
+  const value = input.trim();
+  if (!/^x402_[A-Za-z0-9_-]{12,}$/.test(value)) {
+    throw new Error("Celo facilitator API key must start with x402_");
+  }
+  return value;
 }
 
 type TerminalInput = NodeJS.ReadStream;

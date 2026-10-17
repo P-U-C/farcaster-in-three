@@ -6,8 +6,8 @@ The prize requires at least one other human to complete the tutorial, create a r
 
 - Start from a machine that has not been used to develop this repository.
 - Follow the public microsite, not private instructions from the author.
-- Use your own existing Farcaster account, cloud account, and OP ETH.
-- Never send the author your recovery phrase, cloud token, app key, or client password.
+- Use your own existing Farcaster account, cloud account, OP ETH, and Celo facilitator key.
+- Never send the author your recovery phrase, cloud token, app key, facilitator key, agent write capability, or client password.
 - Record failures and confusing language. A voucher is evidence, not a favor.
 
 ## Run
@@ -25,6 +25,7 @@ Record:
 | First synced time, UTC | |
 | Client URL | |
 | Test cast URL | |
+| Paid agent-read transaction | |
 
 ### 1. Clean checkout
 
@@ -52,7 +53,7 @@ Expected handoffs:
 - Provision prints the server IP, future HTTPS URL, local state path, and `Next: ./farcaster node up`.
 - Node up may print `Snapchain bootstrap is running on the server` and return while the API remains offline. This is expected; do not restart during extraction.
 - Client create waits, reports bootstrap progress, and continues automatically when the API is online. It must not request the phrase or register a signer while waiting.
-- A successful client deployment prints its URL plus separate browser -> client service -> node and browser -> client service -> validator paths.
+- A successful client deployment prints its URL, agent manifest, local agent-access file, and separate read/write paths.
 
 ### 3. Verify the node
 
@@ -110,7 +111,22 @@ From the HTTPS client:
 
 Check the cast's signer key against the key registered in the OP receipt.
 
-### 6. Teardown test
+### 6. Exercise the paid agent path
+
+Use a dedicated low-balance buy wallet. Do not expose <code>.state/agent.env</code>.
+
+- [ ] Fetch <code>/.well-known/agent.json</code> and <code>/agent/openapi.json</code> without payment.
+- [ ] Confirm an unpaid feed request returns 402 with the documented Celo USDC price.
+- [ ] Confirm a write without the bearer capability returns 401 before a payment challenge.
+- [ ] Quote and buy one feed request with an exact maximum.
+- [ ] Record the Celo settlement transaction and confirm the response came from the owned node.
+- [ ] Make one authorized paid write, then confirm its public Farcaster message hash.
+- [ ] Confirm <code>/srv/in-three/client.env</code> has no facilitator key or write capability.
+- [ ] Confirm <code>/srv/in-three/agent-gateway.env</code> has no Farcaster signer.
+
+Do not retry an ambiguous paid response. Preserve the receipt and run <code>buy receipts --resolve</code>.
+
+### 7. Teardown test
 
 After preserving required evidence:
 

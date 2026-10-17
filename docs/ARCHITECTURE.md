@@ -7,14 +7,16 @@ Browser
   |
   | HTTPS + signed session cookie
   v
-Caddy ----> Client service
-                |
-                | HTTP JSON reads
-                v
-           Snapchain read node <---- QUIC gossip / snapshot ---- Farcaster
-                ^
-                |
-           full local state
+Caddy ------------------------------> Client service
+  ^                                       |
+  |                                       | HTTP JSON reads
+  |                                       v
+Agent -> buy quote/pay -> x402 gateway -> Client service -> Snapchain read node
+                              |                              ^
+                              |                              |
+                              |                        full local state
+                              |
+                         Celo settlement
 
 Client service
   |
@@ -24,6 +26,22 @@ Farcaster validator ----> mempool ----> consensus ----> read node
 ```
 
 The read node is authoritative for the client's view. The validator is a delivery endpoint, not a read dependency.
+
+## Agent commerce path
+
+Caddy routes <code>/agent/*</code> and <code>/.well-known/agent.json</code> to a separate process built from <code>@celo/buy-gateway</code>. An unpaid valid request receives an x402 quote in USDC on Celo. The agent's buy wallet signs the authorization locally; Celo's hosted facilitator verifies and settles it, then the gateway proxies the request to the client.
+
+The gateway and client are deliberately separate trust domains:
+
+- the gateway has the Celo facilitator key, payout address, prices, and agent write capability;
+- the client has the Farcaster app signer, password hash, and session secret;
+- neither container receives the other's signing material;
+- the gateway can reach the client over the web network but has no route to Snapchain;
+- Caddy prevents public callers from bypassing the gateway for <code>/agent/*</code>.
+
+Reads require payment only. Writes first require an exact owner-issued bearer capability, then payment. The bearer check runs before the gateway emits a 402, preventing an unauthorized caller from paying for or reaching a write. The bearer header is stripped before the request reaches the client.
+
+The free agent manifest and OpenAPI document publish current routes, prices, schemas, and safety rules. A repository skill gives buy-enabled agents the quote-before-pay and ambiguous-settlement procedure.
 
 ## Why writes bypass the read node
 
@@ -76,7 +94,7 @@ The requesting FID in this standalone client is the user's own FID. This creates
 
 - `protocol`: internal network shared only by Snapchain and client
 - `node-egress`: Snapchain peer/snapshot egress
-- `web`: client and Caddy
+- `web`: client, agent gateway, and Caddy
 
 The host publishes Caddy and gossip ports. Snapchain HTTP/gRPC and the client origin are not published.
 

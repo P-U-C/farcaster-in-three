@@ -11,7 +11,19 @@ import {
   readHidden,
   readVisible,
   submitSignedRegistration,
+  validateFacilitatorApiKey,
 } from "../src/setup.js";
+
+test("facilitator keys are validated before the custody phrase is requested", () => {
+  assert.equal(
+    validateFacilitatorApiKey("  x402_test_facilitator_key  "),
+    "x402_test_facilitator_key",
+  );
+  assert.throws(
+    () => validateFacilitatorApiKey("not-a-facilitator-key"),
+    /must start with x402_/,
+  );
+});
 
 test("signed key request metadata matches the Farcaster contract tuple", () => {
   const encoded = encodeSignedKeyRequestMetadata({

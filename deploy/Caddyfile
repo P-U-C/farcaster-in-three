@@ -4,7 +4,18 @@
 
 {$CLIENT_DOMAIN} {
   encode zstd gzip
-  reverse_proxy client:3333
+
+  handle /agent/* {
+    reverse_proxy agent-gateway:3334
+  }
+
+  handle /.well-known/agent.json {
+    reverse_proxy agent-gateway:3334
+  }
+
+  handle {
+    reverse_proxy client:3333
+  }
 
   header {
     Strict-Transport-Security "max-age=31536000; includeSubDomains"

@@ -50,6 +50,26 @@ Checked on 2026-10-17:
 
 The provider console is authoritative because region, tax, and future pricing can differ.
 
+## Celo agent payments
+
+Verified on 2026-10-17:
+
+- usebuy.ai release: <code>@celo/buy@0.8.3</code>
+- Seller gateway: <code>@celo/buy-gateway@0.8.3</code>
+- Facilitator client: <code>@celo/buy-facilitator@0.8.3</code>
+- npm package source/support: https://github.com/celo-org/buy-skill
+- Buyer documentation: https://usebuy.ai/docs
+- Celo x402 facilitator guide: https://docs.celo.org/build/agents/x402
+- Celo discovery guide: https://docs.celo.org/build/agents/x402-get-discovered
+- Mainnet facilitator API: https://api.x402.celo.org
+- Facilitator dashboard and API-key issuance: https://x402.celo.org
+- Network: Celo mainnet, CAIP-2 <code>eip155:42220</code>
+- Payment asset: USDC, 6 decimals, <code>0xcebA9300f2b948710d2653dD7B07f33A8B32118C</code>
+
+Buy 0.8.3 supports quote-before-pay CLI and MCP flows, local wallet signing, receipt resolution, and a declarative seller gateway. The gateway settles before calling its upstream, so a paid request can still receive an upstream error and must not be blindly retried.
+
+The public usebuy.ai CPU service currently sells one-hour Google Cloud leases and caps renewal at 24 hours from creation. That is not a persistent storage product and cannot host the long-lived multi-terabyte Snapchain database honestly. In Three uses buy for discovery, Celo payment, access control, and agent automation while retaining its persistent node host.
+
 ## Protocol and contracts
 
 - Protocol: https://github.com/farcasterxyz/protocol

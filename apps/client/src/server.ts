@@ -50,17 +50,19 @@ export function createApp(config: AppConfig = loadConfig()) {
     await next();
   });
 
-  app.get("/api/health", async (context) => {
-    try {
-      const info = await reader.info();
-      return context.json({ ok: true, node: info });
-    } catch (error) {
-      return context.json(
-        { ok: false, error: error instanceof Error ? error.message : String(error) },
-        503,
-      );
-    }
-  });
+  for (const path of ["/api/health", "/agent/health"] as const) {
+    app.get(path, async (context) => {
+      try {
+        const info = await reader.info();
+        return context.json({ ok: true, node: info });
+      } catch (error) {
+        return context.json(
+          { ok: false, error: error instanceof Error ? error.message : String(error) },
+          503,
+        );
+      }
+    });
+  }
 
   app.post("/api/login", async (context) => {
     const input = loginSchema.parse(await context.req.json());
@@ -102,28 +104,28 @@ export function createApp(config: AppConfig = loadConfig()) {
     await next();
   });
 
-  app.get("/api/me", async (context) => {
+  async function loadProfile() {
     const [profile, storage, node] = await Promise.all([
       reader.profile(config.FID),
       reader.storage(config.FID),
       reader.info(),
     ]);
-    return context.json({
+    return {
       profile,
       storage,
       node,
       fid: config.FID,
       signer: config.SIGNER_PUBLIC_KEY,
       readNode: config.READ_NODE_URL,
-    });
-  });
+    };
+  }
 
-  app.get("/api/feed", async (context) => {
+  async function loadFeed() {
     latestFeed = await reader.feed(config.FID);
-    return context.json({ casts: latestFeed });
-  });
+    return { casts: latestFeed };
+  }
 
-  app.get("/api/sources", async (context) => {
+  async function loadSources() {
     if (latestFeed.length === 0) latestFeed = await reader.feed(config.FID);
     const pairs = [
       ...new Map(
@@ -154,26 +156,42 @@ export function createApp(config: AppConfig = loadConfig()) {
       }),
     );
 
-    return context.json({ sources });
-  });
+    return { sources };
+  }
 
-  app.post("/api/casts", async (context) => {
-    const input = castSchema.parse(await context.req.json());
-    const result = await writer.cast(input);
-    return context.json({ ok: true, ...result }, 201);
-  });
+  for (const path of ["/api/me", "/agent/v1/profile"] as const) {
+    app.get(path, async (context) => context.json(await loadProfile()));
+  }
+  for (const path of ["/api/feed", "/agent/v1/feed"] as const) {
+    app.get(path, async (context) => context.json(await loadFeed()));
+  }
+  for (const path of ["/api/sources", "/agent/v1/sources"] as const) {
+    app.get(path, async (context) => context.json(await loadSources()));
+  }
 
-  app.post("/api/follows", async (context) => {
-    const input = followSchema.parse(await context.req.json());
-    const result = await writer.follow(input.targetFid, input.remove);
-    return context.json({ ok: true, ...result }, 201);
-  });
+  for (const path of ["/api/casts", "/agent/v1/casts"] as const) {
+    app.post(path, async (context) => {
+      const input = castSchema.parse(await context.req.json());
+      const result = await writer.cast(input);
+      return context.json({ ok: true, ...result }, 201);
+    });
+  }
 
-  app.post("/api/reactions", async (context) => {
-    const input = reactionSchema.parse(await context.req.json());
-    const result = await writer.react(input);
-    return context.json({ ok: true, ...result }, 201);
-  });
+  for (const path of ["/api/follows", "/agent/v1/follows"] as const) {
+    app.post(path, async (context) => {
+      const input = followSchema.parse(await context.req.json());
+      const result = await writer.follow(input.targetFid, input.remove);
+      return context.json({ ok: true, ...result }, 201);
+    });
+  }
+
+  for (const path of ["/api/reactions", "/agent/v1/reactions"] as const) {
+    app.post(path, async (context) => {
+      const input = reactionSchema.parse(await context.req.json());
+      const result = await writer.react(input);
+      return context.json({ ok: true, ...result }, 201);
+    });
+  }
 
   app.onError((error, context) => {
     console.error(error instanceof Error ? error.message : error);

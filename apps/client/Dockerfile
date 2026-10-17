@@ -15,5 +15,5 @@ WORKDIR /app
 COPY --from=build --chown=node:node /src /app
 WORKDIR /app/apps/client
 USER node
-EXPOSE 3333
+EXPOSE 3333 3334
 CMD ["node", "dist/server/server.js"]

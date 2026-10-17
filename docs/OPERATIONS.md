@@ -21,14 +21,21 @@ Disk growth is protocol dependent. Alert before free space falls below 15%. The 
 ./farcaster client logs
 ```
 
-`client create` first checks the local Snapchain API. If bootstrap is incomplete, it remains attached, reports snapshot/database/disk progress every five minutes, and continues automatically when the API responds. It does not request the custody phrase or register a key while waiting. Pressing Ctrl-C only stops the local wait; the remote node keeps bootstrapping and rerunning command 2 is safe. On success, it prints both paths:
+`client create` first checks the local Snapchain API. If bootstrap is incomplete, it remains attached, reports snapshot/database/disk progress every five minutes, and continues automatically when the API responds. It does not request the custody phrase or register a key while waiting. Pressing Ctrl-C only stops the local wait; the remote node keeps bootstrapping and rerunning command 2 is safe.
+
+Before running command 2, create a facilitator key at [x402.celo.org](https://x402.celo.org/) and confirm its settlement balance. The key is entered in a hidden prompt before the custody phrase. On success, the command prints the browser and agent surfaces:
 
 ```text
-read path     browser -> client service -> your Snapchain node
-write path    browser -> client service -> validator
+URL           https://203-0-113-10.sslip.io
+agent API     https://203-0-113-10.sslip.io/.well-known/agent.json
+agent access  .state/agent.env
+read path     browser or paid agent -> client service -> your Snapchain node
+write path    authorized paid agent -> client service -> validator
 ```
 
-The public health route confirms the service can query its configured read node. Authenticated routes expose profile, storage, feed, source filters, and write actions. Follow is available in the desktop sidebar and from a dedicated narrow-screen control.
+The public health routes confirm that both browser and agent paths can query the configured read node. Browser routes use the signed session cookie. Agent routes use Celo x402; writes additionally require the capability in `.state/agent.env`. Follow is available in the desktop sidebar and from a dedicated narrow-screen control.
+
+See [AGENT-API.md](AGENT-API.md) for exact buy CLI and MCP requests.
 
 To use your own domain:
 
@@ -45,6 +52,26 @@ The default Ashburn deployment is approximately **$265/month before IPv4, traffi
 - 2,048 GiB volume at $0.0484/GiB-month: about $99.12/month
 
 The provider console is authoritative. Confirm the displayed total before typing `PROVISION`, and use `./farcaster destroy` when the node is no longer needed.
+
+Agent API defaults are 0.002 USDC for profile/source metadata, 0.005 USDC for a feed read, and 0.02 USDC for a write. These are receipts to the configured payout address, not infrastructure discounts. Celo's facilitator separately charges its published settlement fee from the operator's facilitator balance. The 402 and facilitator dashboard are authoritative.
+
+## Agent gateway
+
+```bash
+curl https://YOUR_CLIENT/.well-known/agent.json
+buy quote https://YOUR_CLIENT/agent/v1/feed
+buy curl --max-amount 0.005 https://YOUR_CLIENT/agent/v1/feed
+```
+
+Runtime files:
+
+- `/srv/in-three/client.env`: Farcaster signer and browser secrets; no buy credentials.
+- `/srv/in-three/agent-gateway.env`: facilitator key, payout address, prices, and write capability; no Farcaster signer.
+- `.state/agent.env`: local public origin and write capability for an authorized agent.
+
+To change prices, edit `BUY_AGENT_READ_PRICE`, `BUY_AGENT_METADATA_PRICE`, or `BUY_AGENT_WRITE_PRICE` in the gateway environment and run `sudo docker compose up -d agent-gateway`. Keep the token symbol USDC.
+
+To rotate write access, replace `AGENT_WRITE_TOKEN` with a new 32-byte base64url value in both the remote gateway environment and local `.state/agent.env`, then restart the gateway. Existing agents stop at 401 before payment.
 
 ## Upgrades
 
@@ -76,11 +103,12 @@ Snapchain database:
 App key:
 
 - Stored in `/srv/in-three/client.env` after a successful deployment.
-- Before broadcast, `.state/client.env.pending` stores the app key, serialized signed registration transaction, locally calculated hash, and registration status with mode 0600.
+- Before broadcast, `.state/client.env.pending` stores the app key, serialized signed registration transaction, locally calculated hash, registration status, facilitator key, and generated agent capability with mode 0600.
 - If broadcast returns an error, keep the file: the RPC may have accepted the transaction. Rerun `./farcaster client create`; it validates the saved hash, rebroadcasts the exact signed bytes, and checks the receipt without asking for the phrase or creating a different transaction.
 - The serialized custody transaction is removed as soon as registration confirms.
-- Recovery metadata is stripped before `client.env` is uploaded to the host.
-- The local pending file is securely removed only after the public HTTPS health check passes.
+- Recovery and payment metadata are stripped before `client.env` is uploaded to the host.
+- The facilitator key and write capability are isolated in `agent-gateway.env`; the gateway receives no Farcaster signer.
+- The local pending file is deleted only after both public HTTPS health checks pass, with a best-effort overwrite when `shred` is available.
 - Backing up the deployed app key preserves client identity but expands the compromise surface.
 - Losing it does not affect custody; register a new signer and revoke the old public key.
 
@@ -88,7 +116,8 @@ Local state:
 
 - `.state/config` identifies cloud resources.
 - `.state/id_ed25519` operates the host.
-- `.state/client.env.pending` may temporarily hold a delegated key during recovery.
+- `.state/client.env.pending` may temporarily hold the delegated key, facilitator key, agent capability, and fixed registration transaction during recovery.
+- `.state/agent.env` holds the public API origin and owner write capability.
 - All are excluded from Git and should be backed up only to an encrypted operator vault.
 
 ## Failure modes
@@ -101,6 +130,10 @@ Local state:
 | Snapshot loops | Free disk, volume mount, release notes |
 | Client 503 health | Snapchain container health and internal DNS |
 | Login fails | Correct deployment password; cookie domain/HTTPS |
+| Agent read returns 402 | Expected unpaid quote; use buy with an exact maximum |
+| Agent write returns 401 | Supply the current owner capability; no payment occurred |
+| Facilitator returns 401/402 | Rotate the API key or fund its settlement balance |
+| Paid agent request is ambiguous | Do not retry; preserve output and run `buy receipts --resolve` |
 | Validator rejects write | FID storage, signer onchain state, clock, text limits |
 | TLS pending | A/AAAA resolution, ports 80/443, Caddy logs; keep `.state/client.env.pending` and rerun create |
 | Setup interrupted after registration | Keep `.state/client.env.pending`; rerun `./farcaster client create` |

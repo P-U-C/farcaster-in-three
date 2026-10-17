@@ -31,6 +31,7 @@ services:
       start_period: 24h
 
   client:
+    image: in-three-client:local
     build:
       context: ./source
       dockerfile: apps/client/Dockerfile
@@ -47,6 +48,29 @@ services:
     tmpfs:
       - /tmp:size=32m,mode=1777
 
+  agent-gateway:
+    image: in-three-client:local
+    command: ["node", "dist/server/agent-gateway.js"]
+    restart: unless-stopped
+    env_file:
+      - path: ./agent-gateway.env
+        required: false
+    depends_on:
+      client:
+        condition: service_started
+    networks: [web]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3334/agent/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 15s
+
   caddy:
     image: caddy:2.10.2-alpine@sha256:d8c17a862962def15cde69863a3a463f25a2664942eafd7bdbf050e9c3116b83
     restart: unless-stopped
@@ -60,7 +84,11 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - /srv/in-three/data/caddy-data:/data
       - /srv/in-three/data/caddy-config:/config
-    depends_on: [client]
+    depends_on:
+      client:
+        condition: service_started
+      agent-gateway:
+        condition: service_healthy
     networks: [web]
     security_opt:
       - no-new-privileges:true

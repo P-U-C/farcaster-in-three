@@ -1,8 +1,10 @@
 import {
   ArrowDown,
   ArrowRight,
+  Bot,
   Check,
   CheckCircle2,
+  CircleDollarSign,
   ChevronRight,
   Clipboard,
   Cloud,
@@ -12,11 +14,13 @@ import {
   Github,
   HardDrive,
   KeyRound,
+  LockKeyhole,
   Menu,
   Network,
   Server,
   ShieldCheck,
   Terminal,
+  WalletCards,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -44,6 +48,7 @@ export function App() {
         <nav aria-label="Main navigation">
           <a href="#quickstart">Quickstart</a>
           <a href="#tutorial">Tutorial</a>
+          <a href="#agents">Agents</a>
           <a href="#protocol">Protocol</a>
           <a href="#verify">Verify</a>
         </nav>
@@ -59,7 +64,7 @@ export function App() {
       {menuOpen && (
         <div className="mobile-menu">
           <header><span>Navigate</span><button type="button" title="Close menu" onClick={() => setMenuOpen(false)}><X size={20} /></button></header>
-          {["quickstart", "tutorial", "protocol", "verify"].map((item) => (
+          {["quickstart", "tutorial", "agents", "protocol", "verify"].map((item) => (
             <a key={item} href={`#${item}`} onClick={() => setMenuOpen(false)}>
               {item}<ChevronRight size={17} />
             </a>
@@ -127,7 +132,7 @@ export function App() {
                 <p>{[
                   "Creates a hardened Hetzner host, a 2 TiB volume, an isolated SSH key, and narrow firewall rules.",
                   "Starts Snapchain v0.14.3 from an immutable image digest and verifies the validator-set checksum.",
-                  "Registers a revocable Ed25519 signer with one OP transaction, then launches the responsive client.",
+                  "Registers a revocable Ed25519 signer, then launches the browser client and Celo-paid agent API.",
                 ][index]}</p>
               </article>
             ))}
@@ -143,7 +148,7 @@ export function App() {
             <SectionLabel number="01" text="SYSTEM MAP" light />
             <div className="section-heading light">
               <h2>Two paths,<br />one client service.</h2>
-              <p>The browser talks only to the deployed client service. That service reads local Snapchain state and sends signed writes to a validator; the validator is never a read dependency.</p>
+              <p>Human sessions and paid agents terminate at your host. The client reads local Snapchain state and sends signed writes to a validator; the validator is never a read dependency.</p>
             </div>
             <div className="system-map">
               <div className="map-ingress">
@@ -197,12 +202,13 @@ export function App() {
 
             <div className="chapters">
               <Chapter id="before" number="A" title="Before you begin">
-                <p>You need an existing Farcaster account with storage, its custody recovery phrase, a small amount of ETH on Optimism for signer registration, and a Hetzner Cloud API token allowed to create servers, volumes, firewalls, and SSH keys.</p>
+                <p>You need an existing Farcaster account with storage, its custody recovery phrase, a small amount of ETH on Optimism for signer registration, a Hetzner Cloud API token, and a Celo x402 facilitator key created at <a href="https://x402.celo.org/" target="_blank" rel="noreferrer">x402.celo.org</a>.</p>
                 <Checklist items={[
                   "Linux or macOS operator machine with Bash, Node.js 22+, npm, curl, jq, SSH, and tar",
                   "Custody phrase for the address that owns your FID",
                   "At least one active Farcaster storage unit",
                   "Enough OP ETH for one KeyGateway.add transaction",
+                  "Celo facilitator API key with settlement balance",
                 ]} />
                 <CodeBlock code="./farcaster doctor" label="CHECK FIRST" />
                 <p className="fine-print">The default cloud path is Hetzner. Snapchain itself needs no provider token or hosted RPC key. The infrastructure token creates compute only.</p>
@@ -248,10 +254,10 @@ export function App() {
               </Chapter>
 
               <Chapter id="client" number="2" title="Issue a client key">
-                <p>The final command first asks you to enter and confirm the client password. Only after those values match does it request the custody recovery phrase in a no-echo prompt. It derives account zero at <code>m/44&apos;/60&apos;/0&apos;/0/0</code>, resolves the FID on OP Mainnet, checks storage, and creates a fresh Ed25519 key.</p>
+                <p>The final command first validates the client password and reads the Celo facilitator key in hidden prompts. Only then does it request the custody recovery phrase. It derives account zero at <code>m/44&apos;/60&apos;/0&apos;/0/0</code>, resolves the FID on OP Mainnet, checks storage, and creates a fresh Ed25519 key.</p>
                 <CodeBlock code="./farcaster client create" label="COMMAND 2" />
                 <div className="key-ceremony">
-                  <div><span>1</span><strong>Password is validated</strong><small>confirmation happens before a key is generated or a transaction can be sent</small></div>
+                  <div><span>1</span><strong>Secrets are separated</strong><small>password and Celo facilitator key are validated before custody is requested</small></div>
                   <div><span>2</span><strong>Phrase enters local memory</strong><small>never an argument, environment variable, file, log, or network request</small></div>
                   <div><span>3</span><strong>Transaction is recoverable</strong><small>signed bytes, local hash, and app key are saved before the first RPC broadcast</small></div>
                   <div><span>4</span><strong>Registration is confirmed</strong><small>the exact transaction can be rebroadcast; only the revocable app key deploys</small></div>
@@ -259,14 +265,16 @@ export function App() {
                 <OutputBlock lines={[
                   "Client is live",
                   "URL           https://203-0-113-10.sslip.io",
-                  "read path     browser -> client service -> your Snapchain node",
-                  "write path    browser -> client service -> validator",
+                  "agent API     https://203-0-113-10.sslip.io/.well-known/agent.json",
+                  "agent access  .state/agent.env",
+                  "read path     browser or paid agent -> client service -> your node",
+                  "write path    authorized paid agent -> client service -> validator",
                   "custody key   not stored",
                 ]} />
-                <p>The password is scrypt-hashed. Caddy obtains TLS for the printed <code>sslip.io</code> hostname, and the app key file is owner-readable only. Replace that hostname with your own domain in <code>/srv/in-three/.env</code> whenever you are ready.</p>
+                <p>The password is scrypt-hashed. The Farcaster signer and Celo facilitator key are installed in separate read-only containers. Caddy obtains TLS for the printed <code>sslip.io</code> hostname, and <code>.state/agent.env</code> stores the owner&apos;s write capability with mode 0600.</p>
                 <div className="source-note">
                   <FileCheck2 size={20} />
-                  <p><b>If broadcast or setup fails:</b> do not register another key. The exact signed transaction, locally calculated hash, and app key were saved before broadcast in <code>.state/client.env.pending</code>. Rerun <code>./farcaster client create</code>; it validates and rebroadcasts those bytes, then checks the receipt. Signed custody transaction data is removed after confirmation, and the pending file is removed after HTTPS becomes healthy.</p>
+                  <p><b>If broadcast or setup fails:</b> do not register another key. The exact signed transaction, locally calculated hash, and app key were saved before broadcast in <code>.state/client.env.pending</code>. Rerun <code>./farcaster client create</code>; it validates and rebroadcasts those bytes, then checks the receipt. Signed custody transaction data is removed after confirmation. The owner-only pending file, which also carries payment setup until deployment, is deleted after both HTTPS health checks pass.</p>
                 </div>
               </Chapter>
 
@@ -326,8 +334,56 @@ export function App() {
           </div>
         </section>
 
+        <section className="agents section" id="agents">
+          <SectionLabel number="04" text="AGENT COMMERCE" />
+          <div className="section-heading agent-heading">
+            <h2>Agents can buy<br />the client as a tool.</h2>
+            <p>Every deployment publishes a manifest and OpenAPI contract. Celo&apos;s buy stack quotes and settles each request in USDC; there are no customer accounts, subscriptions, or hosted Farcaster data keys.</p>
+          </div>
+
+          <div className="agent-commerce">
+            <div className="agent-sequence" aria-label="Paid agent request sequence">
+              <div><span>01</span><Bot size={23} /><strong>Discover</strong><small>Read the manifest and exact request schema.</small></div>
+              <div><span>02</span><CircleDollarSign size={23} /><strong>Quote</strong><small>An unpaid request returns 402 with the Celo USDC price.</small></div>
+              <div><span>03</span><WalletCards size={23} /><strong>Pay locally</strong><small>buy signs in the agent wallet; the private key never leaves it.</small></div>
+              <div><span>04</span><Network size={23} /><strong>Operate</strong><small>The gateway settles, then the client reads or signs the action.</small></div>
+            </div>
+
+            <div className="agent-terminal">
+              <header><span>BUY 0.8.3</span><b>CELO MAINNET</b></header>
+              <CodeBlock code="buy quote https://YOUR_CLIENT/agent/v1/feed" label="QUOTE · FREE" />
+              <CodeBlock code="buy curl --max-amount 0.005 https://YOUR_CLIENT/agent/v1/feed" label="READ · 0.005 USDC" />
+              <div className="agent-terminal-foot">
+                <LockKeyhole size={19} />
+                <p><b>Writes have two gates.</b> The owner capability is checked before the payment challenge. A stranger gets <code>401</code>, not a bill and not access to the Farcaster signer.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="agent-prices" aria-label="Default agent API prices">
+            <div><span>PROFILE + SOURCES</span><strong>0.002</strong><small>USDC / request</small></div>
+            <div><span>OWN-NODE FEED</span><strong>0.005</strong><small>USDC / request</small></div>
+            <div><span>CAST · FOLLOW · REACT</span><strong>0.02</strong><small>USDC / request</small></div>
+          </div>
+
+          <div className="agent-boundaries">
+            <div><b>CLIENT CONTAINER</b><p>Farcaster app signer, password hash, session secret. No payment credentials.</p></div>
+            <div><b>PAYMENT CONTAINER</b><p>Facilitator key, prices, payout address, write capability. No Farcaster signer.</p></div>
+            <div><b>AUTHORIZED AGENT</b><p>Dedicated buy wallet and optional write capability. No custody phrase.</p></div>
+          </div>
+
+          <div className="agent-links">
+            <a href="https://usebuy.ai/docs" target="_blank" rel="noreferrer">Install buy and its MCP server <ExternalLink size={15} /></a>
+            <a href={`${REPO}/blob/main/docs/AGENT-API.md`} target="_blank" rel="noreferrer">Read the complete agent runbook <ArrowRight size={15} /></a>
+          </div>
+
+          <Callout tone="orange" icon={<Server size={21} />} title="Compute remains persistent">
+            usebuy.ai&apos;s hosted CPU machines are one-hour jobs with a 24-hour renewal ceiling. They cannot honestly hold a long-lived multi-terabyte Snapchain database. In Three uses buy for discovery, payment, gating, and agent automation while the owned read node stays on persistent compute.
+          </Callout>
+        </section>
+
         <section className="protocol section" id="protocol">
-          <SectionLabel number="04" text="PROTOCOL PRIMER" />
+          <SectionLabel number="05" text="PROTOCOL PRIMER" />
           <div className="section-heading">
             <h2>The six things<br />that matter.</h2>
             <p>You do not need to memorize the protocol. You do need the right mental model when a cast fails or a key must be rotated.</p>
@@ -359,7 +415,7 @@ export function App() {
 
         <section className="verification section-band light-band" id="verify">
           <div className="section narrow">
-            <SectionLabel number="05" text="HUMAN PROOF" />
+            <SectionLabel number="06" text="HUMAN PROOF" />
             <div className="verify-layout">
               <div>
                 <h2>Machines can test code.<br /><em>A human must test the path.</em></h2>
@@ -381,7 +437,7 @@ export function App() {
         </section>
 
         <section className="faq section">
-          <SectionLabel number="06" text="FIELD NOTES" />
+          <SectionLabel number="07" text="FIELD NOTES" />
           <div className="faq-grid">
             <h2>Questions worth<br />answering first.</h2>
             <div>
@@ -389,7 +445,8 @@ export function App() {
               <Details question="Why does the client write to a validator?">Read-node submission is best-effort gossip. A validator places a valid message in its mempool and can propose it directly, giving the client a stronger delivery path.</Details>
               <Details question="Can the app key move my wallet funds?">No. The Ed25519 signer authorizes Farcaster messages for its FID. It is not the Ethereum custody key and cannot sign wallet transactions.</Details>
               <Details question="Why import a recovery phrase at all?">The stated challenge calls for importing an existing account and issuing the client its own key in one OP transaction. The phrase signs that one KeyGateway call locally, then disappears.</Details>
-              <Details question="What is not automated?">A human voucher and the final prize reply. They are intentionally not fabricated or posted by a bot.</Details>
+              <Details question="How does an agent pay?">It uses buy CLI or MCP to inspect the 402 quote, authorize an exact USDC amount locally, and retry with the x402 payment. Write routes also require the owner capability before a quote is issued.</Details>
+              <Details question="What is not automated?">Custody entry, the OP registration confirmation, persistent node hosting, a human voucher, and the final prize reply. None is fabricated or delegated to an untrusted agent.</Details>
             </div>
           </div>
         </section>

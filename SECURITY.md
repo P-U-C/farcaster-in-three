@@ -15,6 +15,8 @@ This project has not received an independent security audit.
 | Client password | Human memory | Open the web client | User controlled |
 | Password hash | Client environment | Verify login | Deployment lifetime |
 | Session secret | Client environment | Sign HttpOnly cookies | Deployment lifetime |
+| Celo facilitator API key | Local `.state/client.env.pending` during setup; then `/srv/in-three/agent-gateway.env` | Ask Celo's facilitator to settle x402 payments | Deployment lifetime |
+| Agent write capability | Local `.state/client.env.pending` during setup; then `.state/agent.env` and the agent gateway environment | Reach paid Farcaster write routes | Until rotated |
 | SSH private key | Local `.state/` | Operate the host | Host lifetime |
 
 The setup utility validates the client password and its confirmation before asking for the mnemonic. It reads the mnemonic from a TTY with echo disabled and does not accept it through command arguments, environment variables, files, or HTTP. The utility derives the custody account, signs metadata and one OP transaction locally, then returns. JavaScript strings cannot be guaranteed to be zeroized; the process exit is the final memory boundary.
@@ -34,8 +36,9 @@ Private to the host/container network:
 - 3381/TCP: Snapchain HTTP
 - 3383/TCP: Snapchain gRPC
 - 3333/TCP: client application
+- 3334/TCP: x402 agent gateway
 
-The client has no route to arbitrary Docker services. Its read network is internal; the Snapchain container has a separate egress network for peers.
+The client has no route to arbitrary Docker services. Its read network is internal; the Snapchain container has a separate egress network for peers. The agent gateway shares only the web network with the client and Caddy. It cannot reach Snapchain directly. The client environment excludes the facilitator key and agent capability; the gateway environment excludes the Farcaster signer, password hash, and session secret.
 
 ## Web controls
 
@@ -46,6 +49,10 @@ The client has no route to arbitrary Docker services. Its read network is intern
 - read-only client container with `no-new-privileges`
 - no custody key in the container
 - Zod validation for all write actions
+- usebuy.ai x402 payment challenge and Celo settlement for every agent operation
+- owner bearer capability checked before any write payment challenge
+- per-IP, per-payer, and service-level rate limits
+- exact HTTP method, body size, JSON, and top-level field restrictions before payment
 - semantic 4xx validator failures are not retried against every validator
 
 ## Threats and limits
@@ -61,6 +68,16 @@ An attacker with process-memory, terminal, or keyboard access can steal the mnem
 ### Cloud provider
 
 The cloud provider can observe metadata and disk contents, including the delegated app key. It cannot see the mnemonic because registration occurs before upload. For a stronger deployment, replace the environment file with an external HSM/secret manager under your control.
+
+### Agent gateway and payments
+
+Paid reads are intentionally available to any buyer. Paid writes require the owner-issued bearer capability before the gateway returns a 402, so an unauthorized caller is not charged and cannot reach the signer. Exposure of that capability lets a funded caller buy Farcaster actions until it is rotated.
+
+x402 settles before the paid request reaches the client. A valid payment can therefore be followed by a client or validator rejection. The gateway rejects wrong methods, malformed JSON, oversized bodies, unexpected fields, and rate-limit excesses before payment, but agents must still validate semantic input and must not blindly retry ambiguous paid responses.
+
+The Celo facilitator API key can spend the operator's facilitator balance on settlement. It cannot sign Farcaster messages and is isolated in the agent gateway container. Rotate it in the Celo dashboard if exposed.
+
+The pinned usebuy.ai packages are pre-1.0 beta software and have not received an independent security audit through this project. Keep the exact version pin, begin with Celo Sepolia and low balances, inspect release notes before upgrading, and treat a successful automated test as evidence of behavior rather than a guarantee of settlement safety.
 
 ### Public validator
 
@@ -86,9 +103,10 @@ A cast always exposes an exact signer key. Human client names are inferred from 
 
 1. Take the client offline: `./farcaster client status`, then stop Caddy/client remotely.
 2. Revoke the affected signer from the Farcaster account's connected-app management.
-3. Preserve container logs and the OP registration/revocation receipts.
-4. Destroy the host if compromise is suspected.
-5. Provision clean infrastructure and register a new signer.
-6. Change the client password and any reused cloud credentials.
+3. Rotate the agent write capability and Celo facilitator API key.
+4. Preserve container logs, x402 receipts, and OP registration/revocation receipts.
+5. Destroy the host if compromise is suspected.
+6. Provision clean infrastructure and register a new signer.
+7. Change the client password and any reused cloud credentials.
 
 Report vulnerabilities privately to the repository owner through GitHub's security advisory feature. Do not include mnemonics, private keys, tokens, or full environment files.
