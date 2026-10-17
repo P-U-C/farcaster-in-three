@@ -93,6 +93,7 @@ npm ci
 npm run check
 npm audit --audit-level=moderate
 bash -n farcaster scripts/*.sh scripts/lib/*.sh scripts/test/*.sh deploy/snapchain-entrypoint.sh
+docker run --rm -v "$PWD:/mnt:ro" -w /mnt koalaman/shellcheck:stable farcaster scripts/*.sh scripts/lib/*.sh scripts/test/*.sh deploy/snapchain-entrypoint.sh
 node scripts/visual-check.mjs
 ```
 
