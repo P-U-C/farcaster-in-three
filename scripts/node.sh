@@ -81,9 +81,9 @@ up() {
   printf 'The API stays offline while the initial snapshot downloads and loads.\n'
   printf 'This commonly takes hours; closing this terminal will not stop it.\n'
   bootstrap_status
-  printf '\nCheck progress: ./farcaster node status\n'
-  printf 'Follow logs:    ./farcaster node logs\n'
-  printf 'When the API is online, rerun: ./farcaster client create\n'
+  printf '\nCheck progress separately: ./farcaster node status\n'
+  printf 'Follow logs separately:    ./farcaster node logs\n'
+  printf 'Next: ./farcaster client create (waits here until the API is online)\n'
 }
 
 status() {

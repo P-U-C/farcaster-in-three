@@ -59,14 +59,16 @@ BIP-39 phrase
   -> random 32-byte Ed25519 secret
   -> SignedKeyRequest EIP-712 metadata
   -> simulated KeyGateway.add(1, publicKey, 1, metadata)
-  -> owner-only pending app-key file
+  -> prepared OP transaction signed locally
+  -> serialized transaction + local hash + app key saved owner-only
+  -> exact signed bytes broadcast to OP Mainnet
   -> one OP Mainnet receipt
-  -> confirmed app secret uploaded over SSH
+  -> recovery transaction removed; confirmed app secret uploaded over SSH
   -> pending file removed after HTTPS health check
   -> mnemonic discarded with local process
 ```
 
-Password confirmation happens before phrase input, app-key generation, or transaction submission. If the transaction is submitted but receipt polling or deployment fails, the pending file preserves its hash and app key. Rerunning `client create` checks that receipt and resumes rather than registering another key.
+Password confirmation happens before phrase input, app-key generation, or transaction signing. The transaction is signed and hashed locally, and its serialized bytes are persisted with the app key before broadcast. If the RPC response, receipt polling, or deployment fails, rerunning `client create` validates the local hash, rebroadcasts the same transaction, and resumes rather than registering another key.
 
 The requesting FID in this standalone client is the user's own FID. This creates valid, decodable attribution without a centralized app backend holding a separate app-custody key. The exact Ed25519 public key remains the canonical client-instance identifier.
 

@@ -21,7 +21,7 @@ Disk growth is protocol dependent. Alert before free space falls below 15%. The 
 ./farcaster client logs
 ```
 
-`client create` first checks the local Snapchain API. If bootstrap is incomplete, it exits before requesting the custody phrase or registering a key and tells the operator to rerun it later. On success, it prints both paths:
+`client create` first checks the local Snapchain API. If bootstrap is incomplete, it remains attached, reports snapshot/database/disk progress every five minutes, and continues automatically when the API responds. It does not request the custody phrase or register a key while waiting. Pressing Ctrl-C only stops the local wait; the remote node keeps bootstrapping and rerunning command 2 is safe. On success, it prints both paths:
 
 ```text
 read path     browser -> client service -> your Snapchain node
@@ -76,9 +76,11 @@ Snapchain database:
 App key:
 
 - Stored in `/srv/in-three/client.env` after a successful deployment.
-- During setup, `.state/client.env.pending` stores the app key, registration status, and transaction hash with mode 0600.
-- If registration is submitted or confirmed and a later step fails, rerun `./farcaster client create`. It verifies the saved receipt and resumes deployment without asking for the phrase or sending a second registration.
-- The pending file is securely removed only after the public HTTPS health check passes.
+- Before broadcast, `.state/client.env.pending` stores the app key, serialized signed registration transaction, locally calculated hash, and registration status with mode 0600.
+- If broadcast returns an error, keep the file: the RPC may have accepted the transaction. Rerun `./farcaster client create`; it validates the saved hash, rebroadcasts the exact signed bytes, and checks the receipt without asking for the phrase or creating a different transaction.
+- The serialized custody transaction is removed as soon as registration confirms.
+- Recovery metadata is stripped before `client.env` is uploaded to the host.
+- The local pending file is securely removed only after the public HTTPS health check passes.
 - Backing up the deployed app key preserves client identity but expands the compromise surface.
 - Losing it does not affect custody; register a new signer and revoke the old public key.
 

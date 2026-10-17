@@ -6,9 +6,11 @@ import {
   createPublicClient,
   createWalletClient,
   encodeAbiParameters,
+  encodeFunctionData,
   fallback,
   formatEther,
   http,
+  keccak256,
   type Hex,
 } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
@@ -177,17 +179,23 @@ async function main() {
     deadline,
   });
 
-  const { request } = await publicClient.simulateContract({
+  const registrationArgs = [
+    KEY_TYPE_ED25519,
+    key,
+    METADATA_TYPE_SIGNED_KEY_REQUEST,
+    metadata,
+  ] as const;
+  await publicClient.simulateContract({
     account,
     address: CONTRACTS.keyGateway,
     abi: keyGatewayAbi,
     functionName: "add",
-    args: [
-      KEY_TYPE_ED25519,
-      key,
-      METADATA_TYPE_SIGNED_KEY_REQUEST,
-      metadata,
-    ],
+    args: registrationArgs,
+  });
+  const registrationData = encodeFunctionData({
+    abi: keyGatewayAbi,
+    functionName: "add",
+    args: registrationArgs,
   });
 
   const signerSecretHex = Buffer.from(signerPrivateKey).toString("hex");
@@ -210,42 +218,20 @@ async function main() {
     throw new Error("Registration cancelled; no transaction was sent");
   }
 
-  await writeSetupFile(values.output, setupEnv(baseEnv, "prepared"), true);
-  let transactionHash: Hex | undefined;
-  try {
-    transactionHash = await walletClient.writeContract(request);
-    await writeSetupFile(
-      values.output,
-      setupEnv(baseEnv, "submitted", transactionHash),
-    );
-    console.log(`Transaction sent  ${transactionHash}`);
-
-    const receipt = await publicClient.waitForTransactionReceipt({
-      hash: transactionHash,
-      confirmations: 1,
-      timeout: 120_000,
-    });
-    if (receipt.status !== "success") {
-      await writeSetupFile(
-        values.output,
-        setupEnv(baseEnv, "reverted", transactionHash),
-      );
-      throw new Error("Signer registration reverted");
-    }
-    await writeSetupFile(
-      values.output,
-      setupEnv(baseEnv, "confirmed", transactionHash),
-    );
-  } catch (error) {
-    if (!transactionHash) {
-      await unlink(values.output).catch(() => undefined);
-    } else {
-      console.error(`\nRecovery file      ${values.output}`);
-      console.error("Keep this file and rerun ./farcaster client create.");
-      console.error("The command will check the saved transaction without asking for the phrase again.");
-    }
-    throw error;
-  }
+  const transactionRequest = await walletClient.prepareTransactionRequest({
+    account,
+    chain: optimism,
+    to: CONTRACTS.keyGateway,
+    data: registrationData,
+  });
+  const serializedTransaction = await walletClient.signTransaction(transactionRequest);
+  const transactionHash = await submitSignedRegistration({
+    output: values.output,
+    baseEnv,
+    serializedTransaction,
+    client: publicClient,
+    createOnly: true,
+  });
 
   console.log("\nApp key registered; owner-only recovery file is ready for deployment.");
   console.log(`Receipt            https://optimistic.etherscan.io/tx/${transactionHash}`);
@@ -253,13 +239,101 @@ async function main() {
   console.log("Next               deployment continues automatically");
 }
 
-type RegistrationStatus = "prepared" | "submitted" | "confirmed" | "reverted";
+type RegistrationStatus = "signed" | "submitted" | "confirmed" | "reverted";
 
-function setupEnv(baseEnv: string[], status: RegistrationStatus, transactionHash?: Hex): string {
+export interface RegistrationClient {
+  sendRawTransaction(parameters: { serializedTransaction: Hex }): Promise<Hex>;
+  waitForTransactionReceipt(parameters: {
+    hash: Hex;
+    confirmations: number;
+    timeout: number;
+  }): Promise<{ status: "success" | "reverted" }>;
+}
+
+export async function submitSignedRegistration({
+  output,
+  baseEnv,
+  serializedTransaction,
+  client,
+  createOnly = false,
+  expectedHash,
+}: {
+  output: string;
+  baseEnv: string[];
+  serializedTransaction: Hex;
+  client: RegistrationClient;
+  createOnly?: boolean;
+  expectedHash?: Hex;
+}): Promise<Hex> {
+  const transactionHash = keccak256(serializedTransaction);
+  if (expectedHash && transactionHash.toLowerCase() !== expectedHash.toLowerCase()) {
+    throw new Error("Saved registration transaction hash does not match its signed bytes");
+  }
+
+  await writeSetupFile(
+    output,
+    setupEnv(baseEnv, "signed", transactionHash, serializedTransaction),
+    createOnly,
+  );
+
+  try {
+    const rpcHash = await client.sendRawTransaction({ serializedTransaction });
+    if (rpcHash.toLowerCase() !== transactionHash.toLowerCase()) {
+      throw new Error(`RPC returned an unexpected transaction hash: ${rpcHash}`);
+    }
+    await writeSetupFile(
+      output,
+      setupEnv(baseEnv, "submitted", transactionHash, serializedTransaction),
+    );
+    console.log(`Transaction sent  ${transactionHash}`);
+  } catch (error) {
+    console.error("\nThe broadcast response was inconclusive.");
+    console.error(`The signed transaction and local hash remain in ${output}.`);
+    console.error("Receipt polling will continue; rerunning client create safely rebroadcasts the same transaction.");
+  }
+
+  let receipt: { status: "success" | "reverted" };
+  try {
+    receipt = await client.waitForTransactionReceipt({
+      hash: transactionHash,
+      confirmations: 1,
+      timeout: 120_000,
+    });
+  } catch (error) {
+    console.error(`\nRecovery file      ${output}`);
+    console.error("Keep this file and rerun ./farcaster client create.");
+    console.error("The command will rebroadcast the saved transaction without asking for the phrase again.");
+    throw error;
+  }
+
+  if (receipt.status !== "success") {
+    await writeSetupFile(
+      output,
+      setupEnv(baseEnv, "reverted", transactionHash),
+    );
+    throw new Error("Signer registration reverted");
+  }
+
+  await writeSetupFile(
+    output,
+    setupEnv(baseEnv, "confirmed", transactionHash),
+  );
+  return transactionHash;
+}
+
+function setupEnv(
+  baseEnv: string[],
+  status: RegistrationStatus,
+  transactionHash?: Hex,
+  serializedTransaction?: Hex,
+): string {
   return [
     ...baseEnv,
     `SIGNER_REGISTRATION_STATUS=${status}`,
     ...(transactionHash ? [`SIGNER_REGISTRATION_TX=${transactionHash}`] : []),
+    ...(serializedTransaction
+      ? [`SIGNER_REGISTRATION_RAW_TX=${serializedTransaction}`]
+      : []),
     "",
   ].join("\n");
 }
@@ -289,19 +363,17 @@ function envValue(content: string, key: string): string | undefined {
     ?.slice(prefix.length);
 }
 
-function replaceEnvValue(content: string, key: string, value: string): string {
-  const prefix = `${key}=`;
-  const lines = content.split("\n");
-  const index = lines.findIndex((line) => line.startsWith(prefix));
-  if (index === -1) lines.push(`${prefix}${value}`);
-  else lines[index] = `${prefix}${value}`;
-  return `${lines.filter((line, lineIndex) => line.length > 0 || lineIndex < lines.length - 1).join("\n").replace(/\n*$/, "")}\n`;
+function registrationBaseEnv(content: string): string[] {
+  return content
+    .split("\n")
+    .filter((line) => line && !line.startsWith("SIGNER_REGISTRATION_"));
 }
 
 async function recoverRegistration(output: string, rpcUrl?: string) {
   const content = await readFile(output, "utf8");
   const status = envValue(content, "SIGNER_REGISTRATION_STATUS");
   const transactionHash = envValue(content, "SIGNER_REGISTRATION_TX");
+  const serializedTransaction = envValue(content, "SIGNER_REGISTRATION_RAW_TX");
 
   if (status === "confirmed") {
     console.log("Saved app-key registration is already confirmed; resuming deployment.");
@@ -310,30 +382,50 @@ async function recoverRegistration(output: string, rpcUrl?: string) {
   if (status === "reverted") {
     throw new Error(`The saved registration reverted. Remove ${output} and run setup again.`);
   }
-  if (status !== "submitted" || !transactionHash?.match(/^0x[0-9a-fA-F]{64}$/)) {
-    throw new Error(`The saved setup has no submitted transaction. Remove ${output} and run setup again.`);
+  if (
+    !["signed", "submitted"].includes(status ?? "") ||
+    !transactionHash?.match(/^0x[0-9a-fA-F]{64}$/)
+  ) {
+    throw new Error(
+      `The saved setup predates recoverable signing. Keep ${output} until you verify the signer state manually.`,
+    );
   }
 
   const transports = rpcUrl ? [http(rpcUrl)] : PUBLIC_OP_RPC_URLS.map((url) => http(url));
   const publicClient = createPublicClient({ chain: optimism, transport: fallback(transports) });
-  console.log(`Checking registration ${transactionHash}`);
-  const receipt = await publicClient.waitForTransactionReceipt({
-    hash: transactionHash as Hex,
-    confirmations: 1,
-    timeout: 120_000,
-  });
-  if (receipt.status !== "success") {
+
+  if (!serializedTransaction?.match(/^0x(?:[0-9a-fA-F]{2})+$/)) {
+    if (status !== "submitted") {
+      throw new Error(
+        `The saved signed transaction is missing. Keep ${output} until you verify the signer state manually.`,
+      );
+    }
+    console.log(`Checking legacy registration ${transactionHash}`);
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: transactionHash as Hex,
+      confirmations: 1,
+      timeout: 120_000,
+    });
+    const nextStatus = receipt.status === "success" ? "confirmed" : "reverted";
     await writeSetupFile(
       output,
-      replaceEnvValue(content, "SIGNER_REGISTRATION_STATUS", "reverted"),
+      setupEnv(registrationBaseEnv(content), nextStatus, transactionHash as Hex),
     );
-    throw new Error(`Signer registration reverted. Remove ${output} and run setup again.`);
+    if (nextStatus === "reverted") {
+      throw new Error(`Signer registration reverted. Remove ${output} and run setup again.`);
+    }
+    console.log("Saved app-key registration is confirmed; resuming deployment.");
+    return;
   }
 
-  await writeSetupFile(
+  console.log(`Rebroadcasting saved registration ${transactionHash}`);
+  await submitSignedRegistration({
     output,
-    replaceEnvValue(content, "SIGNER_REGISTRATION_STATUS", "confirmed"),
-  );
+    baseEnv: registrationBaseEnv(content),
+    serializedTransaction: serializedTransaction as Hex,
+    expectedHash: transactionHash as Hex,
+    client: publicClient,
+  });
   console.log("Saved app-key registration is confirmed; resuming deployment.");
 }
 

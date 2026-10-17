@@ -80,9 +80,9 @@ Run `./farcaster doctor` before provisioning.
 ./farcaster destroy
 ```
 
-The initial verified snapshot is several hundred gigabytes and commonly takes hours to download, decompress, and catch up. `node up` treats a running bootstrap as success and returns progress commands instead of timing out. `node status` reports snapshot/database growth until the API is online, then each available shard delay; under 30 seconds is treated as ready. `client create` will not request a phrase or register a signer before the API is available.
+The initial verified snapshot is several hundred gigabytes and commonly takes hours to download, decompress, and catch up. `node up` treats a running bootstrap as success and returns progress commands instead of timing out. `node status` reports snapshot/database growth until the API is online, then each available shard delay; under 30 seconds is treated as ready. `client create` waits with periodic snapshot and disk progress, then continues automatically. It does not request a phrase or register a signer while waiting.
 
-If registration is submitted but setup is interrupted, rerun `./farcaster client create`. The owner-only `.state/client.env.pending` file contains the app key and transaction hash needed to verify the receipt and resume deployment. It is removed after the public HTTPS health check passes.
+Before broadcast, setup stores the app key, serialized signed registration transaction, and its locally calculated hash in owner-only `.state/client.env.pending`. If the RPC response is lost or a later step fails, rerun `./farcaster client create`; it safely rebroadcasts those exact bytes and checks the receipt without another custody signature. Serialized custody transaction data is removed after confirmation, and the pending file is removed after the public HTTPS health check passes.
 
 See [docs/OPERATIONS.md](docs/OPERATIONS.md) for exact output, costs, upgrades, recovery, domain changes, and key incidents.
 

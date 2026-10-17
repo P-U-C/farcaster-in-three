@@ -11,6 +11,7 @@ This project has not received an independent security audit.
 | Hetzner token | Operator process | Create/delete cloud resources | Provision/destroy command only |
 | Custody mnemonic | Operator process memory | Own FID; register/revoke app keys | Signer ceremony only |
 | Ed25519 app key | Local `.state/client.env.pending` during setup; then `/srv/in-three/client.env` | Sign Farcaster messages for one FID | Until revoked |
+| Serialized registration transaction | Local `.state/client.env.pending` until confirmation | Rebroadcast one fixed KeyGateway transaction | Setup only |
 | Client password | Human memory | Open the web client | User controlled |
 | Password hash | Client environment | Verify login | Deployment lifetime |
 | Session secret | Client environment | Sign HttpOnly cookies | Deployment lifetime |
@@ -18,7 +19,7 @@ This project has not received an independent security audit.
 
 The setup utility validates the client password and its confirmation before asking for the mnemonic. It reads the mnemonic from a TTY with echo disabled and does not accept it through command arguments, environment variables, files, or HTTP. The utility derives the custody account, signs metadata and one OP transaction locally, then returns. JavaScript strings cannot be guaranteed to be zeroized; the process exit is the final memory boundary.
 
-Immediately before transaction submission, the utility writes an owner-only pending file containing the delegated app key and recovery metadata, never the mnemonic or Ethereum private key. A submitted or confirmed transaction can therefore be resumed after receipt polling, network, build, or TLS failure. That file is removed only after the deployed HTTPS health check succeeds.
+Before contacting `eth_sendRawTransaction`, the utility prepares and signs the exact registration transaction locally, calculates its hash, and writes the serialized transaction, hash, and delegated app key to an owner-only pending file. It never stores the mnemonic or Ethereum private key. If an RPC accepts the transaction but drops its response, rerunning setup rebroadcasts the same signed bytes and checks the locally known hash; it cannot create a second registration. The serialized custody transaction is removed after confirmation, and the pending file is removed only after the deployed HTTPS health check succeeds.
 
 ## Network exposure
 

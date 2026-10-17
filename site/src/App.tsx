@@ -237,10 +237,10 @@ export function App() {
                   "Snapchain bootstrap is running on the server",
                   "HTTP API      waiting for snapshot bootstrap",
                   "Check progress: ./farcaster node status",
-                  "When the API is online, rerun: ./farcaster client create",
+                  "Next: ./farcaster client create (waits, then continues)",
                 ]} />
                 <CodeBlock code="./farcaster node status" label="WATCH SYNC" />
-                <p><b>Ready means every reported shard delay is under 30 seconds.</b> Command 2 refuses to register an app key until the local HTTP API is online, so an interrupted bootstrap is resumed by the node container without exposing the recovery phrase.</p>
+                <p><b>Ready means every reported shard delay is under 30 seconds.</b> Start command 2 immediately: it reports bootstrap progress every five minutes and continues automatically when the local HTTP API appears. It does not request the phrase or register an app key while waiting.</p>
                 <div className="source-note">
                   <FileCheck2 size={20} />
                   <p><b>Version lock:</b> Snapchain 0.14.3, release commit <code>fc87f268…</code>, validator manifest <code>ca9912d…</code>. Upgrades should be reviewed, re-pinned, and tested, never silently pulled from <code>latest</code>.</p>
@@ -253,8 +253,8 @@ export function App() {
                 <div className="key-ceremony">
                   <div><span>1</span><strong>Password is validated</strong><small>confirmation happens before a key is generated or a transaction can be sent</small></div>
                   <div><span>2</span><strong>Phrase enters local memory</strong><small>never an argument, environment variable, file, log, or network request</small></div>
-                  <div><span>3</span><strong>App signer is prepared</strong><small>the pending deployment receipt is written before KeyGateway.add is submitted</small></div>
-                  <div><span>4</span><strong>Registration is confirmed</strong><small>one OP transaction authorizes the signer; only that revocable app key deploys</small></div>
+                  <div><span>3</span><strong>Transaction is recoverable</strong><small>signed bytes, local hash, and app key are saved before the first RPC broadcast</small></div>
+                  <div><span>4</span><strong>Registration is confirmed</strong><small>the exact transaction can be rebroadcast; only the revocable app key deploys</small></div>
                 </div>
                 <OutputBlock lines={[
                   "Client is live",
@@ -266,7 +266,7 @@ export function App() {
                 <p>The password is scrypt-hashed. Caddy obtains TLS for the printed <code>sslip.io</code> hostname, and the app key file is owner-readable only. Replace that hostname with your own domain in <code>/srv/in-three/.env</code> whenever you are ready.</p>
                 <div className="source-note">
                   <FileCheck2 size={20} />
-                  <p><b>If setup fails after submission:</b> do not register another key. The transaction hash and app key remain in <code>.state/client.env.pending</code>. Fix the reported network or deployment error and rerun <code>./farcaster client create</code>; it checks the saved receipt and resumes. The pending file is removed only after the HTTPS health check passes.</p>
+                  <p><b>If broadcast or setup fails:</b> do not register another key. The exact signed transaction, locally calculated hash, and app key were saved before broadcast in <code>.state/client.env.pending</code>. Rerun <code>./farcaster client create</code>; it validates and rebroadcasts those bytes, then checks the receipt. Signed custody transaction data is removed after confirmation, and the pending file is removed after HTTPS becomes healthy.</p>
                 </div>
               </Chapter>
 

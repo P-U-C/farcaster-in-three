@@ -50,8 +50,8 @@ Record each command's start/end time and any intervention not documented on the 
 Expected handoffs:
 
 - Provision prints the server IP, future HTTPS URL, local state path, and `Next: ./farcaster node up`.
-- Node up may print `Snapchain bootstrap is running on the server` and return while the API remains offline. This is expected; use `node status` and do not restart during extraction.
-- Client create refuses before the node API is online without requesting the phrase or registering a signer.
+- Node up may print `Snapchain bootstrap is running on the server` and return while the API remains offline. This is expected; do not restart during extraction.
+- Client create waits, reports bootstrap progress, and continues automatically when the API is online. It must not request the phrase or register a signer while waiting.
 - A successful client deployment prints its URL plus separate browser -> client service -> node and browser -> client service -> validator paths.
 
 ### 3. Verify the node
