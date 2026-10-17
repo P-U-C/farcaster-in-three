@@ -6,15 +6,31 @@
 
 In Three provisions compute, starts a Snapchain read node, registers a delegated Farcaster app key, and deploys a responsive client. Reads come from the node you operate. Signed writes go directly to a validator. The custody phrase is used locally for one Optimism transaction and is never installed on the host.
 
-The same deployment publishes a machine-readable API behind Celo x402 payments. Agents use usebuy.ai's <code>buy</code> CLI or MCP server to discover, quote, and purchase requests. Paid reads are public; paid writes also require an owner-issued capability that is checked before payment.
+A running In Three instance can also sell the complete provisioning step through Celo x402. One paid request creates the fixed Hetzner server, volume, firewall, and SSH key, then starts Snapchain. The buyer still owns the cloud account and completes the custody ceremony locally. The deployed client publishes the same paid API for agents: public paid reads and capability-gated paid writes.
 
 ![Illustrative In Three client preview using synthetic accounts and casts](site/public/client-preview.webp)
 
 *Illustrative preview. The generated image uses synthetic accounts and casts; a deployed client reads live protocol data from its own node.*
 
+## One-purchase deployment
+
+Install and fund usebuy.ai's pinned buyer, then point the repository at a running In Three broker:
+
+```bash
+npm install -g @celo/buy@0.8.3
+buy setup --name in-three
+./farcaster deploy --service https://YOUR_BROKER
+```
+
+The command performs a free cloud-token and plan preflight, shows the x402 quote, and asks for `BUY DEPLOY` before spending. The default ceiling is **25 USDC once** for automation. Hetzner bills the buyer separately for the server, IPv4 address, traffic, tax, and 2 TiB volume until `./farcaster destroy` succeeds.
+
+The command generates the SSH key locally, saves a client-generated deployment ID, buys once, starts Snapchain, waits through snapshot bootstrap, and then opens the same local password, facilitator-key, and custody prompts used by command 2. If the paid response is interrupted, rerun the command: it checks the saved deployment and durable entitlement before it can consider another payment.
+
+Use a new, otherwise-empty Hetzner project with a read/write token, and rotate that token after deployment. The chosen broker receives it over HTTPS for provisioning and keeps only a SHA-256 entitlement binding, not the token. The SSH private key and custody phrase never leave the operator machine.
+
 ## Three commands
 
-Clone the repository once:
+The manual path remains available and does not send the Hetzner token to a broker. Clone the repository once:
 
 ```bash
 git clone https://github.com/P-U-C/farcaster-in-three.git
@@ -39,7 +55,8 @@ The commands are interactive at the boundaries that cost money or grant authorit
 
 | Layer | Implementation | Trust boundary |
 | --- | --- | --- |
-| Compute | Hetzner CCX host, 2 TiB volume, dedicated SSH key | Cloud token remains on the operator machine |
+| Compute | Hetzner CCX host, 2 TiB volume, dedicated SSH key | Manual path keeps the token local; paid path sends it to the selected broker over HTTPS |
+| Deployment broker | Fixed-plan Hetzner provisioner behind one 25 USDC x402 request | Persists a token hash and request binding, never the cloud token or SSH private key |
 | Read node | Snapchain 0.14.3, image pinned by digest | HTTP/gRPC private; QUIC gossip public |
 | Signer | Fresh Ed25519 key registered on OP Mainnet | Custody mnemonic exists only in local process memory |
 | Client | React UI + Node service + official Farcaster builders | Stores only the revocable app key |
@@ -56,6 +73,7 @@ Operator machine:
 - Linux or macOS
 - Bash, curl, jq, SSH, tar, OpenSSL, Node.js 22+, npm
 - `sha256sum` on Linux or `shasum` on macOS
+- `@celo/buy` 0.8.3 and a funded Celo USDC buyer wallet for the one-purchase path
 - A Hetzner Cloud API token with resource creation permissions
 - A Celo x402 facilitator key created at [x402.celo.org](https://x402.celo.org/)
 
@@ -88,7 +106,9 @@ The initial verified snapshot is several hundred gigabytes and commonly takes ho
 
 Before broadcast, setup stores the app key, serialized signed registration transaction, locally calculated hash, facilitator key, and generated agent capability in owner-only `.state/client.env.pending`. If the RPC response is lost or a later step fails, rerun `./farcaster client create`; it safely rebroadcasts those exact bytes and checks the receipt without another custody signature. Serialized custody transaction data is removed after confirmation. The pending file is deleted after both browser and agent health checks pass, with a best-effort overwrite when `shred` is available.
 
-Command 2 also writes owner-only `.state/agent.env`. Its public origin and bearer capability let an authorized agent buy write actions; paid reads need no bearer capability. See [docs/AGENT-API.md](docs/AGENT-API.md) for prices, buy CLI/MCP usage, receipts, and listing steps.
+The paid path stores `.state/deployment-id`, `.state/deployment-service`, `.state/deployment-source-cidr`, and `.state/deployment-buy-account` so a rerun uses the identical request and buyer. A payment-pending marker blocks automatic repurchase until the saved deployment or entitlement is recovered. It never stores the Hetzner token.
+
+Command 2 also writes owner-only `.state/agent.env`. Its public origin and bearer capability let an authorized agent buy write actions; paid reads need no bearer capability. See [docs/AGENT-API.md](docs/AGENT-API.md) for deployment, prices, buy CLI/MCP usage, receipts, and listing steps.
 
 See [docs/OPERATIONS.md](docs/OPERATIONS.md) for exact output, costs, upgrades, recovery, domain changes, and key incidents.
 
@@ -107,7 +127,8 @@ The automated suite covers:
 
 - scrypt password verification and signed-session expiry
 - Farcaster SignedKeyRequest ABI encoding
-- usebuy.ai x402 pricing, discovery, and pre-payment write authorization
+- usebuy.ai x402 pricing, discovery, pre-payment write authorization, and the 25 USDC deployment route
+- idempotent Hetzner resource creation, write-token preflight, durable entitlement recovery, and no-second-payment shell behavior
 - strict separation of client, payment, and local agent secrets
 - protobuf cast construction and binary validator submission
 - feed assembly and signer attribution through a mock Snapchain HTTP API

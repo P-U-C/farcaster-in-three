@@ -5,6 +5,7 @@ In Three exposes the deployed client to agents through Celo's <code>buy</code> s
 - <code>@celo/buy-gateway</code> returns and settles x402 payment challenges.
 - <code>buy curl</code> and the buy MCP server let an agent quote and pay for requests.
 - USDC settles on Celo mainnet to the Farcaster custody address used during setup.
+- One 25 USDC deployment request can create the fixed buyer-owned Hetzner plan and start Snapchain.
 - Reads require payment. Writes require payment plus an owner-issued bearer capability.
 - The gateway can reach the client service but cannot reach Snapchain directly. It does not receive the Farcaster app key.
 - The client cannot read the facilitator key or the bearer capability.
@@ -49,6 +50,7 @@ Default prices:
 
 | Operation | Route | Price |
 | --- | --- | ---: |
+| Complete infrastructure provisioning | <code>POST /agent/v1/deployments</code> | 25 USDC once |
 | Profile, storage, signer, node | <code>GET /agent/v1/profile</code> | 0.002 USDC |
 | Feed from the owned node | <code>GET /agent/v1/feed</code> | 0.005 USDC |
 | Client/source attribution | <code>GET /agent/v1/sources</code> | 0.002 USDC |
@@ -56,7 +58,40 @@ Default prices:
 | Follow or unfollow | <code>POST /agent/v1/follows</code> | 0.02 USDC |
 | Like, recast, or removal | <code>POST /agent/v1/reactions</code> | 0.02 USDC |
 
-Prices are fixed per request, not subscriptions. Change the <code>BUY_AGENT_*_PRICE</code> values in <code>/srv/in-three/agent-gateway.env</code>, then restart <code>agent-gateway</code>. The 402 quote is authoritative.
+Prices are fixed per request, not subscriptions. Change the <code>BUY_AGENT_*_PRICE</code> or <code>BUY_DEPLOY_PRICE</code> values in <code>/srv/in-three/agent-gateway.env</code>, then restart <code>agent-gateway</code>. The 402 quote is authoritative.
+
+The deployment price pays the broker for automation. It does not prepay, discount, or resell Hetzner infrastructure.
+
+## Deploy with one purchase
+
+Use the repository wrapper instead of constructing the secret-bearing request by hand:
+
+~~~bash
+./farcaster deploy --service https://YOUR_BROKER
+~~~
+
+The wrapper:
+
+1. Generates an Ed25519 SSH key and random deployment ID locally.
+2. Sends a free preflight that validates the fixed `ash` / `ccx33` / 2,048 GiB plan and proves that the dedicated Hetzner token has write access by creating and deleting a temporary SSH public key.
+3. Runs `buy quote` against the exact JSON body.
+4. Requires `BUY DEPLOY`, writes a payment-pending marker, and calls `buy curl --max-amount 25` once.
+5. Saves the returned provider IDs, waits for cloud-init and Snapchain, then continues into the local key ceremony.
+
+The public deployment API is:
+
+~~~text
+POST /agent/v1/deployments/preflight   free
+POST /agent/v1/deployments             25 USDC x402
+POST /agent/v1/deployments/status      free recovery
+POST /agent/v1/deployments/resume      free, matching paid entitlement required
+~~~
+
+`deploymentId` is the idempotency key. Before provisioning, the paid route writes a durable record containing the request binding and SHA-256 hash of the cloud token. It does not retain the token. If the paid HTTP response is lost, the wrapper checks status and uses the free resume route only when that record matches. The local marker prevents an automatic second payment.
+
+Use a read/write token from a new, otherwise-empty Hetzner project. The broker receives that token over HTTPS and can exercise its project permissions while handling the request, so the broker is a trust boundary. Rotate the token after the host is available. The broker receives the SSH public key only; the private key stays in `.state/id_ed25519`. It never receives the Farcaster phrase, client password, facilitator key, or app signer.
+
+An x402 settlement can still complete before the paid request reaches the deployer. If the broker has no matching entitlement after an interruption, do not pay again: run `buy --account in-three receipts --resolve` and contact the broker with the deployment ID and settlement transaction. Never send the cloud token.
 
 ## Agent installation
 
@@ -127,7 +162,7 @@ Settlement happens before the Farcaster operation reaches the client. Therefore:
 - validate the request against OpenAPI before buying;
 - preserve stdout, stderr, the settlement transaction, and correlation ID;
 - do not blindly retry a timeout, disconnect, 500, or ambiguous response;
-- run <code>buy receipts --resolve</code> before considering another payment;
+- run <code>buy --account in-three receipts --resolve</code> before considering another payment;
 - use a dedicated buyer wallet and an exact <code>--max-amount</code>;
 - rotate <code>AGENT_WRITE_TOKEN</code> immediately if it is exposed.
 
@@ -147,11 +182,12 @@ The repository does not submit a listing for an undeployed endpoint.
 
 ## Automation boundary
 
-The agent API automates Farcaster reads and authorized message publication. It does not automate custody:
+The deployment API automates payment, Hetzner provisioning, cloud-init, and Snapchain startup. The operational API automates Farcaster reads and authorized message publication. Neither automates custody:
 
 - the owner enters the recovery phrase locally;
 - the owner confirms the one Optimism signer-registration transaction;
+- the owner supplies the client password and facilitator key locally;
 - the owner issues and may revoke the write capability;
-- the persistent Snapchain host remains the existing Hetzner deployment.
+- the buyer owns and pays the persistent Hetzner resources.
 
 As of buy 0.8.3, usebuy.ai's hosted CPU machines are one-hour leases renewable only up to 24 hours. They are useful for jobs, not a durable multi-terabyte Snapchain database.

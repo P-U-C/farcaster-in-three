@@ -25,6 +25,8 @@ Record:
 | First synced time, UTC | |
 | Client URL | |
 | Test cast URL | |
+| Deployment path: paid or manual | |
+| Paid deployment transaction, if used | |
 | Paid agent-read transaction | |
 
 ### 1. Clean checkout
@@ -38,7 +40,21 @@ git rev-parse HEAD
 
 Expected: all local prerequisite checks pass.
 
-### 2. Run the three commands
+### 2. Deploy
+
+Test at least one documented path.
+
+Paid path, when a public broker is available:
+
+```bash
+npm install -g @celo/buy@0.8.3
+buy setup --name in-three
+./farcaster deploy --service https://BROKER
+```
+
+Record the free preflight, quoted 25 USDC ceiling, Celo settlement transaction, returned Hetzner resource IDs, and whether any rerun attempted another payment. The recurring provider bill is separate. Use a new Hetzner project token and rotate it after provisioning.
+
+Manual prize path:
 
 ```bash
 ./farcaster provision
@@ -50,6 +66,7 @@ Record each command's start/end time and any intervention not documented on the 
 
 Expected handoffs:
 
+- Paid deploy prints the fixed plan and quote before payment, persists the returned provider IDs, and continues into node/client setup without another setup payment.
 - Provision prints the server IP, future HTTPS URL, local state path, and `Next: ./farcaster node up`.
 - Node up may print `Snapchain bootstrap is running on the server` and return while the API remains offline. This is expected; do not restart during extraction.
 - Client create waits, reports bootstrap progress, and continues automatically when the API is online. It must not request the phrase or register a signer while waiting.
@@ -124,7 +141,7 @@ Use a dedicated low-balance buy wallet. Do not expose <code>.state/agent.env</co
 - [ ] Confirm <code>/srv/in-three/client.env</code> has no facilitator key or write capability.
 - [ ] Confirm <code>/srv/in-three/agent-gateway.env</code> has no Farcaster signer.
 
-Do not retry an ambiguous paid response. Preserve the receipt and run <code>buy receipts --resolve</code>.
+Do not retry an ambiguous paid response. Preserve the receipt and run <code>buy --account in-three receipts --resolve</code>. For paid deployment, keep <code>.state/deployment-payment.pending</code> and rerun the wrapper; verify that it uses status/resume and does not invoke a second purchase.
 
 ### 7. Teardown test
 

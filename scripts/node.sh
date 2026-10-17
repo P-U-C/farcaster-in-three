@@ -5,7 +5,6 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 SNAPCHAIN_VERSION="0.14.3"
-SNAPCHAIN_COMMIT="fc87f2686472598143062a00e1c2b2633b2d87ab"
 VALIDATORS_SHA256="ca9912d2c3fae0ceeea8f921d878f9d844343241679af6f7127bfd84b809aaab"
 
 node_api_ready() {
@@ -25,7 +24,7 @@ bootstrap_status() {
 
 up() {
   load_state
-  for command in curl jq scp ssh; do
+  for command in jq scp ssh; do
     require_command "$command"
   done
 
@@ -35,20 +34,16 @@ up() {
   (( available >= 1500000000000 )) ||
     die "only $((available / 1000000000)) GB is free; Snapchain requires at least 1.5 TB"
 
-  temp_validators="$(mktemp)"
-  trap 'rm -f "$temp_validators"' EXIT
-  note "Fetching the pinned validator set from Snapchain $SNAPCHAIN_VERSION"
-  curl -fsS --max-time 30 \
-    "https://raw.githubusercontent.com/farcasterxyz/snapchain/$SNAPCHAIN_COMMIT/validators.toml" \
-    -o "$temp_validators"
-  actual_sha256="$(sha256_file "$temp_validators")"
+  validator_source="$IN_THREE_ROOT/deploy/validators.toml"
+  note "Checking the vendored validator set from Snapchain $SNAPCHAIN_VERSION"
+  actual_sha256="$(sha256_file "$validator_source")"
   [[ "$actual_sha256" == "$VALIDATORS_SHA256" ]] || die "validator-set checksum mismatch"
 
   remote "mkdir -p /srv/in-three/data/rocks /srv/in-three/data/snapshot"
   copy_to "$IN_THREE_ROOT/deploy/docker-compose.yml" /srv/in-three/docker-compose.yml
   copy_to "$IN_THREE_ROOT/deploy/snapchain-entrypoint.sh" /srv/in-three/snapchain-entrypoint.sh
   copy_to "$IN_THREE_ROOT/deploy/Caddyfile" /srv/in-three/Caddyfile
-  copy_to "$temp_validators" /srv/in-three/validators.toml
+  copy_to "$validator_source" /srv/in-three/validators.toml
   remote "chmod 755 /srv/in-three/snapchain-entrypoint.sh"
 
   if ! remote "test -f /srv/in-three/.env"; then

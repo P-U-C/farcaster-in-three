@@ -44,11 +44,12 @@ Checked on 2026-10-17:
 
 - Hetzner 2026 price adjustment: https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/
 - Hetzner Cloud volume pricing: https://www.hetzner.com/cloud/
+- Hetzner Cloud API reference: https://docs.hetzner.cloud/reference/cloud
 - Ashburn CCX33: $165.99/month before tax
 - Volumes: $0.0484/GiB-month; 2,048 GiB is approximately $99.12/month
 - Default recurring estimate: approximately $265/month before IPv4, traffic, or tax
 
-The provider console is authoritative because region, tax, and future pricing can differ.
+The provider console is authoritative because region, tax, and future pricing can differ. The paid deployment preflight reads the live `ccx33` catalog for `ash` and performs a create/delete SSH-key probe so a read-only project token fails before x402 payment. Server, volume, firewall, and SSH-key resources use a shared random deployment label for idempotent lookup and recovery.
 
 ## Celo agent payments
 
@@ -66,7 +67,7 @@ Verified on 2026-10-17:
 - Network: Celo mainnet, CAIP-2 <code>eip155:42220</code>
 - Payment asset: USDC, 6 decimals, <code>0xcebA9300f2b948710d2653dD7B07f33A8B32118C</code>
 
-Buy 0.8.3 supports quote-before-pay CLI and MCP flows, local wallet signing, receipt resolution, and a declarative seller gateway. The gateway settles before calling its upstream, so a paid request can still receive an upstream error and must not be blindly retried.
+Buy 0.8.3 supports quote-before-pay CLI and MCP flows, local wallet signing, receipt resolution, and a declarative seller gateway. The deployment route is priced at 25 USDC by default and uses the same exact Celo settlement path; the recurring Hetzner bill remains outside x402. The gateway settles before calling its upstream, so a paid request can still receive an upstream error and must not be blindly retried.
 
 The public usebuy.ai CPU service currently sells one-hour Google Cloud leases and caps renewal at 24 hours from creation. That is not a persistent storage product and cannot host the long-lived multi-terabyte Snapchain database honestly. In Three uses buy for discovery, Celo payment, access control, and agent automation while retaining its persistent node host.
 

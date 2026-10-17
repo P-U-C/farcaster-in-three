@@ -23,6 +23,7 @@ const WRITE_PATHS = new Set([
 const envSchema = z.object({
   AGENT_GATEWAY_PORT: z.coerce.number().int().min(1).max(65535).default(3334),
   AGENT_CLIENT_UPSTREAM: z.string().url().default("http://client:3333"),
+  AGENT_DEPLOYMENT_UPSTREAM: z.string().url().default("http://deployer:3335"),
   AGENT_PUBLIC_ORIGIN: z.string().url(),
   AGENT_WRITE_TOKEN: z.string().min(32).max(256).regex(/^[A-Za-z0-9_-]+$/),
   BUY_PAY_TO: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
@@ -36,6 +37,7 @@ const envSchema = z.object({
   BUY_AGENT_READ_PRICE: z.string().default("0.005 USDC"),
   BUY_AGENT_METADATA_PRICE: z.string().default("0.002 USDC"),
   BUY_AGENT_WRITE_PRICE: z.string().default("0.02 USDC"),
+  BUY_DEPLOY_PRICE: z.string().default("25 USDC"),
 });
 
 export type AgentGatewaySettings = ReturnType<typeof loadAgentGatewaySettings>;
@@ -45,6 +47,7 @@ export function loadAgentGatewaySettings(env: NodeJS.ProcessEnv = process.env) {
   return {
     ...parsed,
     AGENT_CLIENT_UPSTREAM: parsed.AGENT_CLIENT_UPSTREAM.replace(/\/$/, ""),
+    AGENT_DEPLOYMENT_UPSTREAM: parsed.AGENT_DEPLOYMENT_UPSTREAM.replace(/\/$/, ""),
     AGENT_PUBLIC_ORIGIN: parsed.AGENT_PUBLIC_ORIGIN.replace(/\/$/, ""),
     BUY_PAY_TO: getAddress(parsed.BUY_PAY_TO),
   };
@@ -54,7 +57,9 @@ export function createAgentPaywall(settings: AgentGatewaySettings): PaywallConfi
   const profile = exactUsdc(settings.BUY_AGENT_METADATA_PRICE, "BUY_AGENT_METADATA_PRICE");
   const feed = exactUsdc(settings.BUY_AGENT_READ_PRICE, "BUY_AGENT_READ_PRICE");
   const write = exactUsdc(settings.BUY_AGENT_WRITE_PRICE, "BUY_AGENT_WRITE_PRICE");
-  const service = "in-three-client";
+  const deploy = exactUsdc(settings.BUY_DEPLOY_PRICE, "BUY_DEPLOY_PRICE");
+  const clientService = "in-three-client";
+  const deployerService = "in-three-deployer";
 
   return {
     name: "in-three-agent",
@@ -65,7 +70,7 @@ export function createAgentPaywall(settings: AgentGatewaySettings): PaywallConfi
     tokens: ["USDC"],
     rateLimit: { scope: "ip", requestsPerMinute: 120, burst: 30 },
     services: {
-      [service]: {
+      [clientService]: {
         mode: "proxy",
         upstream: settings.AGENT_CLIENT_UPSTREAM,
         injectHeaders: {},
@@ -73,27 +78,57 @@ export function createAgentPaywall(settings: AgentGatewaySettings): PaywallConfi
         timeoutMs: 30_000,
         rateLimit: { scope: "service", requestsPerMinute: 180, burst: 30 },
       },
+      [deployerService]: {
+        mode: "proxy",
+        upstream: settings.AGENT_DEPLOYMENT_UPSTREAM,
+        injectHeaders: {},
+        forwardHeaders: ["content-type", "accept"],
+        timeoutMs: 120_000,
+        rateLimit: { scope: "service", requestsPerMinute: 20, burst: 4 },
+      },
     },
     endpoints: [
-      freeEndpoint("/agent/health", service),
-      paidEndpoint("/agent/v1/profile", service, profile, ["GET"], []),
-      paidEndpoint("/agent/v1/feed", service, feed, ["GET"], []),
-      paidEndpoint("/agent/v1/sources", service, profile, ["GET"], []),
-      paidEndpoint("/agent/v1/casts", service, write, ["POST"], [
+      freeEndpoint("/agent/health", clientService),
+      freeJsonEndpoint(
+        "/agent/v1/deployments/preflight",
+        deployerService,
+        ["deploymentId", "hetznerToken", "sshPublicKey", "sourceCidr"],
+      ),
+      freeJsonEndpoint(
+        "/agent/v1/deployments/status",
+        deployerService,
+        ["deploymentId", "hetznerToken"],
+      ),
+      freeJsonEndpoint(
+        "/agent/v1/deployments/resume",
+        deployerService,
+        ["deploymentId", "hetznerToken", "sshPublicKey", "sourceCidr"],
+      ),
+      paidEndpoint("/agent/v1/profile", clientService, profile, ["GET"], []),
+      paidEndpoint("/agent/v1/feed", clientService, feed, ["GET"], []),
+      paidEndpoint("/agent/v1/sources", clientService, profile, ["GET"], []),
+      paidEndpoint("/agent/v1/casts", clientService, write, ["POST"], [
         "text",
         "embedUrl",
         "parentCastId",
       ]),
-      paidEndpoint("/agent/v1/follows", service, write, ["POST"], [
+      paidEndpoint("/agent/v1/follows", clientService, write, ["POST"], [
         "targetFid",
         "remove",
       ]),
-      paidEndpoint("/agent/v1/reactions", service, write, ["POST"], [
+      paidEndpoint("/agent/v1/reactions", clientService, write, ["POST"], [
         "type",
         "targetFid",
         "targetHash",
         "remove",
       ]),
+      paidEndpoint(
+        "/agent/v1/deployments",
+        deployerService,
+        deploy,
+        ["POST"],
+        ["deploymentId", "hetznerToken", "sshPublicKey", "sourceCidr"],
+      ),
     ],
   };
 }
@@ -126,6 +161,7 @@ export function createAgentGateway({
     readPrice: settings.BUY_AGENT_READ_PRICE,
     metadataPrice: settings.BUY_AGENT_METADATA_PRICE,
     writePrice: settings.BUY_AGENT_WRITE_PRICE,
+    deployPrice: settings.BUY_DEPLOY_PRICE,
   };
   const gateway = createGateway({
     config: paywall,
@@ -223,6 +259,29 @@ function freeEndpoint(path: string, service: string): PaywallConfig["endpoints"]
   };
 }
 
+function freeJsonEndpoint(
+  path: string,
+  service: string,
+  jsonOnlyFields: string[],
+): PaywallConfig["endpoints"][number] {
+  return {
+    path,
+    service,
+    free: true,
+    scheme: "exact",
+    amount: "0",
+    currency: "USDC",
+    description: endpointDescription(path),
+    restrictions: {
+      methods: ["POST"],
+      json: true,
+      maxBodyBytes: 4_096,
+      jsonOnlyFields,
+    },
+    rateLimit: { scope: "ip", requestsPerMinute: 12, burst: 4 },
+  };
+}
+
 function paidEndpoint(
   path: string,
   service: string,
@@ -265,6 +324,10 @@ function endpointDescription(path: string): string {
     "/agent/v1/casts": "Publish one cast through this client's delegated Farcaster app key.",
     "/agent/v1/follows": "Follow or unfollow one Farcaster FID through this client.",
     "/agent/v1/reactions": "Add or remove one like or recast through this client.",
+    "/agent/v1/deployments/preflight": "Validate a fixed In Three plan and its dedicated Hetzner project before payment.",
+    "/agent/v1/deployments/status": "Recover the Hetzner resources for one client-generated deployment ID.",
+    "/agent/v1/deployments/resume": "Resume a deployment that already has a durable paid entitlement.",
+    "/agent/v1/deployments": "Provision the fixed In Three Hetzner plan and start its Snapchain bootstrap.",
   };
   return descriptions[path] ?? "Use this In Three Farcaster client.";
 }

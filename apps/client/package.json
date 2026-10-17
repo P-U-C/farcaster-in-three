@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && tsup src/server.ts src/setup.ts src/agent-gateway.ts --format esm --out-dir dist/server --clean false --sourcemap",
+    "build": "vite build && tsup src/server.ts src/setup.ts src/agent-gateway.ts src/deployment-service.ts --format esm --out-dir dist/server --clean false --sourcemap",
     "dev": "concurrently -n api,web -c magenta,cyan \"tsx watch src/server.ts\" \"vite\"",
     "start": "node dist/server/server.js",
     "typecheck": "tsc --noEmit",

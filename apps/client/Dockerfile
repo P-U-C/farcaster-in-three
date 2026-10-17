@@ -7,6 +7,7 @@ COPY site/package.json site/package.json
 RUN npm ci
 
 COPY apps/client apps/client
+COPY deploy deploy
 RUN npm run build --workspace @in-three/client && npm prune --omit=dev
 
 FROM node:22.22.0-bookworm-slim AS runtime

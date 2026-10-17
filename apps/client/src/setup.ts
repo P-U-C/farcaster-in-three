@@ -223,6 +223,7 @@ async function main() {
     `COOKIE_SECURE=${values["cookie-secure"] ? "true" : "false"}`,
     "AGENT_GATEWAY_PORT=3334",
     "AGENT_CLIENT_UPSTREAM=http://client:3333",
+    "AGENT_DEPLOYMENT_UPSTREAM=http://deployer:3335",
     `AGENT_PUBLIC_ORIGIN=${publicOrigin.replace(/\/$/, "")}`,
     `AGENT_WRITE_TOKEN=${agentWriteToken}`,
     `BUY_PAY_TO=${account.address}`,
@@ -231,6 +232,7 @@ async function main() {
     "BUY_AGENT_READ_PRICE=0.005 USDC",
     "BUY_AGENT_METADATA_PRICE=0.002 USDC",
     "BUY_AGENT_WRITE_PRICE=0.02 USDC",
+    "BUY_DEPLOY_PRICE=25 USDC",
   ];
 
   console.log("\nOne Optimism transaction will register this revocable app key.");

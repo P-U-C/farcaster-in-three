@@ -27,6 +27,26 @@ Farcaster validator ----> mempool ----> consensus ----> read node
 
 The read node is authoritative for the client's view. The validator is a delivery endpoint, not a read dependency.
 
+## Paid deployment control plane
+
+```text
+Operator machine                         Selected In Three broker                    Buyer Hetzner project
+
+SSH private key stays local
+cloud token -> HTTPS preflight --------> deployment service -> create/delete probe -> API
+buy wallet  -> 25 USDC x402 -----------> gateway settles on Celo
+same request body ----------------------> durable entitlement -> provision --------> server + volume + firewall + SSH key
+                  <---------------------- resource IDs + public IPv4
+SSH ------------------------------------> cloud-init -> mount volume -> Snapchain
+custody phrase stays local -> app-key registration -> client deployment
+```
+
+The deployment request uses a random client-generated `deploymentId`. The deployer persists that ID, a SHA-256 cloud-token binding, SSH public key, and source CIDR before calling Hetzner. It never stores the cloud token. Status and resume are free, but resume requires all buyer inputs to match that paid entitlement. This lets a dropped paid response continue without issuing another x402 payment.
+
+The broker is still trusted during the request: it sees the dedicated Hetzner token in process memory and can use its permissions. Buyers should use a new, otherwise-empty project and rotate the token after deployment. The SSH private key, Farcaster custody phrase, client password, app signer, and buyer facilitator key never reach the broker.
+
+Cloud-init writes release files to `/opt/in-three-release`, mounts the attached volume at `/srv/in-three`, copies the release onto that mounted volume, and starts the pinned Snapchain image. Staging outside the mount point is required; files written under `/srv/in-three` before mounting would be hidden by the volume.
+
 ## Agent commerce path
 
 Caddy routes <code>/agent/*</code> and <code>/.well-known/agent.json</code> to a separate process built from <code>@celo/buy-gateway</code>. An unpaid valid request receives an x402 quote in USDC on Celo. The agent's buy wallet signs the authorization locally; Celo's hosted facilitator verifies and settles it, then the gateway proxies the request to the client.
@@ -34,9 +54,11 @@ Caddy routes <code>/agent/*</code> and <code>/.well-known/agent.json</code> to a
 The gateway and client are deliberately separate trust domains:
 
 - the gateway has the Celo facilitator key, payout address, prices, and agent write capability;
+- the deployer has the fixed cloud plan, release files, and durable entitlement hashes, but no facilitator or Farcaster signing key;
 - the client has the Farcaster app signer, password hash, and session secret;
 - neither container receives the other's signing material;
-- the gateway can reach the client over the web network but has no route to Snapchain;
+- the gateway reaches the client over `web` and the deployer over the isolated `deployment` network, but has no route to Snapchain;
+- only the deployment request sends a buyer-supplied Hetzner token to the deployer, and the gateway does not log request bodies;
 - Caddy prevents public callers from bypassing the gateway for <code>/agent/*</code>.
 
 Reads require payment only. Writes first require an exact owner-issued bearer capability, then payment. The bearer check runs before the gateway emits a 402, preventing an unauthorized caller from paying for or reaching a write. The bearer header is stripped before the request reaches the client.
@@ -93,6 +115,8 @@ The requesting FID in this standalone client is the user's own FID. This creates
 ## Container networks
 
 - `protocol`: internal network shared only by Snapchain and client
+- `deployment`: internal network shared only by the agent gateway and deployment service
+- `deployer-egress`: Hetzner API egress for the deployment service
 - `node-egress`: Snapchain peer/snapshot egress
 - `web`: client, agent gateway, and Caddy
 

@@ -84,7 +84,7 @@ pending_env="$(mktemp)"
 fixture_client_env="$(mktemp)"
 fixture_gateway_env="$(mktemp)"
 fixture_access_env="$(mktemp)"
-trap 'rm -f "$checksum_file" "$pending_env" "$fixture_client_env" "$fixture_gateway_env" "$fixture_access_env"' EXIT
+trap 'rm -f "$checksum_file" "$pending_env" "$fixture_client_env" "$fixture_gateway_env" "$fixture_access_env"; [[ -z "${deploy_fixture:-}" ]] || rm -rf "$deploy_fixture"' EXIT
 cat > "$pending_env" <<'EOF'
 FID=37
 SIGNER_PRIVATE_KEY=delegated-key
@@ -120,8 +120,80 @@ if grep -E '^(SIGNER_|BUY_)' "$fixture_access_env" >/dev/null; then
   fail "local agent access file contains server secrets"
 fi
 
+deploy_fixture="$(mktemp -d)"
+mkdir -p "$deploy_fixture/.state" "$deploy_fixture/bin" "$deploy_fixture/scripts"
+printf '%s\n' 'dep-0123456789abcdef0123456789abcdef' > "$deploy_fixture/.state/deployment-id"
+printf '%s\n' 'dep-0123456789abcdef0123456789abcdef' > "$deploy_fixture/.state/deployment-payment.pending"
+printf '%s\n' 'https://broker.example' > "$deploy_fixture/.state/deployment-service"
+printf '%s\n' '203.0.113.7/32' > "$deploy_fixture/.state/deployment-source-cidr"
+printf '%s\n' 'in-three' > "$deploy_fixture/.state/deployment-buy-account"
+export BUY_CALL_LOG="$deploy_fixture/buy-calls"
+export DEPLOY_RUN_LOG="$deploy_fixture/deploy-runs"
+
+cat > "$deploy_fixture/bin/buy" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$BUY_CALL_LOG"
+exit 99
+EOF
+cat > "$deploy_fixture/bin/ssh" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+cat > "$deploy_fixture/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+output=""
+url=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o) output="$2"; shift 2 ;;
+    -w|--max-time|-X|-H|--data-binary) shift 2 ;;
+    -*) shift ;;
+    *) url="$1"; shift ;;
+  esac
+done
+case "$url" in
+  */deployments/status)
+    printf '%s\n' '{"ok":false,"phase":"authorized","resumable":true}' > "$output"
+    printf '404'
+    ;;
+  */deployments/resume)
+    printf '%s\n' '{"ok":true,"deploymentId":"dep-0123456789abcdef0123456789abcdef","created":true,"server":{"id":44,"ip":"203.0.113.10","status":"initializing","sshUser":"inthree"},"resources":{"volumeId":22,"firewallId":33,"sshKeyId":11}}'
+    ;;
+  *) exit 97 ;;
+esac
+EOF
+cat > "$deploy_fixture/scripts/node.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'node:%s\n' "$*" >> "$DEPLOY_RUN_LOG"
+EOF
+cat > "$deploy_fixture/scripts/client.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'client:%s\n' "$*" >> "$DEPLOY_RUN_LOG"
+EOF
+chmod +x "$deploy_fixture/bin/"* "$deploy_fixture/scripts/"*
+
+PATH="$deploy_fixture/bin:$PATH" \
+IN_THREE_ROOT="$deploy_fixture" \
+HCLOUD_TOKEN='dedicated-hetzner-token-long-enough' \
+  "$ROOT/scripts/deploy.sh" --yes >/dev/null
+
+[[ ! -s "$BUY_CALL_LOG" ]] || fail "recovery attempted a second buy payment"
+grep -F 'buy --account "$BUY_ACCOUNT" curl' "$ROOT/scripts/deploy.sh" >/dev/null ||
+  fail "paid deployment is not bound to the selected usebuy.ai account"
+grep -F 'node:up' "$DEPLOY_RUN_LOG" >/dev/null ||
+  fail "recovered deployment did not continue node setup"
+grep -F 'client:create' "$DEPLOY_RUN_LOG" >/dev/null ||
+  fail "recovered deployment did not continue client setup"
+[[ ! -f "$deploy_fixture/.state/deployment-payment.pending" ]] ||
+  fail "recovered deployment left the payment marker behind"
+grep -F 'DEPLOYMENT_ID=dep-0123456789abcdef0123456789abcdef' \
+  "$deploy_fixture/.state/config" >/dev/null ||
+  fail "recovered deployment did not persist provider state"
+
 printf 'ok - generated cloud-init preserves remote variables\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'
 printf 'ok - client create waits and continues after node bootstrap\n'
 printf 'ok - deployment separates client, payment, and local agent secrets\n'
+printf 'ok - paid deployment recovery never invokes buy twice\n'

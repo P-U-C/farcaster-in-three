@@ -3,6 +3,7 @@ export interface AgentContractOptions {
   readPrice: string;
   metadataPrice: string;
   writePrice: string;
+  deployPrice: string;
 }
 
 const writeCapabilityNote =
@@ -14,7 +15,7 @@ export function createAgentManifest(options: AgentContractOptions) {
     schemaVersion: "1.0",
     name: "In Three Farcaster client",
     description:
-      "Paid agent access to a sovereign Farcaster client backed by its own Snapchain read node.",
+      "One-purchase deployment and paid operation of a sovereign Farcaster client backed by its own Snapchain read node.",
     origin,
     protocol: {
       payment: "x402",
@@ -30,6 +31,7 @@ export function createAgentManifest(options: AgentContractOptions) {
     authorization: {
       reads: "x402 payment",
       writes: "x402 payment plus owner-issued Bearer capability",
+      deployment: "one x402 payment; infrastructure and custody credentials stay buyer-controlled",
     },
     prices: {
       profile: options.metadataPrice,
@@ -38,11 +40,13 @@ export function createAgentManifest(options: AgentContractOptions) {
       cast: options.writePrice,
       follow: options.writePrice,
       reaction: options.writePrice,
+      deployment: options.deployPrice,
     },
     safety: [
       "Quote the exact request before payment and enforce a maximum amount.",
       "Do not blindly retry after a paid timeout or ambiguous settlement.",
-      "Never expose the write capability, wallet key, custody phrase, or payment authorization.",
+      "Never expose the cloud token, write capability, wallet key, custody phrase, or payment authorization.",
+      "Deployment requires a dedicated buyer-owned Hetzner project; recurring infrastructure is billed separately.",
     ],
   };
 }
@@ -63,7 +67,7 @@ export function createAgentOpenApi(options: AgentContractOptions) {
       title: "In Three agent API",
       version: "1.0.0",
       description:
-        "Machine interface for reading and operating one Farcaster account through an owned Snapchain node.",
+        "Machine interface for deploying, reading, and operating a Farcaster client through an owned Snapchain node.",
     },
     servers: [{ url: origin }],
     paths: {
@@ -71,6 +75,64 @@ export function createAgentOpenApi(options: AgentContractOptions) {
         get: {
           summary: "Check the gateway, client, and read node",
           responses: { "200": { description: "Healthy" }, "503": { description: "Unavailable" } },
+        },
+      },
+      "/agent/v1/deployments/preflight": {
+        post: {
+          summary: "Validate the fixed deployment plan before payment",
+          requestBody: jsonBody(deploymentRequestSchema()),
+          responses: {
+            "200": { description: "Hetzner token and fixed plan validated; no payment occurred" },
+            "400": { description: "Invalid deployment request" },
+            "502": { description: "Hetzner rejected the token or plan" },
+          },
+        },
+      },
+      "/agent/v1/deployments/status": {
+        post: {
+          summary: "Recover deployment state without paying again",
+          requestBody: jsonBody({
+            type: "object",
+            additionalProperties: false,
+            required: ["deploymentId", "hetznerToken"],
+            properties: {
+              deploymentId: deploymentIdProperty(),
+              hetznerToken: hetznerTokenProperty(),
+            },
+          }),
+          responses: {
+            "200": { description: "Existing deployment found" },
+            "404": { description: "No deployment found for that ID" },
+          },
+        },
+      },
+      "/agent/v1/deployments/resume": {
+        post: {
+          summary: "Resume an entitled deployment without another payment",
+          description:
+            "Available only when the broker durably recorded the matching paid request.",
+          requestBody: jsonBody(deploymentRequestSchema()),
+          responses: {
+            "200": { description: "Existing idempotent deployment returned" },
+            "201": { description: "Entitled Hetzner resources created and Snapchain bootstrap queued" },
+            "403": { description: "No matching paid entitlement" },
+            "502": { description: "Hetzner rejected the operation" },
+          },
+        },
+      },
+      "/agent/v1/deployments": {
+        post: {
+          summary: "Provision In Three and start Snapchain",
+          description:
+            "One x402 setup payment. Hetzner infrastructure is billed separately. Reuse the same deploymentId for recovery.",
+          security: [{ x402: [] }],
+          requestBody: jsonBody(deploymentRequestSchema()),
+          responses: {
+            "200": { description: "Existing idempotent deployment returned" },
+            "201": { description: "Hetzner resources created and Snapchain bootstrap queued" },
+            ...paidResponses,
+          },
+          "x-price": options.deployPrice,
         },
       },
       "/agent/v1/profile": {
@@ -176,6 +238,46 @@ function jsonBody(schema: Record<string, unknown>) {
   return {
     required: true,
     content: { "application/json": { schema } },
+  };
+}
+
+function deploymentRequestSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["deploymentId", "hetznerToken", "sshPublicKey", "sourceCidr"],
+    properties: {
+      deploymentId: deploymentIdProperty(),
+      hetznerToken: hetznerTokenProperty(),
+      sshPublicKey: {
+        type: "string",
+        pattern: "^ssh-ed25519 ",
+        description: "Public key only. The broker never receives the SSH private key.",
+      },
+      sourceCidr: {
+        type: "string",
+        description: "One IPv4 or IPv6 CIDR permitted to reach SSH.",
+        examples: ["203.0.113.7/32"],
+      },
+    },
+  };
+}
+
+function deploymentIdProperty() {
+  return {
+    type: "string",
+    pattern: "^dep-[a-z0-9]{16,59}$",
+    description: "Client-generated idempotency key reused for status and recovery.",
+  };
+}
+
+function hetznerTokenProperty() {
+  return {
+    type: "string",
+    minLength: 20,
+    writeOnly: true,
+    description:
+      "Read/write token for an otherwise empty dedicated Hetzner project. Used in memory, never returned, and represented after payment only by a SHA-256 entitlement binding.",
   };
 }
 

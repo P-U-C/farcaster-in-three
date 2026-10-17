@@ -12,6 +12,7 @@ const token = "agent-capability-token-that-is-long-enough";
 const environment: NodeJS.ProcessEnv = {
   AGENT_GATEWAY_PORT: "3334",
   AGENT_CLIENT_UPSTREAM: "http://127.0.0.1:9",
+  AGENT_DEPLOYMENT_UPSTREAM: "http://127.0.0.1:9",
   AGENT_PUBLIC_ORIGIN: "https://client.example",
   AGENT_WRITE_TOKEN: token,
   BUY_PAY_TO: "0x000000000000000000000000000000000000c0Fe",
@@ -20,6 +21,7 @@ const environment: NodeJS.ProcessEnv = {
   BUY_AGENT_READ_PRICE: "0.005 USDC",
   BUY_AGENT_METADATA_PRICE: "0.002 USDC",
   BUY_AGENT_WRITE_PRICE: "0.02 USDC",
+  BUY_DEPLOY_PRICE: "25 USDC",
 };
 
 function settings() {
@@ -34,6 +36,10 @@ test("agent paywall prices every operation in USDC and leaves health free", () =
   assert.equal(byPath.get("/agent/v1/profile")?.amount, "2000");
   assert.equal(byPath.get("/agent/v1/feed")?.amount, "5000");
   assert.equal(byPath.get("/agent/v1/casts")?.amount, "20000");
+  assert.equal(byPath.get("/agent/v1/deployments")?.amount, "25000000");
+  assert.equal(byPath.get("/agent/v1/deployments/preflight")?.free, true);
+  assert.equal(byPath.get("/agent/v1/deployments/status")?.free, true);
+  assert.equal(byPath.get("/agent/v1/deployments/resume")?.free, true);
   assert.deepEqual(config.tokens, ["USDC"]);
   assert.equal(config.network, "celo");
 });
@@ -81,6 +87,18 @@ test("gateway exposes discovery, charges reads, and authenticates writes before 
 
     const read = await fetch(`${origin}/agent/v1/feed`);
     assert.equal(read.status, 402);
+
+    const deployment = await fetch(`${origin}/agent/v1/deployments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        deploymentId: "dep-0123456789abcdef0123456789abcdef",
+        hetznerToken: "dedicated-hetzner-token-long-enough",
+        sshPublicKey: `ssh-ed25519 ${Buffer.alloc(51, 7).toString("base64")}`,
+        sourceCidr: "203.0.113.7/32",
+      }),
+    });
+    assert.equal(deployment.status, 402);
 
     const unauthenticatedWrite = await fetch(`${origin}/agent/v1/casts`, {
       method: "POST",

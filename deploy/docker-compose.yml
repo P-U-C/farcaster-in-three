@@ -48,6 +48,29 @@ services:
     tmpfs:
       - /tmp:size=32m,mode=1777
 
+  deployer:
+    image: in-three-client:local
+    command: ["node", "dist/server/deployment-service.js"]
+    restart: unless-stopped
+    environment:
+      DEPLOYMENT_PORT: "3335"
+      IN_THREE_DEPLOY_ROOT: /app/deploy
+      IN_THREE_DEPLOY_STATE_ROOT: /var/lib/in-three-deployer
+    networks: [deployment, deployer-egress]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    volumes:
+      - /srv/in-three/data/deployer:/var/lib/in-three-deployer
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3335/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 15s
+
   agent-gateway:
     image: in-three-client:local
     command: ["node", "dist/server/agent-gateway.js"]
@@ -58,7 +81,9 @@ services:
     depends_on:
       client:
         condition: service_started
-    networks: [web]
+      deployer:
+        condition: service_healthy
+    networks: [web, deployment]
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -96,5 +121,8 @@ services:
 networks:
   protocol:
     internal: true
+  deployment:
+    internal: true
+  deployer-egress:
   node-egress:
   web:

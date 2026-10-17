@@ -152,7 +152,7 @@ create_client() {
   note "Packaging the exact client source and lockfile"
   tar -C "$IN_THREE_ROOT" -czf "$archive" \
     package.json package-lock.json .dockerignore \
-    apps/client site/package.json
+    apps/client site/package.json deploy
 
   copy_to "$archive" /tmp/in-three-source.tar.gz
   write_client_env "$PENDING_CLIENT_ENV" "$client_deploy_env"
@@ -168,8 +168,11 @@ create_client() {
   remote "rm -f /tmp/in-three-source.tar.gz /tmp/in-three-client.env /tmp/in-three-agent-gateway.env"
   remote "printf '%s\n' 'CLIENT_DOMAIN=$CLIENT_DOMAIN' > /srv/in-three/.env && chmod 600 /srv/in-three/.env"
 
+  note "Preparing owner-only deployment entitlement storage"
+  remote "sudo install -d -o 1000 -g 1000 -m 700 /srv/in-three/data/deployer"
+
   note "Building and starting the browser client and paid agent gateway"
-  remote "cd /srv/in-three && sudo docker compose up -d --build client agent-gateway caddy"
+  remote "cd /srv/in-three && sudo docker compose up -d --build client deployer agent-gateway caddy"
 
   local attempt
   for ((attempt = 1; attempt <= 36; attempt++)); do
@@ -189,7 +192,7 @@ create_client() {
     sleep 5
   done
 
-  remote "cd /srv/in-three && sudo docker compose logs --tail=100 client agent-gateway caddy" >&2 || true
+  remote "cd /srv/in-three && sudo docker compose logs --tail=100 client deployer agent-gateway caddy" >&2 || true
   printf '\nThe confirmed app key remains at %s.\n' "$PENDING_CLIENT_ENV" >&2
   printf 'Fix the reported deployment issue, then rerun ./farcaster client create.\n' >&2
   die "the containers started but HTTPS did not become healthy"
@@ -198,7 +201,7 @@ create_client() {
 status() {
   load_state
   printf 'IN THREE / CLIENT STATUS\n\n'
-  remote "cd /srv/in-three && sudo docker compose ps client agent-gateway caddy"
+  remote "cd /srv/in-three && sudo docker compose ps client deployer agent-gateway caddy"
   printf '\nURL           https://%s\n' "$CLIENT_DOMAIN"
   curl -fsS --max-time 10 "https://$CLIENT_DOMAIN/api/health" | jq . ||
     die "browser client health check failed"
@@ -209,7 +212,7 @@ status() {
 
 logs() {
   load_state
-  remote "cd /srv/in-three && sudo docker compose logs --tail=200 -f client agent-gateway caddy"
+  remote "cd /srv/in-three && sudo docker compose logs --tail=200 -f client deployer agent-gateway caddy"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

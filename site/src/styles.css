@@ -549,6 +549,68 @@ code {
   font-weight: 700;
 }
 
+.paid-quickstart {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  margin: 30px 0 22px;
+  border: 1px solid var(--ink);
+  background: var(--cyan);
+}
+
+.paid-quickstart > div {
+  min-width: 0;
+  padding: 24px;
+}
+
+.paid-quickstart > div:first-child {
+  border-right: 1px solid var(--ink);
+}
+
+.paid-quickstart span,
+.manual-label span {
+  color: #40344f;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.paid-quickstart h3 {
+  margin: 13px 0 9px;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 31px;
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.paid-quickstart p,
+.paid-quickstart small {
+  margin: 0;
+  color: #34303a;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.paid-quickstart .code-block {
+  margin-bottom: 14px;
+}
+
+.paid-quickstart small {
+  display: block;
+}
+
+.manual-label {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin: 30px 0 15px;
+}
+
+.manual-label i {
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+}
+
 .code-block {
   display: grid;
   min-height: 48px;
@@ -1281,6 +1343,66 @@ code {
   margin-bottom: 44px;
 }
 
+.deploy-offer {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  margin-bottom: 46px;
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  background: #e9e5dd;
+}
+
+.deploy-offer > div {
+  min-width: 0;
+  padding: 27px;
+}
+
+.deploy-offer > div:first-child {
+  border-right: 1px solid var(--ink);
+}
+
+.deploy-offer span,
+.deploy-offer dt {
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.deploy-offer h3 {
+  margin: 15px 0 10px;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.deploy-offer p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.deploy-offer dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 18px 0 0;
+  border-top: 1px solid #aaa49c;
+}
+
+.deploy-offer dl > div {
+  min-width: 0;
+  padding: 14px 10px 0 0;
+}
+
+.deploy-offer dd {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
 .agent-commerce {
   display: grid;
   grid-template-columns: 0.92fr 1.08fr;
@@ -1393,7 +1515,7 @@ code {
 
 .agent-prices {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin-top: 48px;
   border-top: 1px solid var(--ink);
   border-left: 1px solid var(--ink);
@@ -1436,7 +1558,7 @@ code {
 
 .agent-boundaries {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin-top: 24px;
   border: 1px dashed #9e9890;
 }
@@ -1889,8 +2011,24 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .paid-quickstart,
+  .deploy-offer {
+    grid-template-columns: 1fr;
+  }
+
+  .paid-quickstart > div:first-child,
+  .deploy-offer > div:first-child {
+    border-right: 0;
+    border-bottom: 1px solid var(--ink);
+  }
+
   .agent-commerce {
     grid-template-columns: 1fr;
+  }
+
+  .agent-prices,
+  .agent-boundaries {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .three-steps h3 {
@@ -2117,8 +2255,19 @@ code {
 
   .agent-sequence,
   .agent-prices,
-  .agent-boundaries {
+  .agent-boundaries,
+  .deploy-offer dl {
     grid-template-columns: 1fr;
+  }
+
+  .paid-quickstart > div,
+  .deploy-offer > div {
+    padding: 19px;
+  }
+
+  .deploy-offer h3,
+  .paid-quickstart h3 {
+    font-size: 27px;
   }
 
   .agent-terminal {

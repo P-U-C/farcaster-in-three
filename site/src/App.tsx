@@ -115,13 +115,27 @@ export function App() {
           <SectionLabel number="00" text="QUICKSTART" />
           <div className="section-heading">
             <h2>Run these three<br />commands.</h2>
-            <p>The operator command runs on macOS or Linux. It provisions a fresh host, starts an unauthenticated Snapchain read node, and deploys the client behind HTTPS.</p>
+            <p>The operator commands run on macOS or Linux. Use one paid wrapper or the three manual commands below; both create the same owned node and HTTPS client.</p>
           </div>
 
           <div className="clone-line">
             <span>GET THE SOURCE</span>
             <CodeBlock code="git clone https://github.com/P-U-C/farcaster-in-three.git && cd farcaster-in-three" />
           </div>
+
+          <div className="paid-quickstart">
+            <div>
+              <span>ONE-PURCHASE PATH</span>
+              <h3>Pay once. Provision the full stack.</h3>
+              <p>A free preflight checks the fixed Hetzner plan and token permissions. One 25 USDC x402 request creates the server, volume, firewall, and SSH key, then starts Snapchain. Hetzner bills the infrastructure separately.</p>
+            </div>
+            <div>
+              <CodeBlock code="./farcaster deploy --service https://YOUR_BROKER" label="FULL DEPLOY" />
+              <small>The SSH private key and custody phrase stay local. An interrupted payment resumes from saved state without buying again.</small>
+            </div>
+          </div>
+
+          <div className="manual-label"><span>OR RUN THE MANUAL PRIZE PATH</span><i /></div>
 
           <div className="three-steps">
             {commands.map((item, index) => (
@@ -236,7 +250,7 @@ export function App() {
               </Chapter>
 
               <Chapter id="node" number="1" title="Start the read node">
-                <p>The second command checks for at least 1.5 TB free, fetches the validator set from the pinned Snapchain commit, verifies its SHA-256 checksum, pulls the x86-64 image by digest, and starts snapshot sync.</p>
+                <p>The second command checks for at least 1.5 TB free, verifies the vendored validator set against the pinned Snapchain release checksum, pulls the x86-64 image by digest, and starts snapshot sync.</p>
                 <CodeBlock code="./farcaster node up" label="COMMAND 1" />
                 <p>The initial snapshot is several hundred gigabytes. Downloading, decompressing, and replaying newer blocks commonly takes hours. Node up returns after confirming that the container is running; closing your terminal does not stop bootstrap.</p>
                 <OutputBlock lines={[
@@ -337,8 +351,24 @@ export function App() {
         <section className="agents section" id="agents">
           <SectionLabel number="04" text="AGENT COMMERCE" />
           <div className="section-heading agent-heading">
-            <h2>Agents can buy<br />the client as a tool.</h2>
-            <p>Every deployment publishes a manifest and OpenAPI contract. Celo&apos;s buy stack quotes and settles each request in USDC; there are no customer accounts, subscriptions, or hosted Farcaster data keys.</p>
+            <h2>Agents can deploy<br />and operate it.</h2>
+            <p>Every deployment can provision the next buyer-owned node and publishes a paid operational API. Celo&apos;s buy stack handles exact USDC quotes and settlement without customer accounts or hosted Farcaster data keys.</p>
+          </div>
+
+          <div className="deploy-offer">
+            <div>
+              <span>FIXED DEPLOYMENT</span>
+              <h3>One x402 payment starts the node.</h3>
+              <p>The buyer supplies a dedicated Hetzner project token and SSH public key. The broker records a token hash for recovery, creates the fixed <code>ccx33 + 2 TiB</code> plan, and returns the resource IDs. Custody happens later on the buyer&apos;s machine.</p>
+            </div>
+            <div>
+              <CodeBlock code="./farcaster deploy --service https://YOUR_BROKER" label="25 USDC · ONCE" />
+              <dl>
+                <div><dt>BEFORE PAYMENT</dt><dd>plan + write-access preflight</dd></div>
+                <div><dt>AFTER PAYMENT</dt><dd>idempotent status + free resume</dd></div>
+                <div><dt>SEPARATE BILL</dt><dd>Hetzner runs until destroy</dd></div>
+              </dl>
+            </div>
           </div>
 
           <div className="agent-commerce">
@@ -361,12 +391,14 @@ export function App() {
           </div>
 
           <div className="agent-prices" aria-label="Default agent API prices">
+            <div><span>FULL DEPLOYMENT</span><strong>25</strong><small>USDC / once</small></div>
             <div><span>PROFILE + SOURCES</span><strong>0.002</strong><small>USDC / request</small></div>
             <div><span>OWN-NODE FEED</span><strong>0.005</strong><small>USDC / request</small></div>
             <div><span>CAST · FOLLOW · REACT</span><strong>0.02</strong><small>USDC / request</small></div>
           </div>
 
           <div className="agent-boundaries">
+            <div><b>DEPLOYMENT SERVICE</b><p>Fixed cloud plan and entitlement hashes. Token is used in memory, not stored.</p></div>
             <div><b>CLIENT CONTAINER</b><p>Farcaster app signer, password hash, session secret. No payment credentials.</p></div>
             <div><b>PAYMENT CONTAINER</b><p>Facilitator key, prices, payout address, write capability. No Farcaster signer.</p></div>
             <div><b>AUTHORIZED AGENT</b><p>Dedicated buy wallet and optional write capability. No custody phrase.</p></div>
@@ -446,7 +478,7 @@ export function App() {
               <Details question="Can the app key move my wallet funds?">No. The Ed25519 signer authorizes Farcaster messages for its FID. It is not the Ethereum custody key and cannot sign wallet transactions.</Details>
               <Details question="Why import a recovery phrase at all?">The stated challenge calls for importing an existing account and issuing the client its own key in one OP transaction. The phrase signs that one KeyGateway call locally, then disappears.</Details>
               <Details question="How does an agent pay?">It uses buy CLI or MCP to inspect the 402 quote, authorize an exact USDC amount locally, and retry with the x402 payment. Write routes also require the owner capability before a quote is issued.</Details>
-              <Details question="What is not automated?">Custody entry, the OP registration confirmation, persistent node hosting, a human voucher, and the final prize reply. None is fabricated or delegated to an untrusted agent.</Details>
+              <Details question="What is not automated?">The owner still enters custody locally, confirms the OP registration, and supplies the client password and facilitator key. The human voucher and final prize reply also remain real human work. Hetzner provisioning and node startup are automated; its recurring bill is not included in the broker fee.</Details>
             </div>
           </div>
         </section>

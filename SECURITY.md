@@ -8,7 +8,8 @@ This project has not received an independent security audit.
 
 | Secret | Location | Authority | Lifetime |
 | --- | --- | --- | --- |
-| Hetzner token | Operator process | Create/delete cloud resources | Provision/destroy command only |
+| Hetzner token | Manual path: operator process. Paid path: operator process and selected broker process over HTTPS | Create/delete resources in one Hetzner project | Provision/destroy command only; never persisted by In Three |
+| Deployment entitlement | Broker data volume | SHA-256 token binding, deployment ID, SSH public key, source CIDR; authorizes free resume | Broker lifetime |
 | Custody mnemonic | Operator process memory | Own FID; register/revoke app keys | Signer ceremony only |
 | Ed25519 app key | Local `.state/client.env.pending` during setup; then `/srv/in-three/client.env` | Sign Farcaster messages for one FID | Until revoked |
 | Serialized registration transaction | Local `.state/client.env.pending` until confirmation | Rebroadcast one fixed KeyGateway transaction | Setup only |
@@ -37,8 +38,9 @@ Private to the host/container network:
 - 3383/TCP: Snapchain gRPC
 - 3333/TCP: client application
 - 3334/TCP: x402 agent gateway
+- 3335/TCP: fixed-plan deployment service
 
-The client has no route to arbitrary Docker services. Its read network is internal; the Snapchain container has a separate egress network for peers. The agent gateway shares only the web network with the client and Caddy. It cannot reach Snapchain directly. The client environment excludes the facilitator key and agent capability; the gateway environment excludes the Farcaster signer, password hash, and session secret.
+The client has no route to arbitrary Docker services. Its read network is internal; the Snapchain container has a separate egress network for peers. The deployment service is isolated on an internal control-plane network shared only with the agent gateway and uses a separate network for Hetzner API egress. The client and Caddy cannot bypass the gateway to reach it. The gateway cannot reach Snapchain directly. The client environment excludes the facilitator key and agent capability; the gateway environment excludes the Farcaster signer, password hash, and session secret. The deployer has no environment secret: it receives a buyer token only in a bounded request body, calls Hetzner, and persists only a SHA-256 binding.
 
 ## Web controls
 
@@ -69,6 +71,16 @@ An attacker with process-memory, terminal, or keyboard access can steal the mnem
 
 The cloud provider can observe metadata and disk contents, including the delegated app key. It cannot see the mnemonic because registration occurs before upload. For a stronger deployment, replace the environment file with an external HSM/secret manager under your control.
 
+### Paid deployment broker
+
+The one-purchase path deliberately sends a Hetzner token to the selected broker. HTTPS protects it in transit, but the broker can use that token while handling the request. A malicious or compromised broker could create, inspect, or delete resources within the token's project permissions. Use a new, otherwise-empty Hetzner project, create a read/write token only for this deployment, verify the returned resource IDs in the provider console, and rotate the token after provisioning. The manual three-command path keeps the token on the operator machine.
+
+The broker receives only the SSH public key. The private key is generated under local `.state/`; the Farcaster phrase, client password, buyer facilitator key, and app signer are not part of the deployment request.
+
+Preflight creates and deletes an unbillable temporary SSH key to prove write permission before payment. The paid route persists an entitlement before cloud creation, and `status`/`resume` can continue the same request without another payment. The entitlement stores the SHA-256 token hash, SSH public key, source CIDR, and deployment ID, not the token. Treat the hash as sensitive metadata and protect the broker data volume.
+
+Celo settlement occurs before the deployer runs. A facilitator or gateway failure can therefore settle payment without producing an entitlement. The local payment marker blocks automatic repurchase. Resolve the buy receipt and ask the broker to investigate or refund using the deployment ID and settlement transaction; never send the cloud token in support messages.
+
 ### Agent gateway and payments
 
 Paid reads are intentionally available to any buyer. Paid writes require the owner-issued bearer capability before the gateway returns a 402, so an unauthorized caller is not charged and cannot reach the signer. Exposure of that capability lets a funded caller buy Farcaster actions until it is rotated.
@@ -77,7 +89,7 @@ x402 settles before the paid request reaches the client. A valid payment can the
 
 The Celo facilitator API key can spend the operator's facilitator balance on settlement. It cannot sign Farcaster messages and is isolated in the agent gateway container. Rotate it in the Celo dashboard if exposed.
 
-The pinned usebuy.ai packages are pre-1.0 beta software and have not received an independent security audit through this project. Keep the exact version pin, begin with Celo Sepolia and low balances, inspect release notes before upgrading, and treat a successful automated test as evidence of behavior rather than a guarantee of settlement safety.
+The pinned usebuy.ai packages are pre-1.0 beta software and have not received an independent security audit through this project. Keep the exact version pin, use dedicated low-balance buyer and facilitator accounts, inspect release notes before upgrading, and treat a successful automated test as evidence of behavior rather than a guarantee of mainnet settlement safety. This release is pinned to Celo mainnet; it does not claim a tested Sepolia mode.
 
 ### Public validator
 
