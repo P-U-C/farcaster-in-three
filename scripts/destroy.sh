@@ -29,7 +29,7 @@ api_delete() {
 note "Deleting server"
 api_delete "/servers/$SERVER_ID"
 
-for attempt in $(seq 1 30); do
+for ((attempt = 1; attempt <= 30; attempt++)); do
   status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15     -H "Authorization: Bearer $HCLOUD_TOKEN"     "https://api.hetzner.cloud/v1/volumes/$VOLUME_ID")"
   [[ "$status" == "200" ]] || break
   sleep 2

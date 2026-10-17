@@ -6,7 +6,9 @@
 
 In Three provisions compute, starts a Snapchain read node, registers a delegated Farcaster app key, and deploys a responsive client. Reads come from the node you operate. Signed writes go directly to a validator. The custody phrase is used locally for one Optimism transaction and is never installed on the host.
 
-![In Three client](site/public/client-preview.webp)
+![Illustrative In Three client preview using synthetic accounts and casts](site/public/client-preview.webp)
+
+*Illustrative preview. The generated image uses synthetic accounts and casts; a deployed client reads live protocol data from its own node.*
 
 ## Three commands
 
@@ -42,7 +44,7 @@ The commands are interactive at the boundaries that cost money or grant authorit
 | Edge | Caddy 2.10.2 with automatic TLS | Password protected, signed HttpOnly session cookie |
 | Writes | Binary protobuf to a live validator endpoint | No hosted Farcaster API key |
 
-The reference client reads a chronological feed from follows and casts, publishes casts, follows FIDs, likes, recasts, and filters casts by exact signer key. Signed-key request metadata is decoded to show a requesting FID when available.
+The reference client reads a chronological feed from follows and casts, publishes casts, follows FIDs, likes, and recasts. It exposes every discovered signer source, groups keys with the same decoded SignedKeyRequest requester, and retains exact-key controls when attribution is unavailable.
 
 ## Requirements
 
@@ -50,6 +52,7 @@ Operator machine:
 
 - Linux or macOS
 - Bash, curl, jq, SSH, tar, OpenSSL, Node.js 22+, npm
+- `sha256sum` on Linux or `shasum` on macOS
 - A Hetzner Cloud API token with resource creation permissions
 
 Farcaster account:
@@ -77,9 +80,11 @@ Run `./farcaster doctor` before provisioning.
 ./farcaster destroy
 ```
 
-The initial verified snapshot is several hundred gigabytes and can take hours to download, decompress, and catch up. `node status` reports each available shard delay; under 30 seconds is treated as ready.
+The initial verified snapshot is several hundred gigabytes and commonly takes hours to download, decompress, and catch up. `node up` treats a running bootstrap as success and returns progress commands instead of timing out. `node status` reports snapshot/database growth until the API is online, then each available shard delay; under 30 seconds is treated as ready. `client create` will not request a phrase or register a signer before the API is available.
 
-See [docs/OPERATIONS.md](docs/OPERATIONS.md) for upgrades, recovery, domain changes, and key incidents.
+If registration is submitted but setup is interrupted, rerun `./farcaster client create`. The owner-only `.state/client.env.pending` file contains the app key and transaction hash needed to verify the receipt and resume deployment. It is removed after the public HTTPS health check passes.
+
+See [docs/OPERATIONS.md](docs/OPERATIONS.md) for exact output, costs, upgrades, recovery, domain changes, and key incidents.
 
 ## Verification
 
@@ -87,7 +92,7 @@ See [docs/OPERATIONS.md](docs/OPERATIONS.md) for upgrades, recovery, domain chan
 npm ci
 npm run check
 npm audit --audit-level=moderate
-bash -n farcaster scripts/*.sh scripts/lib/common.sh deploy/snapchain-entrypoint.sh
+bash -n farcaster scripts/*.sh scripts/lib/*.sh scripts/test/*.sh deploy/snapchain-entrypoint.sh
 node scripts/visual-check.mjs
 ```
 
@@ -98,7 +103,7 @@ The automated suite covers:
 - protobuf cast construction and binary validator submission
 - feed assembly and signer attribution through a mock Snapchain HTTP API
 - production builds and TypeScript checks
-- desktop and mobile browser rendering with overflow and console-error checks
+- desktop and mobile browser rendering, narrow-screen Follow access, complete source controls, overflow, and console-error checks
 - dependency audit
 
 A local test cannot substitute for a full 1.5 TB mainnet sync. Prize qualification therefore has a separate, non-negotiable [human voucher runbook](VOUCHER.md).

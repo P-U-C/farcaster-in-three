@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { chmod, writeFile } from "node:fs/promises";
+import { chmod, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import * as ed from "@noble/ed25519";
 import {
@@ -92,13 +92,26 @@ async function main() {
       "validator-urls": { type: "string" },
       "rpc-url": { type: "string" },
       "cookie-secure": { type: "boolean", default: false },
+      recover: { type: "boolean", default: false },
     },
   });
   if (!values.output) throw new Error("--output is required");
+  if (values.recover) {
+    await recoverRegistration(values.output, values["rpc-url"]);
+    return;
+  }
 
   printHeader();
-  const mnemonic = await readHidden(
-    "Custody recovery phrase (used in memory for this transaction only): ",
+  const password = await readHidden(
+    "Client password (12+ characters; protects the web interface): ",
+  );
+  const confirmation = await readHidden("Repeat client password: ");
+  if (password !== confirmation) throw new Error("Passwords did not match; no transaction was sent");
+  const passwordHash = await hashPassword(password);
+  const sessionSecret = randomBytes(32).toString("base64url");
+
+  let mnemonic = await readHidden(
+    "\nCustody recovery phrase (used in memory for this transaction only): ",
   );
   let account;
   try {
@@ -109,6 +122,7 @@ async function main() {
   } catch {
     throw new Error("That recovery phrase is not a valid BIP-39 mnemonic");
   }
+  mnemonic = "";
 
   const transports = values["rpc-url"]
     ? [http(values["rpc-url"])]
@@ -176,33 +190,9 @@ async function main() {
     ],
   });
 
-  console.log("\nOne Optimism transaction will register this revocable app key.");
-  const answer = await readVisible("Type REGISTER to continue: ");
-  if (answer !== "REGISTER") {
-    throw new Error("Registration cancelled; no transaction was sent");
-  }
-
-  const transactionHash = await walletClient.writeContract(request);
-  console.log(`Transaction sent  ${transactionHash}`);
-  const receipt = await publicClient.waitForTransactionReceipt({
-    hash: transactionHash,
-    confirmations: 1,
-    timeout: 120_000,
-  });
-  if (receipt.status !== "success") throw new Error("Signer registration reverted");
-
-  const password = await readHidden(
-    "\nClient password (12+ characters; protects the web interface): ",
-  );
-  const confirmation = await readHidden("Repeat client password: ");
-  if (password !== confirmation) throw new Error("Passwords did not match");
-
-  const passwordHash = await hashPassword(password);
-  const sessionSecret = randomBytes(32).toString("base64url");
   const signerSecretHex = Buffer.from(signerPrivateKey).toString("hex");
   signerPrivateKey.fill(0);
-
-  const env = [
+  const baseEnv = [
     "PORT=3333",
     `FID=${fid}`,
     `SIGNER_PRIVATE_KEY=${signerSecretHex}`,
@@ -212,16 +202,139 @@ async function main() {
     `READ_NODE_URL=${values["read-node-url"] ?? "http://snapchain:3381"}`,
     `VALIDATOR_URLS=${values["validator-urls"] ?? DEFAULT_VALIDATORS.join(",")}`,
     `COOKIE_SECURE=${values["cookie-secure"] ? "true" : "false"}`,
-    "",
-  ].join("\n");
+  ];
 
-  await writeFile(values.output, env, { mode: 0o600, flag: "wx" });
-  await chmod(values.output, 0o600);
+  console.log("\nOne Optimism transaction will register this revocable app key.");
+  const answer = await readVisible("Type REGISTER to continue: ");
+  if (answer !== "REGISTER") {
+    throw new Error("Registration cancelled; no transaction was sent");
+  }
 
-  console.log("\nApp key registered; owner-only file prepared for SSH transport.");
+  await writeSetupFile(values.output, setupEnv(baseEnv, "prepared"), true);
+  let transactionHash: Hex | undefined;
+  try {
+    transactionHash = await walletClient.writeContract(request);
+    await writeSetupFile(
+      values.output,
+      setupEnv(baseEnv, "submitted", transactionHash),
+    );
+    console.log(`Transaction sent  ${transactionHash}`);
+
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: transactionHash,
+      confirmations: 1,
+      timeout: 120_000,
+    });
+    if (receipt.status !== "success") {
+      await writeSetupFile(
+        values.output,
+        setupEnv(baseEnv, "reverted", transactionHash),
+      );
+      throw new Error("Signer registration reverted");
+    }
+    await writeSetupFile(
+      values.output,
+      setupEnv(baseEnv, "confirmed", transactionHash),
+    );
+  } catch (error) {
+    if (!transactionHash) {
+      await unlink(values.output).catch(() => undefined);
+    } else {
+      console.error(`\nRecovery file      ${values.output}`);
+      console.error("Keep this file and rerun ./farcaster client create.");
+      console.error("The command will check the saved transaction without asking for the phrase again.");
+    }
+    throw error;
+  }
+
+  console.log("\nApp key registered; owner-only recovery file is ready for deployment.");
   console.log(`Receipt            https://optimistic.etherscan.io/tx/${transactionHash}`);
   console.log("Custody phrase     discarded; it is not present in the output file");
   console.log("Next               deployment continues automatically");
+}
+
+type RegistrationStatus = "prepared" | "submitted" | "confirmed" | "reverted";
+
+function setupEnv(baseEnv: string[], status: RegistrationStatus, transactionHash?: Hex): string {
+  return [
+    ...baseEnv,
+    `SIGNER_REGISTRATION_STATUS=${status}`,
+    ...(transactionHash ? [`SIGNER_REGISTRATION_TX=${transactionHash}`] : []),
+    "",
+  ].join("\n");
+}
+
+async function writeSetupFile(path: string, content: string, createOnly = false) {
+  if (createOnly) {
+    await writeFile(path, content, { mode: 0o600, flag: "wx" });
+    await chmod(path, 0o600);
+    return;
+  }
+
+  const temporary = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+  try {
+    await writeFile(temporary, content, { mode: 0o600, flag: "wx" });
+    await chmod(temporary, 0o600);
+    await rename(temporary, path);
+  } finally {
+    await unlink(temporary).catch(() => undefined);
+  }
+}
+
+function envValue(content: string, key: string): string | undefined {
+  const prefix = `${key}=`;
+  return content
+    .split("\n")
+    .find((line) => line.startsWith(prefix))
+    ?.slice(prefix.length);
+}
+
+function replaceEnvValue(content: string, key: string, value: string): string {
+  const prefix = `${key}=`;
+  const lines = content.split("\n");
+  const index = lines.findIndex((line) => line.startsWith(prefix));
+  if (index === -1) lines.push(`${prefix}${value}`);
+  else lines[index] = `${prefix}${value}`;
+  return `${lines.filter((line, lineIndex) => line.length > 0 || lineIndex < lines.length - 1).join("\n").replace(/\n*$/, "")}\n`;
+}
+
+async function recoverRegistration(output: string, rpcUrl?: string) {
+  const content = await readFile(output, "utf8");
+  const status = envValue(content, "SIGNER_REGISTRATION_STATUS");
+  const transactionHash = envValue(content, "SIGNER_REGISTRATION_TX");
+
+  if (status === "confirmed") {
+    console.log("Saved app-key registration is already confirmed; resuming deployment.");
+    return;
+  }
+  if (status === "reverted") {
+    throw new Error(`The saved registration reverted. Remove ${output} and run setup again.`);
+  }
+  if (status !== "submitted" || !transactionHash?.match(/^0x[0-9a-fA-F]{64}$/)) {
+    throw new Error(`The saved setup has no submitted transaction. Remove ${output} and run setup again.`);
+  }
+
+  const transports = rpcUrl ? [http(rpcUrl)] : PUBLIC_OP_RPC_URLS.map((url) => http(url));
+  const publicClient = createPublicClient({ chain: optimism, transport: fallback(transports) });
+  console.log(`Checking registration ${transactionHash}`);
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash: transactionHash as Hex,
+    confirmations: 1,
+    timeout: 120_000,
+  });
+  if (receipt.status !== "success") {
+    await writeSetupFile(
+      output,
+      replaceEnvValue(content, "SIGNER_REGISTRATION_STATUS", "reverted"),
+    );
+    throw new Error(`Signer registration reverted. Remove ${output} and run setup again.`);
+  }
+
+  await writeSetupFile(
+    output,
+    replaceEnvValue(content, "SIGNER_REGISTRATION_STATUS", "confirmed"),
+  );
+  console.log("Saved app-key registration is confirmed; resuming deployment.");
 }
 
 async function assertStorage(fid: number, configuredValidators?: string) {
@@ -258,30 +371,41 @@ function printHeader() {
   console.log("Only a revocable Ed25519 app key will be stored after setup.\n");
 }
 
-function readVisible(prompt: string): Promise<string> {
-  process.stdout.write(prompt);
+type TerminalInput = NodeJS.ReadStream;
+type TerminalOutput = Pick<NodeJS.WriteStream, "write">;
+
+export function readVisible(
+  prompt: string,
+  input: TerminalInput = process.stdin,
+  output: TerminalOutput = process.stdout,
+): Promise<string> {
+  output.write(prompt);
   return new Promise((resolve) => {
     let value = "";
     const onData = (chunk: Buffer) => {
       value += chunk.toString("utf8");
       if (value.includes("\n") || value.includes("\r")) {
-        process.stdin.off("data", onData);
+        input.off("data", onData);
+        input.pause();
         resolve(value.trim());
       }
     };
-    process.stdin.resume();
-    process.stdin.on("data", onData);
+    input.resume();
+    input.on("data", onData);
   });
 }
 
-function readHidden(prompt: string): Promise<string> {
-  if (!process.stdin.isTTY) {
+export function readHidden(
+  prompt: string,
+  input: TerminalInput = process.stdin,
+  output: TerminalOutput = process.stdout,
+): Promise<string> {
+  if (!input.isTTY) {
     throw new Error("Secret input requires an interactive terminal");
   }
-  process.stdout.write(prompt);
+  output.write(prompt);
 
   return new Promise((resolve, reject) => {
-    const input = process.stdin;
     const wasRaw = input.isRaw;
     let value = "";
 
@@ -291,7 +415,8 @@ function readHidden(prompt: string): Promise<string> {
     const cleanup = () => {
       input.off("data", onData);
       input.setRawMode?.(Boolean(wasRaw));
-      process.stdout.write("\n");
+      input.pause();
+      output.write("\n");
     };
 
     const onData = (chunk: Buffer) => {

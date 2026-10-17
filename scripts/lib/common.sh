@@ -33,39 +33,62 @@ load_state() {
   : "${SSH_USER:=inthree}"
 }
 
-ssh_args() {
-  printf '%s\n' \
-    "-i" "$SSH_KEY" \
-    "-o" "IdentitiesOnly=yes" \
-    "-o" "StrictHostKeyChecking=accept-new" \
-    "-o" "ConnectTimeout=10"
-}
-
 remote() {
-  local args=()
-  mapfile -t args < <(ssh_args)
   # Commands are assembled locally from trusted state and fixed script inputs.
   # shellcheck disable=SC2029
-  ssh "${args[@]}" "$SSH_USER@$SERVER_IP" "$@"
+  ssh \
+    -i "$SSH_KEY" \
+    -o IdentitiesOnly=yes \
+    -o StrictHostKeyChecking=accept-new \
+    -o ConnectTimeout=10 \
+    "$SSH_USER@$SERVER_IP" "$@"
 }
 
 copy_to() {
   local source="$1"
   local destination="$2"
-  local args=()
-  mapfile -t args < <(ssh_args)
-  scp "${args[@]}" "$source" "$SSH_USER@$SERVER_IP:$destination"
+  scp \
+    -i "$SSH_KEY" \
+    -o IdentitiesOnly=yes \
+    -o StrictHostKeyChecking=accept-new \
+    -o ConnectTimeout=10 \
+    "$source" "$SSH_USER@$SERVER_IP:$destination"
 }
 
 wait_for_ssh() {
   local attempts="${1:-60}"
-  local args=()
-  mapfile -t args < <(ssh_args)
+  local i
   for ((i = 1; i <= attempts; i++)); do
-    if ssh "${args[@]}" "$SSH_USER@$SERVER_IP" true >/dev/null 2>&1; then
+    if ssh \
+      -i "$SSH_KEY" \
+      -o IdentitiesOnly=yes \
+      -o StrictHostKeyChecking=accept-new \
+      -o ConnectTimeout=10 \
+      "$SSH_USER@$SERVER_IP" true >/dev/null 2>&1; then
       return 0
     fi
     sleep 5
   done
   return 1
+}
+
+sha256_file() {
+  local path="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$path" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$path" | awk '{print $1}'
+  else
+    die "missing SHA-256 tool: install sha256sum or shasum"
+  fi
+}
+
+secure_delete() {
+  local path="$1"
+  [[ -e "$path" ]] || return 0
+  if command -v shred >/dev/null 2>&1; then
+    shred -u "$path" 2>/dev/null || rm -f "$path"
+  else
+    rm -f "$path"
+  fi
 }

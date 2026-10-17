@@ -129,7 +129,7 @@ export function createApp(config: AppConfig = loadConfig()) {
       ...new Map(
         latestFeed.map((cast) => [`${cast.fid}:${cast.signer}`, cast] as const),
       ).values(),
-    ].slice(0, 32);
+    ];
 
     const sources: Source[] = await Promise.all(
       pairs.map(async (cast) => {

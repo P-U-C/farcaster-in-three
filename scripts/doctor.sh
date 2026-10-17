@@ -16,9 +16,16 @@ check_command() {
 }
 
 printf 'IN THREE / DOCTOR\n\n'
-for command in bash curl jq ssh scp ssh-keygen node npm tar openssl sha256sum; do
+for command in bash curl jq ssh scp ssh-keygen node npm tar openssl; do
   check_command "$command"
 done
+
+if command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1; then
+  success "SHA-256"
+else
+  printf 'x sha256sum or shasum is required\n'
+  failures=$((failures + 1))
+fi
 
 node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || printf 0)"
 if (( node_major < 22 )); then

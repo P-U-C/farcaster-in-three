@@ -7,18 +7,28 @@
 ./farcaster node logs
 ```
 
-The first start downloads a public snapshot, decompresses it to `/srv/in-three/data/rocks`, and catches up from peers. Avoid restarting during snapshot extraction. A healthy, current node reports shard block delays in single digits; the CLI marks all delays under 30 seconds as ready.
+The first start downloads a public snapshot, decompresses it to `/srv/in-three/data/rocks`, and catches up from peers. This commonly takes hours. `node up` waits long enough to detect an immediate container failure, then returns success when bootstrap is still running. It does not require the HTTP API to be ready. Avoid restarting during snapshot extraction.
+
+While the API is offline, `node status` reports the container state, snapshot/database sizes, disk use, and recent bootstrap log lines. Rerun it without restarting the node. Once the API responds, a healthy, current node reports shard block delays in single digits; the CLI marks all delays under 30 seconds as ready.
 
 Disk growth is protocol dependent. Alert before free space falls below 15%. The 2 TiB default is a starting point, not a perpetual capacity guarantee.
 
 ## Client
 
 ```bash
+./farcaster client create
 ./farcaster client status
 ./farcaster client logs
 ```
 
-The public health route confirms the service can query its configured read node. Authenticated routes expose profile, storage, feed, and write actions.
+`client create` first checks the local Snapchain API. If bootstrap is incomplete, it exits before requesting the custody phrase or registering a key and tells the operator to rerun it later. On success, it prints both paths:
+
+```text
+read path     browser -> client service -> your Snapchain node
+write path    browser -> client service -> validator
+```
+
+The public health route confirms the service can query its configured read node. Authenticated routes expose profile, storage, feed, source filters, and write actions. Follow is available in the desktop sidebar and from a dedicated narrow-screen control.
 
 To use your own domain:
 
@@ -26,6 +36,15 @@ To use your own domain:
 2. Change `CLIENT_DOMAIN` in `/srv/in-three/.env`.
 3. Run `cd /srv/in-three && sudo docker compose up -d caddy`.
 4. Confirm the new certificate and then stop using the `sslip.io` hostname.
+
+## Cost
+
+The default Ashburn deployment is approximately **$265/month before IPv4, traffic, or tax** at the rates checked on 2026-10-17:
+
+- CCX33: $165.99/month
+- 2,048 GiB volume at $0.0484/GiB-month: about $99.12/month
+
+The provider console is authoritative. Confirm the displayed total before typing `PROVISION`, and use `./farcaster destroy` when the node is no longer needed.
 
 ## Upgrades
 
@@ -56,27 +75,33 @@ Snapchain database:
 
 App key:
 
-- Stored in `/srv/in-three/client.env`.
-- Backing it up preserves client identity but expands the compromise surface.
+- Stored in `/srv/in-three/client.env` after a successful deployment.
+- During setup, `.state/client.env.pending` stores the app key, registration status, and transaction hash with mode 0600.
+- If registration is submitted or confirmed and a later step fails, rerun `./farcaster client create`. It verifies the saved receipt and resumes deployment without asking for the phrase or sending a second registration.
+- The pending file is securely removed only after the public HTTPS health check passes.
+- Backing up the deployed app key preserves client identity but expands the compromise surface.
 - Losing it does not affect custody; register a new signer and revoke the old public key.
 
 Local state:
 
 - `.state/config` identifies cloud resources.
 - `.state/id_ed25519` operates the host.
-- Both are excluded from Git and should be backed up only to an encrypted operator vault.
+- `.state/client.env.pending` may temporarily hold a delegated key during recovery.
+- All are excluded from Git and should be backed up only to an encrypted operator vault.
 
 ## Failure modes
 
 | Symptom | First check |
 | --- | --- |
-| Node API unavailable | `./farcaster node logs` |
+| Node API unavailable during first start | `./farcaster node status`; wait while snapshot/database size changes |
+| Node container stopped | `./farcaster node logs` |
 | Block delay rising | UDP 3382 firewall, peer errors, disk saturation |
 | Snapshot loops | Free disk, volume mount, release notes |
 | Client 503 health | Snapchain container health and internal DNS |
 | Login fails | Correct deployment password; cookie domain/HTTPS |
 | Validator rejects write | FID storage, signer onchain state, clock, text limits |
-| TLS pending | A/AAAA resolution, ports 80/443, Caddy logs |
+| TLS pending | A/AAAA resolution, ports 80/443, Caddy logs; keep `.state/client.env.pending` and rerun create |
+| Setup interrupted after registration | Keep `.state/client.env.pending`; rerun `./farcaster client create` |
 | SSH fails after IP change | Update Hetzner firewall source CIDR in console |
 
 ## Teardown

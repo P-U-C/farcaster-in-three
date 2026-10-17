@@ -9,10 +9,11 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @in-three/client && npm run build --workspace @in-three/site",
-    "check": "npm run typecheck --workspace @in-three/client && npm run typecheck --workspace @in-three/site && npm test",
+    "check": "npm run typecheck --workspace @in-three/client && npm run typecheck --workspace @in-three/site && npm test && npm run test:scripts",
     "dev:client": "npm run dev --workspace @in-three/client",
     "dev:site": "npm run dev --workspace @in-three/site",
-    "test": "npm test --workspace @in-three/client"
+    "test": "npm test --workspace @in-three/client",
+    "test:scripts": "bash scripts/test/shell.test.sh"
   },
   "engines": {
     "node": ">=22"

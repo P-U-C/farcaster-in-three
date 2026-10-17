@@ -10,13 +10,15 @@ This project has not received an independent security audit.
 | --- | --- | --- | --- |
 | Hetzner token | Operator process | Create/delete cloud resources | Provision/destroy command only |
 | Custody mnemonic | Operator process memory | Own FID; register/revoke app keys | Signer ceremony only |
-| Ed25519 app key | `/srv/in-three/client.env` | Sign Farcaster messages for one FID | Until revoked |
+| Ed25519 app key | Local `.state/client.env.pending` during setup; then `/srv/in-three/client.env` | Sign Farcaster messages for one FID | Until revoked |
 | Client password | Human memory | Open the web client | User controlled |
 | Password hash | Client environment | Verify login | Deployment lifetime |
 | Session secret | Client environment | Sign HttpOnly cookies | Deployment lifetime |
 | SSH private key | Local `.state/` | Operate the host | Host lifetime |
 
-The setup utility reads the mnemonic from a TTY with echo disabled. It is not accepted through command arguments, environment variables, files, or HTTP. The utility derives the custody account, signs metadata and one OP transaction locally, then returns. JavaScript strings cannot be guaranteed to be zeroized; the process exit is the final memory boundary.
+The setup utility validates the client password and its confirmation before asking for the mnemonic. It reads the mnemonic from a TTY with echo disabled and does not accept it through command arguments, environment variables, files, or HTTP. The utility derives the custody account, signs metadata and one OP transaction locally, then returns. JavaScript strings cannot be guaranteed to be zeroized; the process exit is the final memory boundary.
+
+Immediately before transaction submission, the utility writes an owner-only pending file containing the delegated app key and recovery metadata, never the mnemonic or Ethereum private key. A submitted or confirmed transaction can therefore be resumed after receipt polling, network, build, or TLS failure. That file is removed only after the deployed HTTPS health check succeeds.
 
 ## Network exposure
 

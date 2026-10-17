@@ -666,28 +666,96 @@ code {
   line-height: 1.6;
 }
 
+.callout a {
+  color: var(--purple);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .architecture .section {
   padding-top: 94px;
   padding-bottom: 92px;
 }
 
 .system-map {
-  display: grid;
-  grid-template-columns: 1fr 105px 1fr 105px 1fr;
-  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
   margin-top: 62px;
 }
 
-.map-node {
+.map-ingress {
+  display: grid;
+  width: calc(50% + 52px);
+  grid-template-columns: minmax(0, 1fr) 104px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.route-row {
+  display: grid;
+  grid-template-columns: 135px minmax(0, 1fr) 104px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.map-node,
+.route-origin,
+.route-label {
   position: relative;
   display: flex;
-  min-height: 190px;
+  min-height: 154px;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-end;
   padding: 22px;
   border: 1px solid #625b67;
   background: #211e25;
+}
+
+.map-ingress .map-node {
+  min-height: 180px;
+}
+
+.route-label {
+  min-height: 154px;
+  justify-content: center;
+  border-color: #48424d;
+  background: transparent;
+}
+
+.route-label b {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+}
+
+.route-label span {
+  margin-top: 6px;
+  color: #918a96;
+  font-size: 9px;
+}
+
+.read-route .route-label {
+  color: var(--cyan);
+}
+
+.write-route .route-label {
+  color: var(--orange);
+}
+
+.route-origin {
+  border-color: #554e5a;
+  background: #29252e;
+}
+
+.route-origin strong {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.route-origin small {
+  margin-top: 5px;
+  color: #918a96;
+  font-size: 9px;
 }
 
 .map-node > span {
@@ -703,7 +771,8 @@ code {
   margin-bottom: 22px;
 }
 
-.map-node.operator svg {
+.map-node.operator svg,
+.map-node.client-service svg {
   color: var(--cyan);
 }
 
@@ -858,6 +927,67 @@ code {
 
 .chapter .code-block {
   margin: 22px 0;
+}
+
+.output-block {
+  margin: 22px 0;
+  border: 1px solid var(--ink);
+  background: #211e25;
+}
+
+.output-block > span {
+  display: block;
+  padding: 8px 12px;
+  border-bottom: 1px solid #4b4550;
+  color: var(--cyan);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.output-block pre {
+  overflow-x: auto;
+  margin: 0;
+  padding: 16px;
+  color: #ddd7e0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.walkthrough {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  border-top: 1px solid var(--ink);
+}
+
+.walkthrough li {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.walkthrough li > span {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  background: var(--purple);
+  color: white;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+}
+
+.walkthrough p {
+  margin: 2px 0 0;
+  color: #514c57;
+  font-size: 12px;
+  line-height: 1.65;
 }
 
 .checklist {
@@ -1133,6 +1263,14 @@ code {
   object-fit: cover;
   object-position: top;
   background: #f4f1eb;
+}
+
+.client-frame figcaption {
+  padding: 11px 14px;
+  border-top: 1px solid #554e5a;
+  color: #aaa4ae;
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .concepts {
@@ -1548,18 +1686,13 @@ code {
     min-height: 0;
   }
 
-  .system-map {
-    grid-template-columns: 1fr 65px 1fr;
+  .map-ingress {
+    width: 70%;
+    grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr);
   }
 
-  .system-map .map-node.validator {
-    grid-column: 3;
-    margin-top: 20px;
-  }
-
-  .system-map .map-arrow.write {
-    grid-column: 2;
-    grid-row: 2;
+  .route-row {
+    grid-template-columns: 115px minmax(0, 1fr) 70px minmax(0, 1fr);
   }
 
   .toc {
@@ -1706,22 +1839,30 @@ code {
   }
 
   .system-map {
-    grid-template-columns: 1fr;
     gap: 12px;
   }
 
-  .map-node {
-    min-height: 155px;
+  .map-ingress,
+  .route-row {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
-  .map-arrow,
-  .system-map .map-arrow.write {
+  .map-node,
+  .map-ingress .map-node,
+  .route-origin,
+  .route-label {
+    min-height: 128px;
+  }
+
+  .route-label {
+    min-height: auto;
+    padding: 12px 16px;
+  }
+
+  .map-arrow {
     display: none;
-  }
-
-  .system-map .map-node.validator {
-    grid-column: auto;
-    margin-top: 0;
   }
 
   .chapter {

@@ -47,6 +47,13 @@ Expected: all local prerequisite checks pass.
 
 Record each command's start/end time and any intervention not documented on the site.
 
+Expected handoffs:
+
+- Provision prints the server IP, future HTTPS URL, local state path, and `Next: ./farcaster node up`.
+- Node up may print `Snapchain bootstrap is running on the server` and return while the API remains offline. This is expected; use `node status` and do not restart during extraction.
+- Client create refuses before the node API is online without requesting the phrase or registering a signer.
+- A successful client deployment prints its URL plus separate browser -> client service -> node and browser -> client service -> validator paths.
+
 ### 3. Verify the node
 
 ```bash
@@ -55,7 +62,8 @@ Record each command's start/end time and any intervention not documented on the 
 
 Pass conditions:
 
-- Container is healthy.
+- During bootstrap, the container remains running and snapshot/database size advances between checks.
+- Once bootstrapped, the container is healthy.
 - Version is the tutorial's pinned version.
 - All reported shard delays are below 30 seconds.
 - At least 1.5 TB was available before sync.
@@ -91,11 +99,14 @@ From the HTTPS client:
 - [ ] Sign in on mobile.
 - [ ] Load the home feed while the public validator read endpoint is unavailable or blocked.
 - [ ] Publish a cast and save its public URL.
-- [ ] Follow an FID.
+- [ ] Follow an FID from desktop.
+- [ ] Follow an FID from a viewport narrower than 1080px.
 - [ ] Like a cast.
 - [ ] Recast a cast.
-- [ ] Exclude one client signer and confirm its casts disappear.
-- [ ] Re-include it and confirm they return.
+- [ ] Confirm every discovered signer appears in source controls.
+- [ ] Toggle an attributed app group and confirm casts from all of its keys disappear.
+- [ ] Toggle an unattributed exact signer key and confirm only that source disappears.
+- [ ] Re-include both and confirm their casts return.
 
 Check the cast's signer key against the key registered in the OP receipt.
 

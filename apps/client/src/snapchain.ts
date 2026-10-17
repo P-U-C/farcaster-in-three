@@ -32,6 +32,10 @@ function encodeQuery(params: Record<string, string | number | undefined>): strin
 export class SnapchainReader {
   readonly baseUrl: string;
   private readonly profileCache = new Map<number, { value: Profile; expiresAt: number }>();
+  private readonly signerEventCache = new Map<
+    number,
+    { value: Promise<{ events: OnChainSignerEvent[] }>; expiresAt: number }
+  >();
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
@@ -64,7 +68,18 @@ export class SnapchainReader {
   }
 
   signerEvents(fid: number): Promise<{ events: OnChainSignerEvent[] }> {
-    return requestJson(this.baseUrl, `/v1/onChainSignersByFid?fid=${fid}`);
+    const cached = this.signerEventCache.get(fid);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+    const value = requestJson<{ events: OnChainSignerEvent[] }>(
+      this.baseUrl,
+      `/v1/onChainSignersByFid?fid=${fid}`,
+    ).catch((error) => {
+      this.signerEventCache.delete(fid);
+      throw error;
+    });
+    this.signerEventCache.set(fid, { value, expiresAt: Date.now() + 60_000 });
+    return value;
   }
 
   async profile(fid: number): Promise<Profile> {

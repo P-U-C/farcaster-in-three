@@ -19,6 +19,11 @@ import {
   X,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  groupSources,
+  toggleSourceGroup,
+  type CastSource as Source,
+} from "./sources.js";
 
 interface Profile {
   fid: number;
@@ -36,13 +41,6 @@ interface Cast {
   signer: string;
   profile: Profile;
   embeds: Array<{ url?: string }>;
-}
-
-interface Source {
-  signer: string;
-  requestFid: number | null;
-  label: string;
-  isThisClient: boolean;
 }
 
 interface Me {
@@ -67,6 +65,7 @@ export function App() {
   const [loadingFeed, setLoadingFeed] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [followOpen, setFollowOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -80,7 +79,7 @@ export function App() {
       setCasts(feedData.casts);
       setAuth("signed-in");
       const sourceData = await api<{ sources: Source[] }>("/api/sources");
-      setSources(dedupeSources(sourceData.sources));
+      setSources(sourceData.sources);
     } catch (error) {
       if (isUnauthorized(error)) setAuth("signed-out");
       else setNotice(errorMessage(error));
@@ -126,7 +125,7 @@ export function App() {
           </button>
           <a
             className="nav-item"
-            href="https://p-u-c.github.io/farcaster-in-three/"
+            href="https://farcaster.permanentupperclass.com/"
             target="_blank"
             rel="noreferrer"
           >
@@ -178,6 +177,14 @@ export function App() {
             >
               <RefreshCw size={19} className={loadingFeed ? "spin" : ""} />
             </button>
+            <button
+              className="follow-button"
+              type="button"
+              onClick={() => setFollowOpen(true)}
+            >
+              <UserPlus size={18} />
+              <span>Follow</span>
+            </button>
             <button className="publish-button" type="button" onClick={() => setComposerOpen(true)}>
               <PenLine size={18} />
               <span>New cast</span>
@@ -222,9 +229,9 @@ export function App() {
         <SourcePanel
           sources={sources}
           excluded={excluded}
-          onToggle={(signer) => setExcluded(toggleSet(excluded, signer))}
+          onToggle={(signers) => setExcluded(toggleSourceGroup(excluded, signers))}
         />
-        <FollowPanel onDone={(message) => { setNotice(message); void load(); }} />
+        <FollowPanel inputId="follow-fid-rail" onDone={(message) => { setNotice(message); void load(); }} />
         <ProtocolPanel />
       </aside>
 
@@ -232,7 +239,7 @@ export function App() {
         <button className="active" type="button" title="Home"><Home size={21} /></button>
         <button type="button" title="Sources" onClick={() => setFiltersOpen(true)}><Filter size={21} /></button>
         <button className="mobile-compose" type="button" title="New cast" onClick={() => setComposerOpen(true)}><Plus size={23} /></button>
-        <button type="button" title="Refresh" onClick={() => void load()}><RefreshCw size={21} /></button>
+        <button type="button" title="Follow an FID" onClick={() => setFollowOpen(true)}><UserPlus size={21} /></button>
         <button type="button" title="Sign out" onClick={async () => { await api("/api/logout", { method: "POST" }); setAuth("signed-out"); }}><LogOut size={21} /></button>
       </nav>
 
@@ -252,8 +259,19 @@ export function App() {
         <MobileFilters
           sources={sources}
           excluded={excluded}
-          onToggle={(signer) => setExcluded(toggleSet(excluded, signer))}
+          onToggle={(signers) => setExcluded(toggleSourceGroup(excluded, signers))}
           onClose={() => setFiltersOpen(false)}
+        />
+      )}
+
+      {followOpen && (
+        <FollowSheet
+          onClose={() => setFollowOpen(false)}
+          onDone={(message) => {
+            setFollowOpen(false);
+            setNotice(message);
+            void load();
+          }}
         />
       )}
 
@@ -479,18 +497,30 @@ function SourcePanel({
 }: {
   sources: Source[];
   excluded: Set<string>;
-  onToggle: (signer: string) => void;
+  onToggle: (signers: string[]) => void;
 }) {
+  const groups = groupSources(sources);
   return (
-    <section className="rail-section">
-      <header><div><span className="eyebrow">CAST SOURCES</span><h2>Client filter</h2></div><Filter size={18} /></header>
+    <section className="rail-section source-panel">
+      <header><div><span className="eyebrow">CAST SOURCES</span><h2>Source filter</h2></div><Filter size={18} /></header>
+      <p className="source-help">Known apps are grouped by requesting FID. Unattributed keys remain separate.</p>
       <div className="source-list">
-        {sources.slice(0, 7).map((source) => {
-          const included = !excluded.has(source.signer);
+        {groups.map((group) => {
+          const signerKeys = group.signers.map((source) => source.signer);
+          const included = signerKeys.every((signer) => !excluded.has(signer));
+          const detail = group.requestFid
+            ? `FID ${group.requestFid} · ${signerKeys.length} ${signerKeys.length === 1 ? "key" : "keys"}`
+            : shortKey(signerKeys[0] ?? "");
           return (
-            <button type="button" key={source.signer} onClick={() => onToggle(source.signer)}>
-              <span className={source.isThisClient ? "source-icon own" : "source-icon"}>{source.label.charAt(0).toUpperCase()}</span>
-              <span><strong>{source.label}</strong><small>{source.requestFid ? `FID ${source.requestFid}` : shortKey(source.signer)}</small></span>
+            <button
+              type="button"
+              key={group.id}
+              title={group.requestFid ? undefined : signerKeys[0]}
+              aria-pressed={included}
+              onClick={() => onToggle(signerKeys)}
+            >
+              <span className={group.isThisClient ? "source-icon own" : "source-icon"}>{group.label.charAt(0).toUpperCase()}</span>
+              <span><strong>{group.label}</strong><small>{detail}</small></span>
               <i className={included ? "check on" : "check"}>{included && <Check size={13} />}</i>
             </button>
           );
@@ -503,15 +533,26 @@ function SourcePanel({
 function MobileFilters(props: Parameters<typeof SourcePanel>[0] & { onClose: () => void }) {
   return (
     <div className="mobile-sheet-backdrop" onMouseDown={props.onClose}>
-      <div className="mobile-sheet" onMouseDown={(event) => event.stopPropagation()}>
-        <header><strong>Client filter</strong><button type="button" title="Close" onClick={props.onClose}><X size={20} /></button></header>
+      <div className="mobile-sheet" role="dialog" aria-modal="true" aria-label="Source filter" onMouseDown={(event) => event.stopPropagation()}>
+        <header><strong>Source filter</strong><button type="button" title="Close" onClick={props.onClose}><X size={20} /></button></header>
         <SourcePanel sources={props.sources} excluded={props.excluded} onToggle={props.onToggle} />
       </div>
     </div>
   );
 }
 
-function FollowPanel({ onDone }: { onDone: (message: string) => void }) {
+function FollowSheet({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
+  return (
+    <div className="mobile-sheet-backdrop" onMouseDown={onClose}>
+      <div className="mobile-sheet follow-sheet" role="dialog" aria-modal="true" aria-label="Follow an FID" onMouseDown={(event) => event.stopPropagation()}>
+        <header><strong>Follow an FID</strong><button type="button" title="Close" onClick={onClose}><X size={20} /></button></header>
+        <FollowPanel inputId="follow-fid-sheet" onDone={onDone} />
+      </div>
+    </div>
+  );
+}
+
+function FollowPanel({ inputId, onDone }: { inputId: string; onDone: (message: string) => void }) {
   const [fid, setFid] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -523,8 +564,9 @@ function FollowPanel({ onDone }: { onDone: (message: string) => void }) {
         method: "POST",
         body: JSON.stringify({ targetFid: Number(fid), remove: false }),
       });
+      const followedFid = fid;
       setFid("");
-      onDone(`Following FID ${fid}`);
+      onDone(`Following FID ${followedFid}`);
     } catch (error) {
       onDone(errorMessage(error));
     } finally {
@@ -536,8 +578,8 @@ function FollowPanel({ onDone }: { onDone: (message: string) => void }) {
     <section className="rail-section follow-panel">
       <header><div><span className="eyebrow">NETWORK</span><h2>Follow an FID</h2></div><Users size={18} /></header>
       <form onSubmit={follow}>
-        <label htmlFor="follow-fid">FID</label>
-        <input id="follow-fid" inputMode="numeric" pattern="[0-9]*" value={fid} onChange={(event) => setFid(event.target.value)} placeholder="e.g. 37" />
+        <label htmlFor={inputId}>FID</label>
+        <input id={inputId} inputMode="numeric" pattern="[0-9]*" value={fid} onChange={(event) => setFid(event.target.value)} placeholder="e.g. 37" />
         <button type="submit" title="Follow FID" disabled={!fid || busy}>{busy ? <LoaderCircle className="spin" size={17} /> : <UserPlus size={17} />}</button>
       </form>
     </section>
@@ -548,7 +590,10 @@ function ProtocolPanel() {
   return (
     <section className="protocol-panel">
       <span className="status-dot" />
-      <div><strong>Protocol direct</strong><small>Read node → validator</small></div>
+      <div>
+        <strong>Read</strong><small>Client service → own node</small>
+        <strong>Write</strong><small>Client service → validator</small>
+      </div>
     </section>
   );
 }
@@ -590,17 +635,6 @@ async function api<T = unknown>(path: string, init?: RequestInit): Promise<T> {
     throw error;
   }
   return data as T;
-}
-
-function dedupeSources(sources: Source[]): Source[] {
-  return [...new Map(sources.map((source) => [source.signer, source])).values()];
-}
-
-function toggleSet(current: Set<string>, value: string): Set<string> {
-  const next = new Set(current);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
 }
 
 function isUnauthorized(error: unknown): boolean {

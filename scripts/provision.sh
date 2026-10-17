@@ -3,6 +3,8 @@ set -euo pipefail
 
 # shellcheck source=scripts/lib/common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
+# shellcheck source=scripts/lib/cloud-init.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/cloud-init.sh"
 
 LOCATION="ash"
 SERVER_TYPE="ccx33"
@@ -151,50 +153,7 @@ firewall_response="$(api POST /firewalls "$(jq -n   --arg name "$resource_name" 
   }')")"
 firewall_id="$(jq -r '.firewall.id' <<<"$firewall_response")"
 
-cloud_init="$(cat <<EOF
-#cloud-config
-package_update: true
-packages:
-  - docker.io
-  - docker-compose-v2
-  - curl
-  - jq
-users:
-  - default
-  - name: inthree
-    gecos: In Three operator
-    groups: [adm, sudo, docker]
-    shell: /bin/bash
-    sudo: "ALL=(ALL) NOPASSWD:ALL"
-    ssh_authorized_keys:
-      - "$public_key"
-write_files:
-  - path: /usr/local/sbin/mount-in-three-volume
-    permissions: "0755"
-    content: |
-      #!/usr/bin/env bash
-      set -euo pipefail
-      device="/dev/disk/by-id/scsi-0HC_Volume_$volume_id"
-      for attempt in $(seq 1 120); do
-        [[ -b "$device" ]] && break
-        sleep 2
-      done
-      [[ -b "$device" ]] || { echo "volume device not found" >&2; exit 1; }
-      mkdir -p /srv/in-three
-      if ! mountpoint -q /srv/in-three; then
-        mount "$device" /srv/in-three
-      fi
-      grep -qF "$device /srv/in-three" /etc/fstab ||
-        echo "$device /srv/in-three ext4 defaults,nofail 0 2" >> /etc/fstab
-      mkdir -p /srv/in-three/data/{rocks,snapshot,caddy-data,caddy-config}
-      chown -R inthree:inthree /srv/in-three
-runcmd:
-  - [systemctl, enable, --now, docker]
-  - [usermod, -aG, docker, inthree]
-  - [/usr/local/sbin/mount-in-three-volume]
-  - [sh, -c, "touch /var/lib/cloud/instance/in-three-ready"]
-EOF
-)"
+cloud_init="$(render_cloud_init "$public_key" "$volume_id")"
 
 note "Creating the Snapchain host"
 server_response="$(api POST /servers "$(jq -n   --arg name "$resource_name"   --arg type "$SERVER_TYPE"   --arg location "$LOCATION"   --arg user_data "$cloud_init"   --argjson ssh_key "$ssh_key_id"   --argjson firewall "$firewall_id"   '{
@@ -235,7 +194,7 @@ chmod 600 "$STATE_FILE"
 note "Waiting for cloud-init and the mounted data disk"
 load_state
 wait_for_ssh 72 || die "server exists at $server_ip but SSH did not become ready"
-for attempt in $(seq 1 72); do
+for ((attempt = 1; attempt <= 72; attempt++)); do
   if remote "sudo test -f /var/lib/cloud/instance/in-three-ready" >/dev/null 2>&1; then
     break
   fi

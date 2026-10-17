@@ -44,21 +44,29 @@ The reference client intentionally avoids a hosted feed API:
 4. Resolve user-data messages for display name, username, bio, and HTTPS profile image.
 5. Resolve onchain signer events for source attribution.
 
+Every discovered signer key remains available to the filter UI. Keys with the same decoded SignedKeyRequest `requestFid` are grouped into one attributed app control; unattributed keys retain independent exact-key controls.
+
 This is a transparent chronological reference feed, not a ranking engine. A production social client should add pagination, durable profile caches, topic/channel indexes, moderation, spam controls, and user-selectable ranking.
 
 ## Key ceremony
 
 ```text
+Client password + confirmation
+  -> scrypt hash and session secret
 BIP-39 phrase
   -> m/44'/60'/0'/0/0 custody account
   -> IdRegistry.idOf(address)
   -> random 32-byte Ed25519 secret
   -> SignedKeyRequest EIP-712 metadata
-  -> KeyGateway.add(1, publicKey, 1, metadata)
+  -> simulated KeyGateway.add(1, publicKey, 1, metadata)
+  -> owner-only pending app-key file
   -> one OP Mainnet receipt
-  -> app secret uploaded over SSH
+  -> confirmed app secret uploaded over SSH
+  -> pending file removed after HTTPS health check
   -> mnemonic discarded with local process
 ```
+
+Password confirmation happens before phrase input, app-key generation, or transaction submission. If the transaction is submitted but receipt polling or deployment fails, the pending file preserves its hash and app key. Rerunning `client create` checks that receipt and resumes rather than registering another key.
 
 The requesting FID in this standalone client is the user's own FID. This creates valid, decodable attribution without a centralized app backend holding a separate app-custody key. The exact Ed25519 public key remains the canonical client-instance identifier.
 

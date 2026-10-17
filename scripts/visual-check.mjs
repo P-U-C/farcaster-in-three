@@ -5,11 +5,14 @@ import { chromium } from "playwright";
 
 const root = new URL("../", import.meta.url).pathname;
 const password = "correct horse battery staple";
+const ownerFid = 910_001;
+const followedFids = Array.from({ length: 9 }, (_, index) => ownerFid + index + 1);
 const signer = `0x${"7a".repeat(32)}`;
 const profiles = new Map([
-  [37, { username: "balajis.eth", display: "Balaji", bio: "Network state builder" }],
-  [2, { username: "v", display: "Varun", bio: "Farcaster" }],
-  [5650, { username: "protocol", display: "Protocol Research", bio: "Open social systems" }],
+  [ownerFid, { username: "alex-node", display: "Alex Rivera", bio: "Runs a small protocol node" }],
+  [followedFids[0], { username: "mira-builds", display: "Mira Chen", bio: "Client developer" }],
+  [followedFids[1], { username: "devon-ops", display: "Devon Brooks", bio: "Infrastructure notes" }],
+  [followedFids[2], { username: "samira-data", display: "Samira Okafor", bio: "Open data systems" }],
 ]);
 
 function json(response, value) {
@@ -19,7 +22,7 @@ function json(response, value) {
 
 const mock = createServer((request, response) => {
   const url = new URL(request.url ?? "/", "http://localhost");
-  const fid = Number(url.searchParams.get("fid") ?? 37);
+  const fid = Number(url.searchParams.get("fid") ?? ownerFid);
 
   if (url.pathname === "/v1/info") {
     return json(response, {
@@ -38,10 +41,9 @@ const mock = createServer((request, response) => {
   }
   if (url.pathname === "/v1/linksByFid") {
     return json(response, {
-      messages: [
-        { data: { linkBody: { type: "follow", targetFid: 2 } } },
-        { data: { linkBody: { type: "follow", targetFid: 5650 } } },
-      ],
+      messages: followedFids.map((targetFid) => ({
+        data: { linkBody: { type: "follow", targetFid } },
+      })),
     });
   }
   if (url.pathname === "/v1/userDataByFid") {
@@ -56,33 +58,25 @@ const mock = createServer((request, response) => {
   }
   if (url.pathname === "/v1/castsByFid") {
     const base = 182_000_000 - fid;
-    const texts = {
-      37: [
-        "The network is the new institution. The practical question is whether you can operate your own edge.",
-        "A credible tutorial ends with a working artifact, not a screenshot.",
-      ],
-      2: [
-        "Protocol clients should be able to read state without renting access from an intermediary.",
-        "Shipping smaller, inspectable components makes the trust model legible.",
-      ],
-      5650: [
-        "Read locally, sign locally, submit directly. The architecture is the product.",
-        "Open protocols become real when the operational path is ordinary.",
-      ],
-    };
+    const texts = new Map([
+      [ownerFid, ["Node sync finished at 14:32 UTC. Both shard delays are under five seconds.", "Testing the first cast from the delegated app key."]],
+      [followedFids[0], ["The setup log now reports snapshot size while the HTTP API is unavailable."]],
+      [followedFids[1], ["Documented the exact recovery command after an interrupted signer transaction."]],
+      [followedFids[2], ["The mobile client can follow an FID without opening a desktop sidebar."]],
+    ]);
     return json(response, {
-      messages: (texts[fid] ?? ["A cast from Snapchain."]).map((text, index) => ({
+      messages: (texts.get(fid) ?? [`Synthetic test cast for FID ${fid}.`]).map((text, index) => ({
         data: {
           type: "MESSAGE_TYPE_CAST_ADD",
           fid,
           timestamp: base - index * 3000,
           castAddBody: {
             text,
-            embeds: index === 0 && fid === 37 ? [{ url: "https://snapchain.farcaster.xyz" }] : [],
+            embeds: index === 0 && fid === ownerFid ? [{ url: "https://snapchain.farcaster.xyz" }] : [],
           },
         },
         hash: `0x${(fid * 100 + index).toString(16).padStart(40, "0")}`,
-        signer: fid === 37 ? signer : `0x${fid.toString(16).padStart(64, "0")}`,
+        signer: fid === ownerFid ? signer : `0x${fid.toString(16).padStart(64, "0")}`,
       })),
     });
   }
@@ -105,7 +99,7 @@ const client = spawn("node", ["dist/server/server.js"], {
   env: {
     ...process.env,
     PORT: "3333",
-    FID: "37",
+    FID: String(ownerFid),
     SIGNER_PRIVATE_KEY: "11".repeat(32),
     SIGNER_PUBLIC_KEY: signer,
     PASSWORD_HASH: passwordHash,
@@ -160,11 +154,24 @@ try {
   await page.getByLabel("Client password").fill(password);
   await page.getByRole("button", { name: "Open client" }).click();
   await page.getByText("recent casts").waitFor();
+  const sourceCount = await page.locator(".context-rail .source-list button").count();
+  if (sourceCount !== followedFids.length + 1) {
+    throw new Error(`source controls: expected ${followedFids.length + 1}, received ${sourceCount}`);
+  }
   await page.screenshot({ path: "/tmp/in-three-client-desktop.png", fullPage: true });
   await assertNoOverflow(page, "client desktop");
 
+  await page.setViewportSize({ width: 900, height: 900 });
+  await page.reload({ waitUntil: "networkidle" });
+  if (!(await page.locator(".follow-button").isVisible())) {
+    throw new Error("follow control is not visible on a narrow desktop");
+  }
+
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload({ waitUntil: "networkidle" });
+  await page.locator('.mobile-nav button[title="Follow an FID"]').click();
+  await page.getByRole("dialog", { name: "Follow an FID" }).waitFor();
+  await page.getByRole("dialog", { name: "Follow an FID" }).getByTitle("Close").click();
   await page.screenshot({ path: "/tmp/in-three-client-mobile.png", fullPage: true });
   await assertNoOverflow(page, "client mobile");
 

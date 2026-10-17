@@ -26,6 +26,8 @@ The cast text refers to tutorials `[1,2,3,4]`, but its public cast payload conta
 - HTTP API: https://snapchain.farcaster.xyz/reference/httpapi/httpapi
 - Message submission: https://snapchain.farcaster.xyz/reference/httpapi/message
 
+The exact pinned image was inspected on 2026-10-17: it includes `/usr/bin/bash` and does not include `curl` or `wget`. The Compose health check therefore uses Bash's `/dev/tcp` support and does not depend on a removed HTTP utility.
+
 Resource guidance from the release documentation:
 
 - 4 CPU cores
@@ -35,6 +37,18 @@ Resource guidance from the release documentation:
 - HTTP 3381, QUIC gossip 3382, gRPC 3383
 
 This deployment keeps HTTP/gRPC private and publishes gossip. The client runs on the same Docker network, and Snapchain retains outbound peer access.
+
+## Infrastructure pricing
+
+Checked on 2026-10-17:
+
+- Hetzner 2026 price adjustment: https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/
+- Hetzner Cloud volume pricing: https://www.hetzner.com/cloud/
+- Ashburn CCX33: $165.99/month before tax
+- Volumes: $0.0484/GiB-month; 2,048 GiB is approximately $99.12/month
+- Default recurring estimate: approximately $265/month before IPv4, traffic, or tax
+
+The provider console is authoritative because region, tax, and future pricing can differ.
 
 ## Protocol and contracts
 

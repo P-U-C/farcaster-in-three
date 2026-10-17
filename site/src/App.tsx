@@ -109,7 +109,7 @@ export function App() {
         <section className="quickstart section" id="quickstart">
           <SectionLabel number="00" text="QUICKSTART" />
           <div className="section-heading">
-            <h2>Clone once.<br />Then count to three.</h2>
+            <h2>Run these three<br />commands.</h2>
             <p>The operator command runs on macOS or Linux. It provisions a fresh host, starts an unauthenticated Snapchain read node, and deploys the client behind HTTPS.</p>
           </div>
 
@@ -133,8 +133,8 @@ export function App() {
             ))}
           </div>
 
-          <Callout tone="green" icon={<CheckCircle2 size={22} />} title="What success looks like">
-            Command 2 prints an HTTPS URL. Sign in, read casts fetched by your node, publish one, follow an FID, and react. No Neynar, Pinata, or hosted Farcaster data API sits in the path.
+          <Callout tone="green" icon={<CheckCircle2 size={22} />} title="What each command returns">
+            Provision prints the server IP, future client URL, and local state path. Node up either reports an online API or a resumable snapshot bootstrap. Client create waits for that API, then prints the live HTTPS URL and the separate read and write paths.
           </Callout>
         </section>
 
@@ -142,23 +142,37 @@ export function App() {
           <div className="section narrow">
             <SectionLabel number="01" text="SYSTEM MAP" light />
             <div className="section-heading light">
-              <h2>Read here.<br />Write there.</h2>
-              <p>A read node follows and stores consensus state. A validator can place a signed message into its mempool. The client deliberately uses each for the job it can guarantee.</p>
+              <h2>Two paths,<br />one client service.</h2>
+              <p>The browser talks only to the deployed client service. That service reads local Snapchain state and sends signed writes to a validator; the validator is never a read dependency.</p>
             </div>
             <div className="system-map">
-              <div className="map-node operator">
-                <span>YOU</span><Terminal size={27} /><strong>Browser client</strong><small>HTTPS + session cookie</small>
+              <div className="map-ingress">
+                <div className="map-node operator">
+                  <span>YOU</span><Terminal size={27} /><strong>Browser</strong><small>HTTPS + session cookie</small>
+                </div>
+                <div className="map-arrow"><span>request</span><ArrowRight /><span>HTTPS</span></div>
+                <div className="map-node client-service">
+                  <span>YOUR HOST</span><Cloud size={27} /><strong>Client service</strong><small>auth · feed · message signing</small>
+                </div>
               </div>
-              <div className="map-arrow"><span>read</span><ArrowRight /><span>JSON</span></div>
-              <div className="map-node read-node">
-                <span>YOURS</span><Server size={27} /><strong>Snapchain read node</strong><small>full state · ports private</small>
+              <div className="route-row read-route">
+                <div className="route-label"><b>READ PATH</b><span>Protocol data</span></div>
+                <div className="route-origin"><strong>Client service</strong><small>HTTP JSON query</small></div>
+                <div className="map-arrow"><ArrowRight /></div>
+                <div className="map-node read-node">
+                  <span>YOURS</span><Server size={27} /><strong>Snapchain read node</strong><small>full state · private ports</small>
+                </div>
               </div>
-              <div className="map-arrow write"><span>write</span><ArrowRight /><span>protobuf</span></div>
-              <div className="map-node validator">
-                <span>NETWORK</span><Network size={27} /><strong>Validator</strong><small>mempool · consensus</small>
+              <div className="route-row write-route">
+                <div className="route-label"><b>WRITE PATH</b><span>Signed messages</span></div>
+                <div className="route-origin"><strong>Client service</strong><small>binary protobuf</small></div>
+                <div className="map-arrow write"><ArrowRight /></div>
+                <div className="map-node validator">
+                  <span>NETWORK</span><Network size={27} /><strong>Farcaster validator</strong><small>mempool · consensus</small>
+                </div>
               </div>
             </div>
-            <p className="architecture-note"><b>Why not submit to the read node?</b> It can gossip a write, but it has no mempool. Direct validator submission survives a gossip miss and still keeps reads sovereign.</p>
+            <p className="architecture-note"><b>Why not submit to the read node?</b> It can gossip a write, but it has no mempool. Direct validator submission survives a gossip miss and still keeps reads on infrastructure you operate.</p>
           </div>
         </section>
 
@@ -176,6 +190,7 @@ export function App() {
               <a href="#compute">0 · Compute</a>
               <a href="#node">1 · Read node</a>
               <a href="#client">2 · Client</a>
+              <a href="#first-cast">First cast</a>
               <a href="#operate">Operate it</a>
               <a href="#keys">Key safety</a>
             </aside>
@@ -203,17 +218,29 @@ export function App() {
                   <Fact label="PRIVATE" value="3381 + 3383" detail="HTTP and gRPC bound to loopback" />
                 </div>
                 <p>Provisioning generates a dedicated local SSH key, limits SSH to your detected IP, and opens only HTTP/HTTPS plus QUIC gossip globally. The generated state file and key live under <code>.state/</code>, are mode 0600, and are excluded from Git.</p>
-                <Callout tone="orange" icon={<Cloud size={21} />} title="Cost boundary">
-                  The server and 2 TiB block volume are recurring cloud resources. Hetzner shows the exact rate in your console. Run <code>./farcaster destroy</code> when the experiment is over.
+                <OutputBlock lines={[
+                  "Compute is ready at 203.0.113.10",
+                  "client URL   https://203-0-113-10.sslip.io (activated by command 2)",
+                  "local state  .state/config",
+                  "Next: ./farcaster node up",
+                ]} />
+                <Callout tone="orange" icon={<Cloud size={21} />} title="Approximate recurring cost">
+                  At Hetzner&apos;s current Ashburn list rates, the default CCX33 is $165.99/month and 2,048 GiB of volume storage is about $99.12/month: roughly $265/month before IPv4, traffic, or tax. Check the <a href="https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/" target="_blank" rel="noreferrer">server rate</a> and <a href="https://www.hetzner.com/cloud/" target="_blank" rel="noreferrer">volume rate</a> in your console before typing <code>PROVISION</code>. Run <code>./farcaster destroy</code> when finished.
                 </Callout>
               </Chapter>
 
               <Chapter id="node" number="1" title="Start the read node">
                 <p>The second command checks for at least 1.5 TB free, fetches the validator set from the pinned Snapchain commit, verifies its SHA-256 checksum, pulls the x86-64 image by digest, and starts snapshot sync.</p>
                 <CodeBlock code="./farcaster node up" label="COMMAND 1" />
-                <p>The initial snapshot is several hundred gigabytes. Downloading, decompressing, and replaying newer blocks normally takes hours. The process continues after your SSH session ends.</p>
+                <p>The initial snapshot is several hundred gigabytes. Downloading, decompressing, and replaying newer blocks commonly takes hours. Node up returns after confirming that the container is running; closing your terminal does not stop bootstrap.</p>
+                <OutputBlock lines={[
+                  "Snapchain bootstrap is running on the server",
+                  "HTTP API      waiting for snapshot bootstrap",
+                  "Check progress: ./farcaster node status",
+                  "When the API is online, rerun: ./farcaster client create",
+                ]} />
                 <CodeBlock code="./farcaster node status" label="WATCH SYNC" />
-                <p><b>Ready means every reported shard delay is under 30 seconds.</b> You can deploy the client earlier, but the home feed will only be current when the node catches up.</p>
+                <p><b>Ready means every reported shard delay is under 30 seconds.</b> Command 2 refuses to register an app key until the local HTTP API is online, so an interrupted bootstrap is resumed by the node container without exposing the recovery phrase.</p>
                 <div className="source-note">
                   <FileCheck2 size={20} />
                   <p><b>Version lock:</b> Snapchain 0.14.3, release commit <code>fc87f268…</code>, validator manifest <code>ca9912d…</code>. Upgrades should be reviewed, re-pinned, and tested, never silently pulled from <code>latest</code>.</p>
@@ -221,15 +248,36 @@ export function App() {
               </Chapter>
 
               <Chapter id="client" number="2" title="Issue a client key">
-                <p>The final command builds the setup utility locally and asks for the custody recovery phrase in a no-echo prompt. It derives account zero at <code>m/44&apos;/60&apos;/0&apos;/0/0</code>, resolves the FID on OP Mainnet, checks storage, and creates a fresh Ed25519 key.</p>
+                <p>The final command first asks you to enter and confirm the client password. Only after those values match does it request the custody recovery phrase in a no-echo prompt. It derives account zero at <code>m/44&apos;/60&apos;/0&apos;/0/0</code>, resolves the FID on OP Mainnet, checks storage, and creates a fresh Ed25519 key.</p>
                 <CodeBlock code="./farcaster client create" label="COMMAND 2" />
                 <div className="key-ceremony">
-                  <div><span>1</span><strong>Phrase enters local memory</strong><small>never an argument, environment variable, file, log, or network request</small></div>
-                  <div><span>2</span><strong>App signer is generated</strong><small>32-byte Ed25519 key; metadata identifies its requesting FID</small></div>
-                  <div><span>3</span><strong>KeyGateway.add is simulated</strong><small>you type REGISTER before one OP Mainnet transaction is sent</small></div>
-                  <div><span>4</span><strong>Only the app key deploys</strong><small>the custody phrase is discarded; the signer remains independently revocable</small></div>
+                  <div><span>1</span><strong>Password is validated</strong><small>confirmation happens before a key is generated or a transaction can be sent</small></div>
+                  <div><span>2</span><strong>Phrase enters local memory</strong><small>never an argument, environment variable, file, log, or network request</small></div>
+                  <div><span>3</span><strong>App signer is prepared</strong><small>the pending deployment receipt is written before KeyGateway.add is submitted</small></div>
+                  <div><span>4</span><strong>Registration is confirmed</strong><small>one OP transaction authorizes the signer; only that revocable app key deploys</small></div>
                 </div>
-                <p>The generated web password is scrypt-hashed. Caddy obtains TLS for the printed <code>sslip.io</code> hostname, and the app key file is owner-readable only. Replace that hostname with your own domain in <code>/srv/in-three/.env</code> whenever you are ready.</p>
+                <OutputBlock lines={[
+                  "Client is live",
+                  "URL           https://203-0-113-10.sslip.io",
+                  "read path     browser -> client service -> your Snapchain node",
+                  "write path    browser -> client service -> validator",
+                  "custody key   not stored",
+                ]} />
+                <p>The password is scrypt-hashed. Caddy obtains TLS for the printed <code>sslip.io</code> hostname, and the app key file is owner-readable only. Replace that hostname with your own domain in <code>/srv/in-three/.env</code> whenever you are ready.</p>
+                <div className="source-note">
+                  <FileCheck2 size={20} />
+                  <p><b>If setup fails after submission:</b> do not register another key. The transaction hash and app key remain in <code>.state/client.env.pending</code>. Fix the reported network or deployment error and rerun <code>./farcaster client create</code>; it checks the saved receipt and resumes. The pending file is removed only after the HTTPS health check passes.</p>
+                </div>
+              </Chapter>
+
+              <Chapter id="first-cast" number="F" title="Publish the first cast">
+                <ol className="walkthrough">
+                  <li><span>1</span><p>Open the HTTPS URL printed by command 2 and sign in with the client password you just set.</p></li>
+                  <li><span>2</span><p>Select <b>New cast</b>, enter plain text, and optionally add one HTTPS embed URL.</p></li>
+                  <li><span>3</span><p>Select <b>Publish</b>. The client signs a Snapchain message with the delegated app key and submits its binary protobuf to a validator.</p></li>
+                  <li><span>4</span><p>Confirm the success notice, copy the returned cast hash, and refresh the feed after your read node observes the message.</p></li>
+                  <li><span>5</span><p>Open another Farcaster client and verify the same cast publicly. Save that public cast URL for the independent voucher.</p></li>
+                </ol>
               </Chapter>
 
               <Chapter id="operate" number="O" title="Operate what you own">
@@ -240,7 +288,7 @@ export function App() {
                   <div><code>./farcaster client logs</code><span>follow app and proxy logs</span></div>
                   <div><code>./farcaster destroy</code><span>delete all billable resources</span></div>
                 </div>
-                <p>Back up the delegated app key only if you need continuity. Losing it means registering another small OP transaction. Losing the Snapchain database means downloading a new verified snapshot. Neither loss compromises custody.</p>
+                <p>Back up the delegated app key only if you need continuity. Losing it means registering another small OP transaction. Losing the Snapchain database means downloading a new verified snapshot. If provisioning aborts, the cleanup trap removes any cloud resources created during that run; check the provider console before retrying. None of these failures compromises custody.</p>
               </Chapter>
 
               <Chapter id="keys" number="S" title="The key boundary">
@@ -259,21 +307,22 @@ export function App() {
             <SectionLabel number="03" text="REFERENCE CLIENT" light />
             <div className="showcase-copy">
               <div>
-                <h2>Not a demo.<br />A working client.</h2>
+                <h2>Reference client,<br />included.</h2>
                 <p>The home feed is assembled from follows and casts on your read node. Every write is signed by your delegated key and encoded with the official Farcaster message builders.</p>
               </div>
               <ul>
                 <li><Check size={16} /> Read a chronological network feed</li>
                 <li><Check size={16} /> Publish casts with optional embeds</li>
                 <li><Check size={16} /> Follow FIDs, like, and recast</li>
-                <li><Check size={16} /> Include or exclude exact client signer keys</li>
-                <li><Check size={16} /> Resolve signed-key request attribution</li>
+                <li><Check size={16} /> Include or exclude every discovered source</li>
+                <li><Check size={16} /> Group attributed keys by app; expose unknown keys exactly</li>
               </ul>
             </div>
-            <div className="client-frame">
+            <figure className="client-frame">
               <div className="browser-bar"><i /><i /><i /><span>your-node.sslip.io</span></div>
-              <img src="./client-preview.webp" alt="In Three client showing a Farcaster feed and client-source filters" />
-            </div>
+              <img src="./client-preview.webp" alt="Illustrative In Three client preview using synthetic profiles and casts" />
+              <figcaption>Illustrative preview using synthetic accounts and casts. A deployed client reads live protocol data from your own node.</figcaption>
+            </figure>
           </div>
         </section>
 
@@ -294,7 +343,7 @@ export function App() {
 
           <div className="client-filter-explainer">
             <Filter size={28} />
-            <div><h3>What “filter by client” actually means</h3><p>A cast carries the public key that signed it, not a free-form client name. In Three filters exact signer keys. When the signer’s onchain metadata contains a signed key request, it decodes <code>requestFid</code> and resolves that FID’s profile for a human label. Unknown keys stay visible as shortened fingerprints.</p></div>
+            <div><h3>What “filter by client” actually means</h3><p>A cast carries the public key that signed it, not a free-form client name. In Three exposes every discovered key, groups keys sharing a decoded SignedKeyRequest <code>requestFid</code>, and toggles the whole attributed app together. When attribution is unavailable, the exact signer remains an independent fingerprint control.</p></div>
           </div>
 
           <div className="references">
@@ -346,8 +395,8 @@ export function App() {
         </section>
 
         <section className="final-cta">
-          <span className="eyebrow">OWN YOUR SOCIAL EDGE</span>
-          <h2>Three commands.<br />No data landlord.</h2>
+          <span className="eyebrow">RUN IT, THEN VERIFY IT</span>
+          <h2>Start with the<br />quickstart.</h2>
           <div>
             <a href="#quickstart">Run the quickstart <Terminal size={18} /></a>
             <a href={REPO} target="_blank" rel="noreferrer">Read the source <Github size={18} /></a>
@@ -383,6 +432,10 @@ function Command({ number, label, command }: { number: string; label: string; co
 function CodeBlock({ code, label }: { code: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return <div className="code-block">{label && <span>{label}</span>}<code><i>$</i> {code}</code><button type="button" title="Copy command" onClick={async () => { await navigator.clipboard.writeText(code); setCopied(true); window.setTimeout(() => setCopied(false), 1400); }}>{copied ? <Check size={16} /> : <Clipboard size={16} />}</button></div>;
+}
+
+function OutputBlock({ lines }: { lines: string[] }) {
+  return <div className="output-block"><span>EXPECTED OUTPUT</span><pre>{lines.join("\n")}</pre></div>;
 }
 
 function SectionLabel({ number, text, light = false }: { number: string; text: string; light?: boolean }) {

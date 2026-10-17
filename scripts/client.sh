@@ -4,39 +4,75 @@ set -euo pipefail
 # shellcheck source=scripts/lib/common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
+pending_value() {
+  local key="$1"
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$PENDING_CLIENT_ENV"
+}
+
 create_client() {
   load_state
-  for command in node npm tar scp ssh curl; do
+  for command in node npm tar scp ssh curl awk; do
     require_command "$command"
   done
 
-  note "Building the audited setup utility"
+  if ! remote "curl -fsS --max-time 8 http://127.0.0.1:3381/v1/info" >/dev/null 2>&1; then
+    printf 'Snapchain is still downloading or loading its initial snapshot.\n'
+    printf 'No app key has been registered and no custody phrase is needed yet.\n\n'
+    printf 'Check progress: ./farcaster node status\n'
+    printf 'Then rerun:     ./farcaster client create\n'
+    exit 2
+  fi
+
+  note "Building the local setup utility"
   (
     cd "$IN_THREE_ROOT"
     npm ci --silent
     npm run build --workspace @in-three/client --silent
   )
 
-  secret_file="$(mktemp)"
-  archive="$(mktemp --suffix=.tar.gz)"
+  mkdir -p "$STATE_DIR"
+  chmod 700 "$STATE_DIR"
+  PENDING_CLIENT_ENV="$STATE_DIR/client.env.pending"
+  archive="$(mktemp)"
   cleanup() {
-    if command -v shred >/dev/null 2>&1; then
-      shred -u "$secret_file" 2>/dev/null || rm -f "$secret_file"
-    else
-      rm -f "$secret_file"
-    fi
     rm -f "$archive"
   }
   trap cleanup EXIT
-  rm -f "$secret_file"
 
-  node "$IN_THREE_ROOT/apps/client/dist/server/setup.js"     --output "$secret_file"     --read-node-url "http://snapchain:3381"     --cookie-secure
+  if [[ -f "$PENDING_CLIENT_ENV" ]]; then
+    chmod 600 "$PENDING_CLIENT_ENV"
+    registration_status="$(pending_value SIGNER_REGISTRATION_STATUS)"
+    case "$registration_status" in
+      confirmed)
+        note "Resuming deployment with the confirmed app key in .state/client.env.pending"
+        ;;
+      submitted)
+        note "Checking the saved signer-registration transaction"
+        node "$IN_THREE_ROOT/apps/client/dist/server/setup.js" \
+          --recover \
+          --output "$PENDING_CLIENT_ENV"
+        ;;
+      *)
+        die "incomplete setup file at $PENDING_CLIENT_ENV; inspect the last setup error before removing it"
+        ;;
+    esac
+  else
+    node "$IN_THREE_ROOT/apps/client/dist/server/setup.js" \
+      --output "$PENDING_CLIENT_ENV" \
+      --read-node-url "http://snapchain:3381" \
+      --cookie-secure
+  fi
+
+  [[ "$(pending_value SIGNER_REGISTRATION_STATUS)" == "confirmed" ]] ||
+    die "app-key registration is not confirmed; rerun ./farcaster client create"
 
   note "Packaging the exact client source and lockfile"
-  tar -C "$IN_THREE_ROOT" -czf "$archive"     package.json package-lock.json .dockerignore     apps/client site/package.json
+  tar -C "$IN_THREE_ROOT" -czf "$archive" \
+    package.json package-lock.json .dockerignore \
+    apps/client site/package.json
 
   copy_to "$archive" /tmp/in-three-source.tar.gz
-  copy_to "$secret_file" /tmp/in-three-client.env
+  copy_to "$PENDING_CLIENT_ENV" /tmp/in-three-client.env
 
   note "Installing the delegated app key with owner-only permissions"
   remote "mkdir -p /srv/in-three/source && rm -rf /srv/in-three/source/*"
@@ -48,19 +84,23 @@ create_client() {
   note "Building and starting the client behind automatic TLS"
   remote "cd /srv/in-three && sudo docker compose up -d --build client caddy"
 
-  for attempt in $(seq 1 36); do
+  local attempt
+  for ((attempt = 1; attempt <= 36; attempt++)); do
     if curl -fsS --max-time 8 "https://$CLIENT_DOMAIN/api/health" >/dev/null 2>&1; then
-      success "Your sovereign client is live"
+      success "Client is live"
       printf '  URL           https://%s\n' "$CLIENT_DOMAIN"
-      printf '  read path     browser -> client -> your Snapchain node\n'
-      printf '  write path    app key -> validator -> Snapchain consensus\n'
+      printf '  read path     browser -> client service -> your Snapchain node\n'
+      printf '  write path    browser -> client service -> validator\n'
       printf '  custody key   not stored\n'
+      secure_delete "$PENDING_CLIENT_ENV"
       return
     fi
     sleep 5
   done
 
   remote "cd /srv/in-three && sudo docker compose logs --tail=100 client caddy" >&2 || true
+  printf '\nThe confirmed app key remains at %s.\n' "$PENDING_CLIENT_ENV" >&2
+  printf 'Fix the reported deployment issue, then rerun ./farcaster client create.\n' >&2
   die "the containers started but HTTPS did not become healthy"
 }
 
