@@ -51,25 +51,38 @@ Checked on 2026-10-17:
 
 The provider console is authoritative because region, tax, and future pricing can differ. The paid deployment preflight reads the live `ccx33` catalog for `ash` and performs a create/delete SSH-key probe so a read-only project token fails before x402 payment. Server, volume, firewall, and SSH-key resources use a shared random deployment label for idempotent lookup and recovery.
 
-## Celo agent payments
+## Agent payments
 
 Verified on 2026-10-17:
 
-- usebuy.ai release: <code>@celo/buy@0.8.3</code>
-- Seller gateway: <code>@celo/buy-gateway@0.8.3</code>
-- Facilitator client: <code>@celo/buy-facilitator@0.8.3</code>
-- npm package source/support: https://github.com/celo-org/buy-skill
+- usebuy.ai buyer release: <code>@celo/buy@0.8.3</code>
+- x402 server/buyer packages: <code>@x402/core@2.28.0</code>, <code>@x402/evm@2.28.0</code>, <code>@x402/hono@2.28.0</code>, <code>@x402/fetch@2.28.0</code>
+- Coinbase authentication: <code>@coinbase/cdp-sdk@1.59.0</code>
+- x402 protocol and v2 specification: https://github.com/x402-foundation/x402
+- usebuy.ai source/support: https://github.com/celo-org/buy-skill
 - Buyer documentation: https://usebuy.ai/docs
 - Celo x402 facilitator guide: https://docs.celo.org/build/agents/x402
 - Celo discovery guide: https://docs.celo.org/build/agents/x402-get-discovered
-- Mainnet facilitator API: https://api.x402.celo.org
-- Facilitator dashboard and API-key issuance: https://x402.celo.org
-- Network: Celo mainnet, CAIP-2 <code>eip155:42220</code>
-- Payment asset: USDC, 6 decimals, <code>0xcebA9300f2b948710d2653dD7B07f33A8B32118C</code>
+- Celo facilitator API/dashboard: https://api.x402.celo.org and https://x402.celo.org
+- Coinbase x402 facilitator: https://docs.cdp.coinbase.com/x402/welcome
+- Celo network: <code>eip155:42220</code>; USDC <code>0xcebA9300f2b948710d2653dD7B07f33A8B32118C</code>
+- Base network: <code>eip155:8453</code>; USDC <code>0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913</code>
 
-Buy 0.8.3 supports quote-before-pay CLI and MCP flows, local wallet signing, receipt resolution, and a declarative seller gateway. The deployment route is priced at 25 USDC by default and uses the same exact Celo settlement path; the recurring Hetzner bill remains outside x402. The gateway settles before calling its upstream, so a paid request can still receive an upstream error and must not be blindly retried.
+The x402 v2 response can advertise multiple payment requirements for one resource. In Three returns equal Celo and Base USDC offers. Buy 0.8.3 supports quote-before-pay CLI/MCP flows, local signing, and receipt resolution, but its managed wallet selects Celo. The deployment route is priced at 25 USDC by default; the recurring Hetzner bill remains outside x402. Settlement happens before the upstream operation, so a paid request can still receive an upstream error and must not be blindly retried.
 
-The public usebuy.ai CPU service currently sells one-hour Google Cloud leases and caps renewal at 24 hours from creation. That is not a persistent storage product and cannot host the long-lived multi-terabyte Snapchain database honestly. In Three uses buy for discovery, Celo payment, access control, and agent automation while retaining its persistent node host.
+The public usebuy.ai CPU service currently sells one-hour Google Cloud leases and caps renewal at 24 hours from creation. That cannot host a long-lived multi-terabyte Snapchain database. In Three uses buy for discovery, Celo payment, access control, and agent automation while retaining its persistent node host.
+
+## Revenue split
+
+Verified on 2026-10-17:
+
+- SDK: <code>@0xsplits/splits-sdk@6.7.0</code>
+- Split V2 SDK: https://splits.org/protocol/docs/sdk/splits-v2/
+- Split V2 contracts: https://splits.org/protocol/docs/core/split-v2/
+- Supported chains: https://splits.org/protocol/help/chains/
+- Split Factory V2.2 on Celo and Base: <code>0x6B9118074aB15142d7524E8c4ea8f62A3Bdb98f1</code>
+
+Setup uses the same recipients, immutable owner, Push split type, version, and salt on each chain, producing one deterministic address. The split allocates 95% to the operator and 5% to P-U-C with a 0.1% distributor incentive. Distribution is permissionless. No bridge runs in the paid request.
 
 ## Protocol and contracts
 

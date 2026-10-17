@@ -12,14 +12,14 @@ pending_value() {
 write_client_env() {
   local source_env="$1"
   local deployment_env="$2"
-  awk '!/^(SIGNER_REGISTRATION_|AGENT_|BUY_)/' "$source_env" > "$deployment_env"
+  awk '!/^(SIGNER_REGISTRATION_|REVENUE_|AGENT_|BUY_|CDP_)/' "$source_env" > "$deployment_env"
   chmod 600 "$deployment_env"
 }
 
 write_agent_gateway_env() {
   local source_env="$1"
   local gateway_env="$2"
-  awk '/^(AGENT_|BUY_)/' "$source_env" > "$gateway_env"
+  awk '/^(AGENT_|BUY_|CDP_)/' "$source_env" > "$gateway_env"
   chmod 600 "$gateway_env"
 }
 
@@ -33,9 +33,20 @@ write_agent_access_env() {
 
 pending_has_agent_config() {
   local key
-  for key in AGENT_PUBLIC_ORIGIN AGENT_WRITE_TOKEN BUY_PAY_TO BUY_FACILITATOR_API_KEY; do
+  for key in \
+    AGENT_PUBLIC_ORIGIN \
+    AGENT_WRITE_TOKEN \
+    BUY_OPERATOR_PAY_TO \
+    BUY_PAY_TO \
+    BUY_ROYALTY_PAY_TO \
+    BUY_ROYALTY_BPS \
+    BUY_FACILITATOR_API_KEY \
+    CDP_API_KEY_ID \
+    CDP_API_KEY_SECRET_B64; do
     [[ -n "$(pending_value "$key")" ]] || return 1
   done
+  [[ "$(pending_value REVENUE_CELO_STATUS)" == "confirmed" ]] || return 1
+  [[ "$(pending_value REVENUE_BASE_STATUS)" == "confirmed" ]] || return 1
 }
 
 node_api_ready() {
@@ -183,6 +194,8 @@ create_client() {
       printf '  URL           https://%s\n' "$CLIENT_DOMAIN"
       printf '  agent API     https://%s/.well-known/agent.json\n' "$CLIENT_DOMAIN"
       printf '  agent access  %s\n' "$AGENT_ACCESS_ENV"
+      printf '  payment rails Celo USDC + Base USDC\n'
+      printf '  settlement    95%% operator + 5%% P-U-C at %s\n' "$(pending_value BUY_PAY_TO)"
       printf '  read path     browser or paid agent -> client service -> your Snapchain node\n'
       printf '  write path    authorized paid agent -> client service -> validator\n'
       printf '  custody key   not stored\n'

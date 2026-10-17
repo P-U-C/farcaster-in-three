@@ -131,7 +131,7 @@ export function App() {
             </div>
             <div>
               <CodeBlock code="./farcaster deploy --service https://YOUR_BROKER" label="FULL DEPLOY" />
-              <small>The SSH private key and custody phrase stay local. An interrupted payment resumes from saved state without buying again.</small>
+              <small>Celo is the default rail; add <code>--payment-network base</code> for Base. Keys stay local, and interrupted payments resume without buying again.</small>
             </div>
           </div>
 
@@ -146,7 +146,7 @@ export function App() {
                 <p>{[
                   "Creates a hardened Hetzner host, a 2 TiB volume, an isolated SSH key, and narrow firewall rules.",
                   "Starts Snapchain v0.14.3 from an immutable image digest and verifies the validator-set checksum.",
-                  "Registers a revocable Ed25519 signer, then launches the browser client and Celo-paid agent API.",
+                  "Creates immutable Celo/Base revenue routes, registers a revocable signer, then launches the browser and agent clients.",
                 ][index]}</p>
               </article>
             ))}
@@ -216,13 +216,14 @@ export function App() {
 
             <div className="chapters">
               <Chapter id="before" number="A" title="Before you begin">
-                <p>You need an existing Farcaster account with storage, its custody recovery phrase, a small amount of ETH on Optimism for signer registration, a Hetzner Cloud API token, and a Celo x402 facilitator key created at <a href="https://x402.celo.org/" target="_blank" rel="noreferrer">x402.celo.org</a>.</p>
+                <p>You need an existing Farcaster account with storage, its custody recovery phrase, a Hetzner Cloud API token, a Celo x402 facilitator key from <a href="https://x402.celo.org/" target="_blank" rel="noreferrer">x402.celo.org</a>, and a Coinbase CDP key for Base settlement.</p>
                 <Checklist items={[
                   "Linux or macOS operator machine with Bash, Node.js 22+, npm, curl, jq, SSH, and tar",
                   "Custody phrase for the address that owns your FID",
                   "At least one active Farcaster storage unit",
                   "Enough OP ETH for one KeyGateway.add transaction",
-                  "Celo facilitator API key with settlement balance",
+                  "Small CELO and Base ETH balances for one-time split creation",
+                  "Celo facilitator API key plus Coinbase CDP Secret API key",
                 ]} />
                 <CodeBlock code="./farcaster doctor" label="CHECK FIRST" />
                 <p className="fine-print">The default cloud path is Hetzner. Snapchain itself needs no provider token or hosted RPC key. The infrastructure token creates compute only.</p>
@@ -268,13 +269,13 @@ export function App() {
               </Chapter>
 
               <Chapter id="client" number="2" title="Issue a client key">
-                <p>The final command first validates the client password and reads the Celo facilitator key in hidden prompts. Only then does it request the custody recovery phrase. It derives account zero at <code>m/44&apos;/60&apos;/0&apos;/0/0</code>, resolves the FID on OP Mainnet, checks storage, and creates a fresh Ed25519 key.</p>
+                <p>The final command first validates the client password and both facilitator credentials in hidden prompts. Only then does it request the custody recovery phrase. It derives account zero at <code>m/44&apos;/60&apos;/0&apos;/0/0</code>, checks the FID and storage, prepares the Celo/Base revenue routes, and creates a fresh Ed25519 key.</p>
                 <CodeBlock code="./farcaster client create" label="COMMAND 2" />
                 <div className="key-ceremony">
-                  <div><span>1</span><strong>Secrets are separated</strong><small>password and Celo facilitator key are validated before custody is requested</small></div>
+                  <div><span>1</span><strong>Secrets are separated</strong><small>password and both facilitator credentials are validated before custody is requested</small></div>
                   <div><span>2</span><strong>Phrase enters local memory</strong><small>never an argument, environment variable, file, log, or network request</small></div>
-                  <div><span>3</span><strong>Transaction is recoverable</strong><small>signed bytes, local hash, and app key are saved before the first RPC broadcast</small></div>
-                  <div><span>4</span><strong>Registration is confirmed</strong><small>the exact transaction can be rebroadcast; only the revocable app key deploys</small></div>
+                  <div><span>3</span><strong>Transactions are recoverable</strong><small>all signed bytes, local hashes, and the app key are saved before the first RPC broadcast</small></div>
+                  <div><span>4</span><strong>Every receipt is checked</strong><small>pending bytes can be rebroadcast exactly; no custody secret is deployed</small></div>
                 </div>
                 <OutputBlock lines={[
                   "Client is live",
@@ -285,10 +286,10 @@ export function App() {
                   "write path    authorized paid agent -> client service -> validator",
                   "custody key   not stored",
                 ]} />
-                <p>The password is scrypt-hashed. The Farcaster signer and Celo facilitator key are installed in separate read-only containers. Caddy obtains TLS for the printed <code>sslip.io</code> hostname, and <code>.state/agent.env</code> stores the owner&apos;s write capability with mode 0600.</p>
+                <p>The password is scrypt-hashed. The Farcaster signer and payment credentials are installed in separate read-only containers. Caddy obtains TLS for the printed <code>sslip.io</code> hostname, and <code>.state/agent.env</code> stores the owner&apos;s write capability with mode 0600.</p>
                 <div className="source-note">
                   <FileCheck2 size={20} />
-                  <p><b>If broadcast or setup fails:</b> do not register another key. The exact signed transaction, locally calculated hash, and app key were saved before broadcast in <code>.state/client.env.pending</code>. Rerun <code>./farcaster client create</code>; it validates and rebroadcasts those bytes, then checks the receipt. Signed custody transaction data is removed after confirmation. The owner-only pending file, which also carries payment setup until deployment, is deleted after both HTTPS health checks pass.</p>
+                  <p><b>If a broadcast fails:</b> do not start over. The exact Celo, Base, and Optimism signed bytes, local hashes, and app key were saved before the first broadcast in <code>.state/client.env.pending</code>. Rerun <code>./farcaster client create</code>; it checks confirmed receipts and rebroadcasts only the exact pending bytes. Each raw transaction is removed after confirmation.</p>
                 </div>
               </Chapter>
 
@@ -352,7 +353,7 @@ export function App() {
           <SectionLabel number="04" text="AGENT COMMERCE" />
           <div className="section-heading agent-heading">
             <h2>Agents can deploy<br />and operate it.</h2>
-            <p>Every deployment can provision the next buyer-owned node and publishes a paid operational API. Celo&apos;s buy stack handles exact USDC quotes and settlement without customer accounts or hosted Farcaster data keys.</p>
+            <p>Every deployment can provision the next buyer-owned node and publishes a paid operational API. One x402 v2 response offers chain-local USDC on Celo and Base without customer accounts or hosted Farcaster data keys.</p>
           </div>
 
           <div className="deploy-offer">
@@ -367,6 +368,7 @@ export function App() {
                 <div><dt>BEFORE PAYMENT</dt><dd>plan + write-access preflight</dd></div>
                 <div><dt>AFTER PAYMENT</dt><dd>idempotent status + free resume</dd></div>
                 <div><dt>SEPARATE BILL</dt><dd>Hetzner runs until destroy</dd></div>
+                <div><dt>PAYMENT RAIL</dt><dd>Celo default · Base optional</dd></div>
               </dl>
             </div>
           </div>
@@ -374,15 +376,16 @@ export function App() {
           <div className="agent-commerce">
             <div className="agent-sequence" aria-label="Paid agent request sequence">
               <div><span>01</span><Bot size={23} /><strong>Discover</strong><small>Read the manifest and exact request schema.</small></div>
-              <div><span>02</span><CircleDollarSign size={23} /><strong>Quote</strong><small>An unpaid request returns 402 with the Celo USDC price.</small></div>
-              <div><span>03</span><WalletCards size={23} /><strong>Pay locally</strong><small>buy signs in the agent wallet; the private key never leaves it.</small></div>
+              <div><span>02</span><CircleDollarSign size={23} /><strong>Choose</strong><small>The 402 offers the same USDC price on Celo and Base.</small></div>
+              <div><span>03</span><WalletCards size={23} /><strong>Pay locally</strong><small>The selected x402 wallet signs; its private key never leaves it.</small></div>
               <div><span>04</span><Network size={23} /><strong>Operate</strong><small>The gateway settles, then the client reads or signs the action.</small></div>
             </div>
 
             <div className="agent-terminal">
-              <header><span>BUY 0.8.3</span><b>CELO MAINNET</b></header>
+              <header><span>X402 V2</span><b>CELO · BASE</b></header>
               <CodeBlock code="buy quote https://YOUR_CLIENT/agent/v1/feed" label="QUOTE · FREE" />
-              <CodeBlock code="buy curl --max-amount 0.005 https://YOUR_CLIENT/agent/v1/feed" label="READ · 0.005 USDC" />
+              <CodeBlock code="buy curl --max-amount 0.005 https://YOUR_CLIENT/agent/v1/feed" label="CELO · 0.005 USDC" />
+              <CodeBlock code="node scripts/pay-base.mjs --url https://YOUR_CLIENT/agent/v1/feed --max 0.005" label="BASE · 0.005 USDC" />
               <div className="agent-terminal-foot">
                 <LockKeyhole size={19} />
                 <p><b>Writes have two gates.</b> The owner capability is checked before the payment challenge. A stranger gets <code>401</code>, not a bill and not access to the Farcaster signer.</p>
@@ -397,10 +400,25 @@ export function App() {
             <div><span>CAST · FOLLOW · REACT</span><strong>0.02</strong><small>USDC / request</small></div>
           </div>
 
+          <div className="settlement-policy">
+            <div className="settlement-heading">
+              <span>SETTLEMENT POLICY</span>
+              <h3>Direct rails. One durable split.</h3>
+              <p>Each chain settles to the same deterministic address. Funds stay on the chain the buyer chose; bridging is optional after distribution.</p>
+            </div>
+            <div className="settlement-detail">
+              <div className="split-meter" aria-label="95 percent operator and 5 percent P-U-C">
+                <span className="operator-share"><b>95%</b><small>OPERATOR</small></span>
+                <span className="puc-share"><b>5%</b><small>P-U-C</small></span>
+              </div>
+              <p>Immutable 0xSplits V2 allocation · 0.1% permissionless distribution incentive · no referral tree</p>
+            </div>
+          </div>
+
           <div className="agent-boundaries">
             <div><b>DEPLOYMENT SERVICE</b><p>Fixed cloud plan and entitlement hashes. Token is used in memory, not stored.</p></div>
             <div><b>CLIENT CONTAINER</b><p>Farcaster app signer, password hash, session secret. No payment credentials.</p></div>
-            <div><b>PAYMENT CONTAINER</b><p>Facilitator key, prices, payout address, write capability. No Farcaster signer.</p></div>
+            <div><b>PAYMENT CONTAINER</b><p>Celo/CDP credentials, prices, verified split address, write capability. No Farcaster signer.</p></div>
             <div><b>AUTHORIZED AGENT</b><p>Dedicated buy wallet and optional write capability. No custody phrase.</p></div>
           </div>
 
@@ -476,9 +494,9 @@ export function App() {
               <Details question="Does the read node need an API key?">No. It downloads a public, verifiable snapshot and syncs blocks over the Farcaster network. The Hetzner token provisions infrastructure and is never installed on the node.</Details>
               <Details question="Why does the client write to a validator?">Read-node submission is best-effort gossip. A validator places a valid message in its mempool and can propose it directly, giving the client a stronger delivery path.</Details>
               <Details question="Can the app key move my wallet funds?">No. The Ed25519 signer authorizes Farcaster messages for its FID. It is not the Ethereum custody key and cannot sign wallet transactions.</Details>
-              <Details question="Why import a recovery phrase at all?">The stated challenge calls for importing an existing account and issuing the client its own key in one OP transaction. The phrase signs that one KeyGateway call locally, then disappears.</Details>
-              <Details question="How does an agent pay?">It uses buy CLI or MCP to inspect the 402 quote, authorize an exact USDC amount locally, and retry with the x402 payment. Write routes also require the owner capability before a quote is issued.</Details>
-              <Details question="What is not automated?">The owner still enters custody locally, confirms the OP registration, and supplies the client password and facilitator key. The human voucher and final prize reply also remain real human work. Hetzner provisioning and node startup are automated; its recurring bill is not included in the broker fee.</Details>
+              <Details question="Why import a recovery phrase at all?">The phrase proves control of the FID and signs the one OP KeyGateway call locally. Seller setup may also use it for fixed, zero-value SplitFactory calls on Celo and Base. Every destination and transaction count is shown before confirmation; the phrase then disappears.</Details>
+              <Details question="How does an agent pay?">The 402 offers equal USDC prices on Celo and Base. The bundled buy CLI or MCP selects Celo; another x402 v2 wallet may select Base. Write routes also require the owner capability before a quote is issued.</Details>
+              <Details question="What is not automated?">The owner still enters custody locally, confirms the Celo/Base split creation and OP registration, and supplies the client password and facilitator credentials. The human voucher and final prize reply remain human work. Hetzner provisioning and node startup are automated; its recurring bill is not included in the broker fee.</Details>
             </div>
           </div>
         </section>

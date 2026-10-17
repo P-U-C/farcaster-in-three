@@ -11,12 +11,12 @@ Caddy ------------------------------> Client service
   ^                                       |
   |                                       | HTTP JSON reads
   |                                       v
-Agent -> buy quote/pay -> x402 gateway -> Client service -> Snapchain read node
-                              |                              ^
-                              |                              |
-                              |                        full local state
-                              |
-                         Celo settlement
+Agent -> x402 v2 quote/pay -> gateway -> Client service -> Snapchain read node
+            Celo or Base         |                         ^
+                                 |                         |
+                                 |                   full local state
+                                 v
+                         immutable 95/5 split
 
 Client service
   |
@@ -34,7 +34,7 @@ Operator machine                         Selected In Three broker               
 
 SSH private key stays local
 cloud token -> HTTPS preflight --------> deployment service -> create/delete probe -> API
-buy wallet  -> 25 USDC x402 -----------> gateway settles on Celo
+x402 wallet -> 25 USDC on Celo/Base ----> gateway -> immutable 95/5 split
 same request body ----------------------> durable entitlement -> provision --------> server + volume + firewall + SSH key
                   <---------------------- resource IDs + public IPv4
 SSH ------------------------------------> cloud-init -> mount volume -> Snapchain
@@ -43,17 +43,17 @@ custody phrase stays local -> app-key registration -> client deployment
 
 The deployment request uses a random client-generated `deploymentId`. The deployer persists that ID, a SHA-256 cloud-token binding, SSH public key, and source CIDR before calling Hetzner. It never stores the cloud token. Status and resume are free, but resume requires all buyer inputs to match that paid entitlement. This lets a dropped paid response continue without issuing another x402 payment.
 
-The broker is still trusted during the request: it sees the dedicated Hetzner token in process memory and can use its permissions. Buyers should use a new, otherwise-empty project and rotate the token after deployment. The SSH private key, Farcaster custody phrase, client password, app signer, and buyer facilitator key never reach the broker.
+The broker is still trusted during the request: it sees the dedicated Hetzner token in process memory and can use its permissions. Buyers should use a new, otherwise-empty project and rotate the token after deployment. The SSH private key, Farcaster custody phrase, client password, app signer, and seller facilitator credentials never reach the broker.
 
 Cloud-init writes release files to `/opt/in-three-release`, mounts the attached volume at `/srv/in-three`, copies the release onto that mounted volume, and starts the pinned Snapchain image. Staging outside the mount point is required; files written under `/srv/in-three` before mounting would be hidden by the volume.
 
 ## Agent commerce path
 
-Caddy routes <code>/agent/*</code> and <code>/.well-known/agent.json</code> to a separate process built from <code>@celo/buy-gateway</code>. An unpaid valid request receives an x402 quote in USDC on Celo. The agent's buy wallet signs the authorization locally; Celo's hosted facilitator verifies and settles it, then the gateway proxies the request to the client.
+Caddy routes <code>/agent/*</code> and <code>/.well-known/agent.json</code> to a separate x402 v2 resource server. An unpaid valid request receives equal USDC offers for Celo and Base. The bundled buy wallet signs the Celo authorization locally; another conforming x402 v2 client may choose Base. The chain-specific facilitator verifies and settles the selected offer before the gateway proxies the request to the client.
 
 The gateway and client are deliberately separate trust domains:
 
-- the gateway has the Celo facilitator key, payout address, prices, and agent write capability;
+- the gateway has Celo/CDP facilitator credentials, the verified split address, prices, and agent write capability;
 - the deployer has the fixed cloud plan, release files, and durable entitlement hashes, but no facilitator or Farcaster signing key;
 - the client has the Farcaster app signer, password hash, and session secret;
 - neither container receives the other's signing material;
@@ -63,7 +63,9 @@ The gateway and client are deliberately separate trust domains:
 
 Reads require payment only. Writes first require an exact owner-issued bearer capability, then payment. The bearer check runs before the gateway emits a 402, preventing an unauthorized caller from paying for or reaching a write. The bearer header is stripped before the request reaches the client.
 
-The free agent manifest and OpenAPI document publish current routes, prices, schemas, and safety rules. A repository skill gives buy-enabled agents the quote-before-pay and ambiguous-settlement procedure.
+The payment recipient is the same deterministic 0xSplits V2 address on both chains. Its immutable Push split assigns 95% to the local operator and 5% to P-U-C, with a 0.1% permissionless distribution incentive. The gateway recomputes the address and confirms deployed bytecode on both chains before listening. Checkout never bridges; recipients can consolidate distributed treasury funds later without putting bridge risk in front of the purchased action.
+
+The free agent manifest and OpenAPI document publish current routes, networks, prices, economics, schemas, and safety rules. A repository skill gives buy-enabled agents the quote-before-pay and ambiguous-settlement procedure.
 
 ## Why writes bypass the read node
 
@@ -92,23 +94,24 @@ This is a transparent chronological reference feed, not a ranking engine. A prod
 
 ```text
 Client password + confirmation
-  -> scrypt hash and session secret
+  -> facilitator credentials validated
 BIP-39 phrase
-  -> m/44'/60'/0'/0/0 custody account
-  -> IdRegistry.idOf(address)
+  -> m/44'/60'/0'/0/0 custody/operator account
+  -> deterministic 95/5 split planned for Celo and Base
+  -> IdRegistry.idOf(address) + Farcaster storage check
   -> random 32-byte Ed25519 secret
   -> SignedKeyRequest EIP-712 metadata
-  -> simulated KeyGateway.add(1, publicKey, 1, metadata)
-  -> prepared OP transaction signed locally
-  -> serialized transaction + local hash + app key saved owner-only
-  -> exact signed bytes broadcast to OP Mainnet
-  -> one OP Mainnet receipt
-  -> recovery transaction removed; confirmed app secret uploaded over SSH
-  -> pending file removed after HTTPS health check
+  -> Celo split, Base split, and KeyGateway transactions prepared locally
+  -> all signed bytes + local hashes + app key saved owner-only
+  -> exact signed split bytes broadcast; existing splits skipped
+  -> exact signed app-key bytes broadcast to OP Mainnet
+  -> each confirmed transaction removed from recovery state
+  -> confirmed secrets uploaded into separate containers
+  -> pending file removed after HTTPS health checks
   -> mnemonic discarded with local process
 ```
 
-Password confirmation happens before phrase input, app-key generation, or transaction signing. The transaction is signed and hashed locally, and its serialized bytes are persisted with the app key before broadcast. If the RPC response, receipt polling, or deployment fails, rerunning `client create` validates the local hash, rebroadcasts the same transaction, and resumes rather than registering another key.
+Password confirmation and both facilitator validations happen before phrase input, app-key generation, or transaction signing. Every transaction is signed and hashed locally, and its serialized bytes are persisted with the app key before the first broadcast. If an RPC response, receipt poll, or deployment fails, rerunning `client create` validates each local hash, rebroadcasts the same pending bytes, and resumes rather than creating a different split or signer.
 
 The requesting FID in this standalone client is the user's own FID. This creates valid, decodable attribution without a centralized app backend holding a separate app-custody key. The exact Ed25519 public key remains the canonical client-instance identifier.
 

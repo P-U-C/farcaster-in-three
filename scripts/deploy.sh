@@ -9,6 +9,8 @@ MAX_AMOUNT="${IN_THREE_DEPLOY_MAX_AMOUNT:-25}"
 SOURCE_CIDR=""
 BUY_ACCOUNT="${IN_THREE_BUY_ACCOUNT:-in-three}"
 BUY_ACCOUNT_EXPLICIT=false
+PAYMENT_NETWORK="${IN_THREE_PAYMENT_NETWORK:-celo}"
+PAYMENT_NETWORK_EXPLICIT=false
 ASSUME_YES=false
 
 while [[ $# -gt 0 ]]; do
@@ -17,6 +19,7 @@ while [[ $# -gt 0 ]]; do
     --max-amount) MAX_AMOUNT="$2"; shift 2 ;;
     --source-cidr) SOURCE_CIDR="$2"; shift 2 ;;
     --buy-account) BUY_ACCOUNT="$2"; BUY_ACCOUNT_EXPLICIT=true; shift 2 ;;
+    --payment-network) PAYMENT_NETWORK="$2"; PAYMENT_NETWORK_EXPLICIT=true; shift 2 ;;
     --yes) ASSUME_YES=true; shift ;;
     -h|--help)
       cat <<'EOF'
@@ -29,7 +32,8 @@ Options:
   --service ORIGIN      Buy-enabled In Three deployment broker
   --max-amount USDC     Hard payment ceiling (default: 25)
   --source-cidr CIDR    CIDR allowed to SSH (default: your public IP)
-  --buy-account NAME    usebuy.ai account to charge (default: in-three)
+  --buy-account NAME    usebuy.ai account to charge on Celo (default: in-three)
+  --payment-network NET Celo or Base (default: celo)
   --yes                 Approve the stated ceiling without typing BUY DEPLOY
 
 Set HCLOUD_TOKEN or enter it at the hidden prompt. The payment is the broker's
@@ -52,7 +56,9 @@ if [[ -f "$STATE_FILE" ]]; then
   exit 0
 fi
 
-for command in buy curl jq ssh ssh-keygen openssl; do
+[[ "$PAYMENT_NETWORK" == "celo" || "$PAYMENT_NETWORK" == "base" ]] ||
+  die "--payment-network must be celo or base"
+for command in curl jq ssh ssh-keygen openssl; do
   require_command "$command"
 done
 
@@ -65,6 +71,7 @@ receipt_file="$STATE_DIR/deploy-receipt.txt"
 service_file="$STATE_DIR/deployment-service"
 source_cidr_file="$STATE_DIR/deployment-source-cidr"
 buy_account_file="$STATE_DIR/deployment-buy-account"
+payment_network_file="$STATE_DIR/deployment-payment-network"
 
 if [[ -f "$payment_marker" && -f "$service_file" ]]; then
   saved_service="$(cat "$service_file")"
@@ -73,12 +80,29 @@ if [[ -f "$payment_marker" && -f "$service_file" ]]; then
   fi
   SERVICE_ORIGIN="$saved_service"
 fi
-if [[ -f "$payment_marker" && -f "$buy_account_file" ]]; then
+if [[ -f "$payment_marker" ]]; then
+  saved_payment_network="celo"
+  if [[ -f "$payment_network_file" ]]; then
+    saved_payment_network="$(cat "$payment_network_file")"
+  fi
+  if [[ "$PAYMENT_NETWORK_EXPLICIT" == true && "$PAYMENT_NETWORK" != "$saved_payment_network" ]]; then
+    die "the pending payment is bound to $saved_payment_network"
+  fi
+  PAYMENT_NETWORK="$saved_payment_network"
+fi
+if [[ "$PAYMENT_NETWORK" == "celo" && -f "$payment_marker" && -f "$buy_account_file" ]]; then
   saved_buy_account="$(cat "$buy_account_file")"
   if [[ "$BUY_ACCOUNT_EXPLICIT" == true && "$BUY_ACCOUNT" != "$saved_buy_account" ]]; then
     die "the pending payment is bound to usebuy.ai account $saved_buy_account"
   fi
   BUY_ACCOUNT="$saved_buy_account"
+fi
+[[ "$PAYMENT_NETWORK" == "celo" || "$PAYMENT_NETWORK" == "base" ]] ||
+  die "invalid payment network in local recovery state"
+if [[ "$PAYMENT_NETWORK" == "celo" ]]; then
+  require_command buy
+else
+  require_command node
 fi
 [[ "$SERVICE_ORIGIN" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/?$ ]] ||
   die "--service must be an HTTPS origin with no path"
@@ -224,7 +248,12 @@ if [[ -f "$payment_marker" ]]; then
   else
     printf 'No matching paid entitlement or complete deployment was recovered for %s (HTTP %s).\n' \
       "$deployment_id" "$status_code" >&2
-    printf 'Run: buy --account %s receipts --resolve\n' "$BUY_ACCOUNT" >&2
+    if [[ "$PAYMENT_NETWORK" == "celo" ]]; then
+      printf 'Run: buy --account %s receipts --resolve\n' "$BUY_ACCOUNT" >&2
+    else
+      printf 'Inspect %s and the Base wallet history, then contact the broker with the deployment ID.\n' \
+        "$receipt_file" >&2
+    fi
     printf 'Keep %s. Do not remove it or buy again until the receipt is resolved.\n' \
       "$payment_marker" >&2
     exit 1
@@ -244,17 +273,26 @@ else
   }' "$preflight_body"
 
   printf '\nIN THREE / ONE-PURCHASE DEPLOYMENT\n'
-  printf '  broker fee ceiling   %s USDC on Celo\n' "$MAX_AMOUNT"
+  printf '  broker fee ceiling   %s USDC on %s\n' "$MAX_AMOUNT" "$PAYMENT_NETWORK"
   printf '  infrastructure       fixed ccx33 + 2048 GiB in ash; billed by Hetzner\n'
   printf '  SSH private key      remains at %s\n' "$ssh_key"
   printf '  custody phrase       requested locally only after Snapchain is ready\n\n'
 
   note "Reading the authoritative x402 quote; nothing is signed or paid"
-  buy --account "$BUY_ACCOUNT" quote \
-    -X POST \
-    -H "Content-Type: application/json" \
-    --data-binary "@$request_body" \
-    "$SERVICE_ORIGIN/agent/v1/deployments"
+  if [[ "$PAYMENT_NETWORK" == "celo" ]]; then
+    buy --account "$BUY_ACCOUNT" quote \
+      -X POST \
+      -H "Content-Type: application/json" \
+      --data-binary "@$request_body" \
+      "$SERVICE_ORIGIN/agent/v1/deployments"
+  else
+    node "$IN_THREE_ROOT/scripts/pay-base.mjs" \
+      --url "$SERVICE_ORIGIN/agent/v1/deployments" \
+      --method POST \
+      --data-file "$request_body" \
+      --max "$MAX_AMOUNT" \
+      --quote-only
+  fi
 
   if [[ "$ASSUME_YES" != true ]]; then
     read -r -p "Type BUY DEPLOY to authorize up to $MAX_AMOUNT USDC: " confirmation
@@ -263,29 +301,58 @@ else
 
   printf '%s\n' "$SERVICE_ORIGIN" > "$service_file"
   printf '%s\n' "$SOURCE_CIDR" > "$source_cidr_file"
-  printf '%s\n' "$BUY_ACCOUNT" > "$buy_account_file"
+  printf '%s\n' "$PAYMENT_NETWORK" > "$payment_network_file"
+  if [[ "$PAYMENT_NETWORK" == "celo" ]]; then
+    printf '%s\n' "$BUY_ACCOUNT" > "$buy_account_file"
+  else
+    rm -f "$buy_account_file"
+  fi
   printf '%s\n' "$deployment_id" > "$payment_marker"
-  chmod 600 "$service_file" "$source_cidr_file" "$buy_account_file" "$payment_marker"
+  chmod 600 "$service_file" "$source_cidr_file" "$payment_network_file" "$payment_marker"
+  [[ ! -f "$buy_account_file" ]] || chmod 600 "$buy_account_file"
 
   note "Buying one deployment and creating the persistent host"
-  if ! buy --account "$BUY_ACCOUNT" curl --max-amount "$MAX_AMOUNT" \
-    --data-file "$request_body" \
-    --fail-with-body \
-    -D "$response_headers" \
-    -o "$response_body" \
-    -X POST \
-    -H "Content-Type: application/json" \
-    "$SERVICE_ORIGIN/agent/v1/deployments"; then
+  payment_succeeded=false
+  if [[ "$PAYMENT_NETWORK" == "celo" ]]; then
+    if buy --account "$BUY_ACCOUNT" curl --max-amount "$MAX_AMOUNT" \
+      --data-file "$request_body" \
+      --fail-with-body \
+      -D "$response_headers" \
+      -o "$response_body" \
+      -X POST \
+      -H "Content-Type: application/json" \
+      "$SERVICE_ORIGIN/agent/v1/deployments"; then
+      awk 'BEGIN{IGNORECASE=1} /^X-PAYMENT-RESPONSE:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print}' \
+        "$response_headers" > "$receipt_file"
+      payment_succeeded=true
+    fi
+  else
+    if node "$IN_THREE_ROOT/scripts/pay-base.mjs" \
+      --url "$SERVICE_ORIGIN/agent/v1/deployments" \
+      --method POST \
+      --data-file "$request_body" \
+      --max "$MAX_AMOUNT" \
+      --output "$response_body" \
+      --receipt-output "$receipt_file" \
+      --yes; then
+      payment_succeeded=true
+    fi
+  fi
+
+  if [[ "$payment_succeeded" != true ]]; then
     printf '\nThe paid response was unsuccessful or interrupted.\n' >&2
-    printf 'Run buy --account %s receipts --resolve, then rerun with the same service.\n' \
-      "$BUY_ACCOUNT" >&2
+    if [[ "$PAYMENT_NETWORK" == "celo" ]]; then
+      printf 'Run buy --account %s receipts --resolve, then rerun with the same service.\n' \
+        "$BUY_ACCOUNT" >&2
+    else
+      printf 'Inspect the Base wallet history and %s before rerunning with the same service.\n' \
+        "$receipt_file" >&2
+    fi
     printf 'The saved deployment ID prevents an automatic second purchase.\n' >&2
     exit 1
   fi
 
   write_state_from_response "$response_body"
-  awk 'BEGIN{IGNORECASE=1} /^X-PAYMENT-RESPONSE:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print}' \
-    "$response_headers" > "$receipt_file"
   chmod 600 "$receipt_file"
   rm -f "$payment_marker"
   success "One deployment purchased; no further setup payment is required"

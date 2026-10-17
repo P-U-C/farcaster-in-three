@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -8,9 +8,12 @@ import test from "node:test";
 import { decodeAbiParameters, keccak256 } from "viem";
 import {
   encodeSignedKeyRequestMetadata,
+  normalizeCdpApiKeySecret,
   readHidden,
   readVisible,
+  submitSavedRevenueSplit,
   submitSignedRegistration,
+  validateCdpApiKeyId,
   validateFacilitatorApiKey,
 } from "../src/setup.js";
 
@@ -23,6 +26,22 @@ test("facilitator keys are validated before the custody phrase is requested", ()
     () => validateFacilitatorApiKey("not-a-facilitator-key"),
     /must start with x402_/,
   );
+});
+
+test("CDP credentials accept resource IDs and escaped PEM newlines", () => {
+  assert.equal(
+    validateCdpApiKeyId(
+      "organizations/11111111-1111-1111-1111-111111111111/apiKeys/22222222-2222-2222-2222-222222222222",
+    ),
+    "organizations/11111111-1111-1111-1111-111111111111/apiKeys/22222222-2222-2222-2222-222222222222",
+  );
+  assert.equal(
+    normalizeCdpApiKeySecret(
+      "-----BEGIN PRIVATE KEY-----\\nlong-enough-test-material\\n-----END PRIVATE KEY-----",
+    ),
+    "-----BEGIN PRIVATE KEY-----\nlong-enough-test-material\n-----END PRIVATE KEY-----",
+  );
+  assert.throws(() => validateCdpApiKeyId("short"), /not in a recognized format/);
 });
 
 test("signed key request metadata matches the Farcaster contract tuple", () => {
@@ -102,6 +121,53 @@ test("visible input allows a setup subprocess to exit", () => {
 
   assert.notEqual((result.error as NodeJS.ErrnoException | undefined)?.code, "ETIMEDOUT");
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("ambiguous revenue broadcasts preserve the exact signed transaction", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "in-three-revenue-"));
+  const output = join(directory, "client.env.pending");
+  const serializedTransaction = "0x02beef" as const;
+  const transactionHash = keccak256(serializedTransaction);
+
+  try {
+    await writeFile(
+      output,
+      [
+        "FID=37",
+        "REVENUE_CELO_STATUS=signed",
+        "REVENUE_CELO_ADDRESS=0x1111111111111111111111111111111111111111",
+        `REVENUE_CELO_TX=${transactionHash}`,
+        `REVENUE_CELO_RAW_TX=${serializedTransaction}`,
+        "",
+      ].join("\n"),
+      { mode: 0o600 },
+    );
+
+    await assert.rejects(
+      submitSavedRevenueSplit({
+        output,
+        chainKey: "celo",
+        chainName: "Celo",
+        client: {
+          async sendRawTransaction() {
+            const persistedBeforeBroadcast = await readFile(output, "utf8");
+            assert.match(persistedBeforeBroadcast, /REVENUE_CELO_RAW_TX=0x02beef/);
+            throw new Error("RPC disconnected after accepting the transaction");
+          },
+          async waitForTransactionReceipt() {
+            throw new Error("receipt timeout");
+          },
+        },
+      }),
+      /receipt timeout/,
+    );
+
+    const saved = await readFile(output, "utf8");
+    assert.match(saved, /REVENUE_CELO_STATUS=signed/);
+    assert.match(saved, /REVENUE_CELO_RAW_TX=0x02beef/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("ambiguous registration broadcasts preserve the key and signed transaction", async () => {

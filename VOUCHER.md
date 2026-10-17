@@ -6,8 +6,8 @@ The prize requires at least one other human to complete the tutorial, create a r
 
 - Start from a machine that has not been used to develop this repository.
 - Follow the public microsite, not private instructions from the author.
-- Use your own existing Farcaster account, cloud account, OP ETH, and Celo facilitator key.
-- Never send the author your recovery phrase, cloud token, app key, facilitator key, agent write capability, or client password.
+- Use your own existing Farcaster account, cloud account, OP ETH, Celo/Base native gas, Celo facilitator key, and Coinbase CDP key.
+- Never send the author your recovery phrase, cloud token, app key, facilitator credentials, agent write capability, or client password.
 - Record failures and confusing language. A voucher is evidence, not a favor.
 
 ## Run
@@ -26,8 +26,10 @@ Record:
 | Client URL | |
 | Test cast URL | |
 | Deployment path: paid or manual | |
-| Paid deployment transaction, if used | |
-| Paid agent-read transaction | |
+| Paid deployment chain + transaction, if used | |
+| Celo paid-read transaction | |
+| Base paid-read transaction | |
+| Revenue split address | |
 
 ### 1. Clean checkout
 
@@ -52,7 +54,7 @@ buy setup --name in-three
 ./farcaster deploy --service https://BROKER
 ```
 
-Record the free preflight, quoted 25 USDC ceiling, Celo settlement transaction, returned Hetzner resource IDs, and whether any rerun attempted another payment. The recurring provider bill is separate. Use a new Hetzner project token and rotate it after provisioning.
+Record the free preflight, quoted 25 USDC ceiling, selected payment chain and settlement transaction, returned Hetzner resource IDs, and whether any rerun attempted another payment. The recurring provider bill is separate. Use a new Hetzner project token and rotate it after provisioning.
 
 Manual prize path:
 
@@ -107,6 +109,8 @@ Check that the custody phrase was not persisted:
 - It is absent from `/srv/in-three/client.env`.
 - It is absent from client and Snapchain logs.
 - The registered signer public key is visible in the OP transaction receipt.
+- Celo and Base split-creation receipts target the documented 0xSplits factory with zero native value.
+- The deterministic split address and 95/5 recipients match on both chains.
 - The client environment contains an Ed25519 app key, not an Ethereum private key or mnemonic.
 
 ### 5. Exercise the client
@@ -133,12 +137,14 @@ Check the cast's signer key against the key registered in the OP receipt.
 Use a dedicated low-balance buy wallet. Do not expose <code>.state/agent.env</code>.
 
 - [ ] Fetch <code>/.well-known/agent.json</code> and <code>/agent/openapi.json</code> without payment.
-- [ ] Confirm an unpaid feed request returns 402 with the documented Celo USDC price.
+- [ ] Confirm an unpaid feed request returns one x402 v2 offer for Celo and one for Base at the same USDC price and split address.
 - [ ] Confirm a write without the bearer capability returns 401 before a payment challenge.
-- [ ] Quote and buy one feed request with an exact maximum.
-- [ ] Record the Celo settlement transaction and confirm the response came from the owned node.
+- [ ] Quote and buy one feed request on Celo with an exact maximum.
+- [ ] Buy one feed request on Base with <code>node scripts/pay-base.mjs --url https://YOUR_CLIENT/agent/v1/feed --max 0.005</code>.
+- [ ] Record both settlement transactions and confirm both responses came from the owned node.
+- [ ] Confirm the split records 95% operator / 5% P-U-C and can be distributed permissionlessly.
 - [ ] Make one authorized paid write, then confirm its public Farcaster message hash.
-- [ ] Confirm <code>/srv/in-three/client.env</code> has no facilitator key or write capability.
+- [ ] Confirm <code>/srv/in-three/client.env</code> has no facilitator credential, revenue recovery state, or write capability.
 - [ ] Confirm <code>/srv/in-three/agent-gateway.env</code> has no Farcaster signer.
 
 Do not retry an ambiguous paid response. Preserve the receipt and run <code>buy --account in-three receipts --resolve</code>. For paid deployment, keep <code>.state/deployment-payment.pending</code> and rerun the wrapper; verify that it uses status/resume and does not invoke a second purchase.

@@ -4,6 +4,10 @@ export interface AgentContractOptions {
   metadataPrice: string;
   writePrice: string;
   deployPrice: string;
+  payTo: string;
+  operatorPayTo: string;
+  royaltyPayTo: string;
+  royaltyBps: number;
 }
 
 const writeCapabilityNote =
@@ -19,10 +23,14 @@ export function createAgentManifest(options: AgentContractOptions) {
     origin,
     protocol: {
       payment: "x402",
-      network: "eip155:42220",
+      version: 2,
+      networks: ["eip155:42220", "eip155:8453"],
       token: "USDC",
-      client: "@celo/buy@0.8.3",
-      facilitator: "https://api.x402.celo.org",
+      clients: ["@celo/buy@0.8.3", "@x402/core@2.28.0"],
+      facilitators: [
+        "https://api.x402.celo.org",
+        "https://api.cdp.coinbase.com/platform/v2/x402",
+      ],
     },
     discovery: {
       openapi: `${origin}/agent/openapi.json`,
@@ -42,6 +50,15 @@ export function createAgentManifest(options: AgentContractOptions) {
       reaction: options.writePrice,
       deployment: options.deployPrice,
     },
+    economics: {
+      payTo: options.payTo,
+      operatorPayTo: options.operatorPayTo,
+      royaltyPayTo: options.royaltyPayTo,
+      royaltyBps: options.royaltyBps,
+      operatorBps: 10_000 - options.royaltyBps,
+      distributorIncentiveBps: 10,
+      policy: "immutable 0xSplits V2 contract on each advertised chain",
+    },
     safety: [
       "Quote the exact request before payment and enforce a maximum amount.",
       "Do not blindly retry after a paid timeout or ambiguous settlement.",
@@ -55,7 +72,7 @@ export function createAgentOpenApi(options: AgentContractOptions) {
   const origin = options.origin.replace(/\/$/, "");
   const paidResponses = {
     "400": { description: "Invalid request; gateway refusals occur before payment where possible" },
-    "402": { description: "Payment Required; use buy quote or buy curl on Celo" },
+    "402": { description: "Payment Required; choose Celo or Base from the x402 v2 offers" },
     "429": { description: "Rate limit exceeded" },
     "500": { description: "Upstream operation failed; inspect the payment receipt before retrying" },
   };
@@ -207,8 +224,8 @@ export function createAgentOpenApi(options: AgentContractOptions) {
         x402: {
           type: "apiKey",
           in: "header",
-          name: "X-PAYMENT",
-          description: "Created automatically by buy curl or the buy MCP server.",
+          name: "PAYMENT-SIGNATURE",
+          description: "x402 v2 payment payload. usebuy creates the Celo payload; any conforming x402 v2 client may select Base.",
         },
         bearerAuth: {
           type: "http",
@@ -226,7 +243,7 @@ function paidGet(summary: string, price: string) {
     security: [{ x402: [] }],
     responses: {
       "200": { description: "Successful response" },
-      "402": { description: "Payment Required; use buy quote or buy curl on Celo" },
+      "402": { description: "Payment Required; choose Celo or Base from the x402 v2 offers" },
       "429": { description: "Rate limit exceeded" },
       "500": { description: "Upstream operation failed; inspect the payment receipt before retrying" },
     },

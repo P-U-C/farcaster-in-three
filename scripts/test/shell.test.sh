@@ -90,8 +90,15 @@ FID=37
 SIGNER_PRIVATE_KEY=delegated-key
 AGENT_PUBLIC_ORIGIN=https://client.example
 AGENT_WRITE_TOKEN=agent-capability
+BUY_OPERATOR_PAY_TO=0x1111111111111111111111111111111111111111
 BUY_PAY_TO=0x000000000000000000000000000000000000c0Fe
+BUY_ROYALTY_PAY_TO=0xd240A74c8766cbe9Fc0ba2B242C089aAE164D5dF
+BUY_ROYALTY_BPS=500
 BUY_FACILITATOR_API_KEY=x402_facilitator-secret
+CDP_API_KEY_ID=organizations/test/apiKeys/test
+CDP_API_KEY_SECRET_B64=dGVzdC1zZWNyZXQtdGhhdC1pcy1sb25nLWVub3VnaC10by1wYXNzLXZhbGlkYXRpb24=
+REVENUE_CELO_STATUS=confirmed
+REVENUE_BASE_STATUS=confirmed
 SIGNER_REGISTRATION_STATUS=signed
 SIGNER_REGISTRATION_TX=0x1234
 SIGNER_REGISTRATION_RAW_TX=0xabcd
@@ -106,17 +113,19 @@ EOF
 )
 grep -F 'SIGNER_PRIVATE_KEY=delegated-key' "$fixture_client_env" >/dev/null ||
   fail "client environment lost the delegated app key"
-if grep -E '^(SIGNER_REGISTRATION_|AGENT_|BUY_)' "$fixture_client_env" >/dev/null; then
+if grep -E '^(SIGNER_REGISTRATION_|REVENUE_|AGENT_|BUY_|CDP_)' "$fixture_client_env" >/dev/null; then
   fail "payment or recovery secrets would be copied to the client container"
 fi
 grep -F 'BUY_FACILITATOR_API_KEY=x402_facilitator-secret' "$fixture_gateway_env" >/dev/null ||
-  fail "gateway environment lost the facilitator key"
+  fail "gateway environment lost the Celo facilitator key"
+grep -F 'CDP_API_KEY_ID=organizations/test/apiKeys/test' "$fixture_gateway_env" >/dev/null ||
+  fail "gateway environment lost the Base facilitator key"
 if grep -E '^(SIGNER_PRIVATE_KEY|SIGNER_REGISTRATION_)' "$fixture_gateway_env" >/dev/null; then
   fail "Farcaster signer or recovery state would be copied to the payment container"
 fi
 grep -F 'AGENT_WRITE_TOKEN=agent-capability' "$fixture_access_env" >/dev/null ||
   fail "local agent access file lost the write capability"
-if grep -E '^(SIGNER_|BUY_)' "$fixture_access_env" >/dev/null; then
+if grep -E '^(SIGNER_|REVENUE_|BUY_|CDP_)' "$fixture_access_env" >/dev/null; then
   fail "local agent access file contains server secrets"
 fi
 
@@ -125,6 +134,7 @@ mkdir -p "$deploy_fixture/.state" "$deploy_fixture/bin" "$deploy_fixture/scripts
 printf '%s\n' 'dep-0123456789abcdef0123456789abcdef' > "$deploy_fixture/.state/deployment-id"
 printf '%s\n' 'dep-0123456789abcdef0123456789abcdef' > "$deploy_fixture/.state/deployment-payment.pending"
 printf '%s\n' 'https://broker.example' > "$deploy_fixture/.state/deployment-service"
+printf '%s\n' 'base' > "$deploy_fixture/.state/deployment-payment-network"
 printf '%s\n' '203.0.113.7/32' > "$deploy_fixture/.state/deployment-source-cidr"
 printf '%s\n' 'in-three' > "$deploy_fixture/.state/deployment-buy-account"
 export BUY_CALL_LOG="$deploy_fixture/buy-calls"
@@ -179,6 +189,7 @@ HCLOUD_TOKEN='dedicated-hetzner-token-long-enough' \
   "$ROOT/scripts/deploy.sh" --yes >/dev/null
 
 [[ ! -s "$BUY_CALL_LOG" ]] || fail "recovery attempted a second buy payment"
+# shellcheck disable=SC2016
 grep -F 'buy --account "$BUY_ACCOUNT" curl' "$ROOT/scripts/deploy.sh" >/dev/null ||
   fail "paid deployment is not bound to the selected usebuy.ai account"
 grep -F 'node:up' "$DEPLOY_RUN_LOG" >/dev/null ||
@@ -191,9 +202,23 @@ grep -F 'DEPLOYMENT_ID=dep-0123456789abcdef0123456789abcdef' \
   "$deploy_fixture/.state/config" >/dev/null ||
   fail "recovered deployment did not persist provider state"
 
+base_help="$(node "$ROOT/scripts/pay-base.mjs" --help)"
+printf '%s\n' "$base_help" | grep -F -- '--max USDC' >/dev/null ||
+  fail "Base buyer does not advertise its explicit spending ceiling"
+grep -F 'candidate.network === BASE_NETWORK' "$ROOT/scripts/pay-base.mjs" >/dev/null ||
+  fail "Base buyer does not pin its selected network"
+grep -F 'candidate.payTo.toLowerCase() === requirement.payTo.toLowerCase()' \
+  "$ROOT/scripts/pay-base.mjs" >/dev/null ||
+  fail "Base buyer does not pin the approved recipient"
+grep -F -- '--payment-network' "$ROOT/scripts/deploy.sh" >/dev/null ||
+  fail "one-purchase deployment does not expose a payment-network choice"
+grep -F 'scripts/pay-base.mjs' "$ROOT/scripts/deploy.sh" >/dev/null ||
+  fail "one-purchase deployment does not route Base through the guarded buyer"
+
 printf 'ok - generated cloud-init preserves remote variables\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'
 printf 'ok - client create waits and continues after node bootstrap\n'
 printf 'ok - deployment separates client, payment, and local agent secrets\n'
 printf 'ok - paid deployment recovery never invokes buy twice\n'
+printf 'ok - Base buyer pins network, recipient, and spending ceiling\n'

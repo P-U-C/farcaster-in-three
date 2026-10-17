@@ -4,20 +4,23 @@
 
 ```bash
 ./farcaster deploy --service https://YOUR_BROKER
+# Optional Base rail:
+./farcaster deploy --service https://YOUR_BROKER --payment-network base
 ```
 
 Use a dedicated, otherwise-empty Hetzner project and a read/write token. The command generates the SSH key locally, validates the fixed `ash` / `ccx33` / 2,048 GiB plan, proves cloud write access, prints the x402 quote, and requires `BUY DEPLOY`. Its default payment ceiling is 25 USDC.
 
 The broker fee is paid once. Hetzner charges the buyer separately until teardown. After provisioning, the same command waits for cloud-init, runs node setup, waits through snapshot bootstrap, and opens the local client key ceremony. Pressing Ctrl-C during bootstrap is safe; rerun `./farcaster deploy` and it resumes from `.state/config` without another payment.
 
-Before payment, the command writes a random deployment ID. Immediately before `buy curl`, it also records the broker origin, SSH source CIDR, usebuy.ai account, and `.state/deployment-payment.pending`. On an interrupted response, rerunning checks the free status route. If the broker recorded the paid entitlement but provisioning did not finish, the command uses the free resume route. If neither exists, it stops and requires `buy --account in-three receipts --resolve`; it does not automatically buy again.
+Before payment, the command writes a random deployment ID. Immediately before the selected buyer runs, it records the broker origin, SSH source CIDR, payment network, Celo buy account when applicable, and `.state/deployment-payment.pending`. On an interrupted response, rerunning checks the free status route. If the broker recorded the paid entitlement but provisioning did not finish, the command uses the free resume route. If neither exists, it stops for chain-specific receipt resolution; it never buys again automatically.
 
 Local deployment files:
 
 - `.state/deployment-id`: random idempotency key.
 - `.state/deployment-service`: exact broker origin used for the purchase.
 - `.state/deployment-source-cidr`: exact firewall input bound to the entitlement.
-- `.state/deployment-buy-account`: exact usebuy.ai account authorized for the purchase.
+- `.state/deployment-buy-account`: exact usebuy.ai account authorized for a Celo purchase.
+- `.state/deployment-payment-network`: exact Celo or Base rail selected for the attempt.
 - `.state/deployment-payment.pending`: blocks a second automatic purchase until recovery is resolved.
 - `.state/deploy-receipt.txt`: x402 response receipt when returned.
 - `.state/config`: Hetzner resource IDs and host connection state after success.
@@ -47,7 +50,7 @@ Disk growth is protocol dependent. Alert before free space falls below 15%. The 
 
 `client create` first checks the local Snapchain API. If bootstrap is incomplete, it remains attached, reports snapshot/database/disk progress every five minutes, and continues automatically when the API responds. It does not request the custody phrase or register a key while waiting. Pressing Ctrl-C only stops the local wait; the remote node keeps bootstrapping and rerunning command 2 is safe.
 
-Before running command 2, create a facilitator key at [x402.celo.org](https://x402.celo.org/) and confirm its settlement balance. The key is entered in a hidden prompt before the custody phrase. On success, the command prints the browser and agent surfaces:
+Before running command 2, create a facilitator key at [x402.celo.org](https://x402.celo.org/), confirm its settlement balance, and create a Coinbase CDP Secret API key for Base x402 settlement. Put a small native-gas balance in the custody address on Celo and Base for one-time split creation, in addition to the OP ETH needed for app-key registration. Both credentials are validated in hidden prompts before the custody phrase. On success, the command prints the browser and agent surfaces:
 
 ```text
 URL           https://203-0-113-10.sslip.io
@@ -57,7 +60,7 @@ read path     browser or paid agent -> client service -> your Snapchain node
 write path    authorized paid agent -> client service -> validator
 ```
 
-The public health routes confirm that both browser and agent paths can query the configured read node. Browser routes use the signed session cookie. Agent routes use Celo x402; writes additionally require the capability in `.state/agent.env`. Follow is available in the desktop sidebar and from a dedicated narrow-screen control.
+The public health routes confirm that both browser and agent paths can query the configured read node. Browser routes use the signed session cookie. Agent routes advertise x402 v2 USDC on Celo and Base; writes additionally require the capability in `.state/agent.env`. The bundled buy CLI selects Celo. Follow is available in the desktop sidebar and from a dedicated narrow-screen control.
 
 See [AGENT-API.md](AGENT-API.md) for exact buy CLI and MCP requests.
 
@@ -79,7 +82,7 @@ The provider console is authoritative. Confirm the displayed total before typing
 
 The one-purchase path adds a default 25 USDC broker automation fee. That is a one-time x402 request, not infrastructure credit. The manual three-command path has no broker fee.
 
-Agent API defaults are 0.002 USDC for profile/source metadata, 0.005 USDC for a feed read, and 0.02 USDC for a write. These are receipts to the configured payout address, not infrastructure discounts. Celo's facilitator separately charges its published settlement fee from the operator's facilitator balance. The 402 and facilitator dashboard are authoritative.
+Agent API defaults are 0.002 USDC for profile/source metadata, 0.005 USDC for a feed read, and 0.02 USDC for a write. Every route uses an immutable 95% operator / 5% P-U-C split on the selected chain. A 0.1% permissionless distribution incentive is applied when accumulated USDC is released. These receipts are not infrastructure discounts. Facilitators may charge their published fees separately. The 402 quote and facilitator dashboards are authoritative; bridging is optional after distribution and never occurs in checkout.
 
 ## Agent gateway
 
@@ -92,11 +95,13 @@ buy curl --max-amount 0.005 https://YOUR_CLIENT/agent/v1/feed
 Runtime files:
 
 - `/srv/in-three/client.env`: Farcaster signer and browser secrets; no buy credentials.
-- `/srv/in-three/agent-gateway.env`: facilitator key, payout address, prices, and write capability; no Farcaster signer.
+- `/srv/in-three/agent-gateway.env`: Celo/CDP facilitator credentials, split and operator addresses, prices, and write capability; no Farcaster signer.
 - `/srv/in-three/data/deployer`: mode-0700 paid entitlement records, writable only by the non-root deployer container UID.
 - `.state/agent.env`: local public origin and write capability for an authorized agent.
 
 To change prices, edit `BUY_AGENT_READ_PRICE`, `BUY_AGENT_METADATA_PRICE`, `BUY_AGENT_WRITE_PRICE`, or `BUY_DEPLOY_PRICE` in the gateway environment and run `sudo docker compose up -d agent-gateway`. Keep the token symbol USDC.
+
+USDC accumulates at the deterministic split address until a permissionless distribution transaction runs. Inspect and distribute the address on both chains through [Splits](https://app.splits.org/) or the 0xSplits SDK. The 0.1% keeper incentive is intentionally small; a low-volume operator may distribute its own balance. The allocation is immutable, so changing the operator payout address requires a new setup and split.
 
 To rotate write access, replace `AGENT_WRITE_TOKEN` with a new 32-byte base64url value in both the remote gateway environment and local `.state/agent.env`, then restart the gateway. Existing agents stop at 401 before payment.
 
@@ -130,11 +135,11 @@ Snapchain database:
 App key:
 
 - Stored in `/srv/in-three/client.env` after a successful deployment.
-- Before broadcast, `.state/client.env.pending` stores the app key, serialized signed registration transaction, locally calculated hash, registration status, facilitator key, and generated agent capability with mode 0600.
-- If broadcast returns an error, keep the file: the RPC may have accepted the transaction. Rerun `./farcaster client create`; it validates the saved hash, rebroadcasts the exact signed bytes, and checks the receipt without asking for the phrase or creating a different transaction.
-- The serialized custody transaction is removed as soon as registration confirms.
+- Before broadcast, `.state/client.env.pending` stores the app key, Celo/Base split transactions, Optimism registration transaction, local hashes, statuses, facilitator credentials, and generated agent capability with mode 0600.
+- If any broadcast returns an error, keep the file: the RPC may have accepted the transaction. Rerun `./farcaster client create`; it validates every saved hash, rebroadcasts only the exact pending bytes, and checks receipts without asking for the phrase.
+- Each serialized transaction is removed as soon as its receipt confirms.
 - Recovery and payment metadata are stripped before `client.env` is uploaded to the host.
-- The facilitator key and write capability are isolated in `agent-gateway.env`; the gateway receives no Farcaster signer.
+- Both facilitator credentials and the write capability are isolated in `agent-gateway.env`; the gateway receives no Farcaster signer.
 - The local pending file is deleted only after both public HTTPS health checks pass, with a best-effort overwrite when `shred` is available.
 - Backing up the deployed app key preserves client identity but expands the compromise surface.
 - Losing it does not affect custody; register a new signer and revoke the old public key.
@@ -145,7 +150,7 @@ Local state:
 - `.state/deployment-*` files bind an interrupted paid attempt to the original broker, deployment ID, and firewall CIDR; no cloud token is stored.
 - `.state/deploy-receipt.txt` stores the returned x402 receipt when available.
 - `.state/id_ed25519` operates the host.
-- `.state/client.env.pending` may temporarily hold the delegated key, facilitator key, agent capability, and fixed registration transaction during recovery.
+- `.state/client.env.pending` may temporarily hold the delegated key, facilitator credentials, agent capability, and fixed Celo/Base/Optimism transactions during recovery.
 - `.state/agent.env` holds the public API origin and owner write capability.
 - All are excluded from Git and should be backed up only to an encrypted operator vault.
 
@@ -161,14 +166,14 @@ Local state:
 | Login fails | Correct deployment password; cookie domain/HTTPS |
 | Agent read returns 402 | Expected unpaid quote; use buy with an exact maximum |
 | Agent write returns 401 | Supply the current owner capability; no payment occurred |
-| Facilitator returns 401/402 | Rotate the API key or fund its settlement balance |
+| Facilitator returns 401/402 | Identify the selected chain, then rotate/fund its Celo or CDP credential |
 | Paid agent request is ambiguous | Do not retry; preserve output and run `buy --account in-three receipts --resolve` |
 | Paid deployment interrupted | Keep `.state/deployment-payment.pending`; rerun `./farcaster deploy` to recover or resume without buying again |
 | Paid deployment has no entitlement | Do not remove the marker or repay; resolve the receipt and contact the broker with deployment ID and transaction only |
 | Hetzner rejects after payment | Correct project quota/token issues, then rerun the free entitled resume path |
 | Validator rejects write | FID storage, signer onchain state, clock, text limits |
 | TLS pending | A/AAAA resolution, ports 80/443, Caddy logs; keep `.state/client.env.pending` and rerun create |
-| Setup interrupted after registration | Keep `.state/client.env.pending`; rerun `./farcaster client create` |
+| Setup interrupted during split or signer broadcast | Keep `.state/client.env.pending`; rerun `./farcaster client create` |
 | SSH fails after IP change | Update Hetzner firewall source CIDR in console |
 
 ## Teardown

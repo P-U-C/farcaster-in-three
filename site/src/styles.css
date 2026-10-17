@@ -1386,7 +1386,7 @@ code {
 
 .deploy-offer dl {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin: 18px 0 0;
   border-top: 1px solid #aaa49c;
 }
@@ -1554,6 +1554,89 @@ code {
   color: var(--muted);
   font-family: "IBM Plex Mono", monospace;
   font-size: 7px;
+}
+
+.settlement-policy {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 48px;
+  align-items: center;
+  margin-top: 24px;
+  padding: 30px 0;
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+
+.settlement-heading > span {
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.settlement-heading h3 {
+  margin: 8px 0 9px;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 30px;
+  font-weight: 500;
+}
+
+.settlement-heading p,
+.settlement-detail > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.split-meter {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 28px;
+  padding-bottom: 23px;
+}
+
+.split-meter::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 11px;
+  background: linear-gradient(to right, var(--purple) 0 95%, var(--orange) 95% 100%);
+  content: "";
+}
+
+.split-meter > span {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.split-meter b {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 34px;
+  font-weight: 500;
+}
+
+.split-meter small {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.operator-share b {
+  color: var(--purple);
+}
+
+.puc-share b {
+  color: var(--orange);
+}
+
+.settlement-detail > p {
+  margin-top: 13px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
 }
 
 .agent-boundaries {
@@ -2022,8 +2105,13 @@ code {
     border-bottom: 1px solid var(--ink);
   }
 
-  .agent-commerce {
+  .agent-commerce,
+  .settlement-policy {
     grid-template-columns: 1fr;
+  }
+
+  .settlement-policy {
+    gap: 24px;
   }
 
   .agent-prices,
