@@ -30,14 +30,16 @@ jobs:
 
       - name: Verify prebuilt npm package
         run: |
+          expected_version="$(node -p 'require("./package.json").version')"
           mkdir -p /tmp/in-three-pack /tmp/in-three-prefix /tmp/in-three-workspace
           npm pack --ignore-scripts --pack-destination /tmp/in-three-pack
           package_tarball="$(find /tmp/in-three-pack -name 'farcaster-in-three-*.tgz' -print -quit)"
-          tar -tzf "$package_tarball" | grep -q 'package/apps/client/dist/server/setup.js'
-          tar -tzf "$package_tarball" | grep -q 'package/apps/client/dist/web/index.html'
+          tar -tzf "$package_tarball" > /tmp/in-three-package-files
+          grep -Fxq 'package/apps/client/dist/server/setup.js' /tmp/in-three-package-files
+          grep -Fxq 'package/apps/client/dist/web/index.html' /tmp/in-three-package-files
           npm install --global --prefix /tmp/in-three-prefix "$package_tarball"
           cd /tmp/in-three-workspace
-          test "$(/tmp/in-three-prefix/bin/in-three --version)" = "0.1.1"
+          test "$(/tmp/in-three-prefix/bin/in-three --version)" = "$expected_version"
           /tmp/in-three-prefix/bin/in-three --help | grep -q 'in-three provision'
           test ! -e .state
 
@@ -57,6 +59,7 @@ jobs:
 
       - name: Build and exercise the operator image
         run: |
+          expected_version="$(node -p 'require("./package.json").version')"
           docker build --file Dockerfile.operator --tag in-three-operator:test .
-          test "$(docker run --rm in-three-operator:test --version)" = "0.1.1"
+          test "$(docker run --rm in-three-operator:test --version)" = "$expected_version"
           docker run --rm in-three-operator:test doctor
