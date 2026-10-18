@@ -10,12 +10,15 @@ import {
   Clipboard,
   Clock3,
   Cloud,
+  Container,
+  Download,
   ExternalLink,
   FileCheck2,
   Github,
   KeyRound,
   Menu,
   Network,
+  Package,
   Server,
   ShieldCheck,
   Terminal,
@@ -26,6 +29,9 @@ import { useState } from "react";
 
 const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
+const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
+const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
+const RELEASE = `${REPO}/releases/tag/v0.1.4`;
 
 const commands = [
   { number: "0", label: "COMPUTE", command: "./in-three-container provision" },
@@ -61,6 +67,16 @@ export function App() {
           <Menu size={21} />
         </button>
       </header>
+
+      <nav className="package-bar" aria-label="Packages and release links">
+        <span className="package-bar-label">INSTALL <b>v0.1.4</b></span>
+        <div className="package-links">
+          <PackageLink icon={<Package size={14} />} label="npm" detail="farcaster-in-three" href={NPM_PACKAGE} />
+          <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
+          <PackageLink icon={<Download size={14} />} label="Release" detail="checksummed" href={RELEASE} />
+          <PackageLink icon={<Github size={14} />} label="Source" detail="MIT" href={REPO} />
+        </div>
+      </nav>
 
       {menuOpen && (
         <div className="mobile-menu">
@@ -340,6 +356,10 @@ function AgentFact({ icon, title, detail }: { icon: React.ReactNode; title: stri
 
 function Concept({ index, title, accent, children }: { index: string; title: string; accent: string; children: React.ReactNode }) {
   return <article className={`concept ${accent}`}><span>{index}</span><h3>{title}</h3><p>{children}</p></article>;
+}
+
+function PackageLink({ icon, label, detail, href }: { icon: React.ReactNode; label: string; detail: string; href: string }) {
+  return <a className="package-pill" href={href} target="_blank" rel="noreferrer">{icon}<b>{label}</b><small>{detail}</small><ExternalLink size={12} /></a>;
 }
 
 function DocLink({ icon, title, detail, href }: { icon: React.ReactNode; title: string; detail: string; href: string }) {
