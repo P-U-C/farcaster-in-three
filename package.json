@@ -1,8 +1,41 @@
 {
   "name": "farcaster-in-three",
   "version": "0.1.0",
-  "private": true,
   "description": "A three-command path from bare compute to a sovereign Farcaster client.",
+  "license": "MIT",
+  "author": "Permanent Upper Class",
+  "homepage": "https://farcaster.permanentupperclass.com/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/P-U-C/farcaster-in-three.git"
+  },
+  "bugs": {
+    "url": "https://github.com/P-U-C/farcaster-in-three/issues"
+  },
+  "type": "module",
+  "bin": {
+    "in-three": "bin/in-three.mjs",
+    "farcaster-in-three": "bin/in-three.mjs"
+  },
+  "files": [
+    ".dockerignore",
+    "npm-shrinkwrap.json",
+    "bin",
+    "deploy",
+    "farcaster",
+    "docs",
+    "skills/in-three/SKILL.md",
+    "scripts/*.sh",
+    "scripts/lib",
+    "scripts/pay-base.mjs",
+    "apps/client/dist",
+    "apps/client/Dockerfile",
+    "apps/client/package.json",
+    "site/package.json",
+    "SECURITY.md",
+    "TESTER-BOUNTY.md",
+    "VOUCHER.md"
+  ],
   "workspaces": [
     "apps/client",
     "site"
@@ -12,11 +45,31 @@
     "check": "npm run typecheck --workspace @in-three/client && npm run typecheck --workspace @in-three/site && npm test && npm run test:scripts",
     "dev:client": "npm run dev --workspace @in-three/client",
     "dev:site": "npm run dev --workspace @in-three/site",
+    "prepack": "npm run build && node scripts/verify-package.mjs",
     "test": "npm test --workspace @in-three/client",
     "test:scripts": "bash scripts/test/shell.test.sh"
   },
   "engines": {
     "node": ">=22"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "dependencies": {
+    "@0xsplits/splits-sdk": "6.7.0",
+    "@coinbase/cdp-sdk": "1.59.0",
+    "@faker-js/faker": "10.6.0",
+    "@farcaster/hub-nodejs": "0.17.0",
+    "@hono/node-server": "1.19.17",
+    "@noble/ed25519": "2.3.0",
+    "@x402/core": "2.28.0",
+    "@x402/evm": "2.28.0",
+    "@x402/fetch": "2.28.0",
+    "@x402/hono": "2.28.0",
+    "hono": "4.13.13",
+    "viem": "2.57.7",
+    "zod": "4.1.12"
   },
   "devDependencies": {
     "playwright": "1.64.1"
@@ -24,6 +77,5 @@
   "overrides": {
     "@faker-js/faker": "10.6.0",
     "@grpc/grpc-js": "1.14.6"
-  },
-  "license": "MIT"
+  }
 }

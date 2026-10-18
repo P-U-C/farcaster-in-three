@@ -215,6 +215,25 @@ grep -F -- '--payment-network' "$ROOT/scripts/deploy.sh" >/dev/null ||
 grep -F 'scripts/pay-base.mjs' "$ROOT/scripts/deploy.sh" >/dev/null ||
   fail "one-purchase deployment does not route Base through the guarded buyer"
 
+package_fixture="$(mktemp -d)"
+package_version="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --version)"
+[[ "$package_version" == "0.1.0" ]] ||
+  fail "prebuilt CLI does not report the package version"
+package_help="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --help)"
+printf '%s\n' "$package_help" | grep -F 'in-three provision' >/dev/null ||
+  fail "prebuilt CLI help does not use the installed command"
+(
+  IN_THREE_STATE_DIR="$package_fixture/.state"
+  source "$ROOT/scripts/lib/common.sh"
+  [[ "$STATE_DIR" == "$package_fixture/.state" ]]
+) || fail "prebuilt CLI state is not isolated from the package installation"
+grep -F 'IN_THREE_PREBUILT' "$ROOT/scripts/client.sh" >/dev/null ||
+  fail "prebuilt CLI does not skip the source compile"
+if grep -F 'npm run build' "$ROOT/apps/client/Dockerfile" >/dev/null; then
+  fail "runtime image still compiles the client"
+fi
+rm -rf "$package_fixture"
+
 printf 'ok - generated cloud-init preserves remote variables\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'
@@ -222,3 +241,4 @@ printf 'ok - client create waits and continues after node bootstrap\n'
 printf 'ok - deployment separates client, payment, and local agent secrets\n'
 printf 'ok - paid deployment recovery never invokes buy twice\n'
 printf 'ok - Base buyer pins network, recipient, and spending ceiling\n'
+printf 'ok - prebuilt CLI isolates state and skips compilation\n'

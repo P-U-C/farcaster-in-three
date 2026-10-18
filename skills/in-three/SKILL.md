@@ -21,18 +21,30 @@ An In Three deployment exposes a machine-readable API protected by x402 v2 payme
 - Never blindly retry a paid timeout, disconnect, 500, or uncertain settlement.
 - A write payment can settle before Farcaster rejects the message. Validate against OpenAPI first.
 
-## Deploy
+## Install
 
-Prefer the repository wrapper because it owns idempotency, local SSH-key generation, exact-request quoting, and payment recovery:
+Use the pinned prebuilt npm release, not an unversioned branch:
 
 ~~~sh
-./farcaster deploy --service https://USER_SELECTED_BROKER
+npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz
+mkdir in-three-node && cd in-three-node
+in-three --version
+~~~
+
+Verify the release's attached SHA-256 file before spending. Keep the same working directory for every later command because the CLI stores recovery state under its local <code>.state/</code> directory.
+
+## Deploy
+
+Prefer the installed wrapper because it owns idempotency, local SSH-key generation, exact-request quoting, and payment recovery:
+
+~~~sh
+in-three deploy --service https://USER_SELECTED_BROKER
 # Add --payment-network base only when the user selected Base.
 ~~~
 
 The command performs a free preflight and displays the plan before payment. Stop at the confirmation unless the user explicitly authorized the displayed 25 USDC ceiling and acknowledged the separate recurring Hetzner cost. Use <code>--yes</code> only when that exact authorization is already present.
 
-The wrapper may remain attached for hours while Snapchain loads its initial snapshot. Report progress from <code>./farcaster node status</code>; do not restart the node during extraction. The final client password, Celo and Coinbase CDP facilitator credentials, custody phrase, and combined Celo/Base/Optimism confirmation require a human at the local terminal. Never ask the user to send those values through chat.
+The wrapper may remain attached for hours while Snapchain loads its initial snapshot. Report progress from <code>in-three node status</code>; do not restart the node during extraction. The final client password, Celo and Coinbase CDP facilitator credentials, custody phrase, and combined Celo/Base/Optimism confirmation require a human at the local terminal. Never ask the user to send those values through chat.
 
 If the command stops after payment, rerun the same command. The saved marker makes it query free status/resume endpoints and prevents automatic repurchase. If it reports no matching entitlement, run <code>buy --account in-three receipts --resolve</code>, preserve the deployment ID and settlement transaction, and stop. Do not pay again.
 

@@ -2,30 +2,24 @@
 set -euo pipefail
 
 IN_THREE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export IN_THREE_ROOT
+IN_THREE_COMMAND="${IN_THREE_COMMAND:-./farcaster}"
+export IN_THREE_COMMAND IN_THREE_ROOT
 
 usage() {
-  cat <<'EOF'
-IN THREE -- a sovereign Farcaster client in three commands
-
-Usage:
-  ./farcaster deploy [options]      Buy once and run the complete deployment
-  ./farcaster provision [options]   Provision compute and a 2 TiB data volume
-  ./farcaster node up               Install and start a Snapchain read node
-  ./farcaster node status           Show sync state and recent logs
-  ./farcaster client create         Register an app key and deploy the client
-  ./farcaster client status         Check the deployed client
-  ./farcaster destroy               Delete provisioned Hetzner resources
-  ./farcaster doctor                Check local prerequisites
-
-Agent quickstart:
-  ./farcaster deploy --service https://YOUR_BROKER
-
-Manual quickstart:
-  ./farcaster provision
-  ./farcaster node up
-  ./farcaster client create
-EOF
+  printf 'IN THREE -- a sovereign Farcaster client in three commands\n\n'
+  printf 'Usage:\n'
+  printf '  %s deploy [options]      Buy once and run the complete deployment\n' "$IN_THREE_COMMAND"
+  printf '  %s provision [options]   Provision compute and a 2 TiB data volume\n' "$IN_THREE_COMMAND"
+  printf '  %s node up               Install and start a Snapchain read node\n' "$IN_THREE_COMMAND"
+  printf '  %s node status           Show sync state and recent logs\n' "$IN_THREE_COMMAND"
+  printf '  %s client create         Register an app key and deploy the client\n' "$IN_THREE_COMMAND"
+  printf '  %s client status         Check the deployed client\n' "$IN_THREE_COMMAND"
+  printf '  %s destroy               Delete provisioned Hetzner resources\n' "$IN_THREE_COMMAND"
+  printf '  %s doctor                Check local prerequisites\n\n' "$IN_THREE_COMMAND"
+  printf 'Agent quickstart:\n  %s deploy --service https://YOUR_BROKER\n\n' "$IN_THREE_COMMAND"
+  printf 'Manual quickstart:\n'
+  printf '  %s provision\n  %s node up\n  %s client create\n' \
+    "$IN_THREE_COMMAND" "$IN_THREE_COMMAND" "$IN_THREE_COMMAND"
 }
 
 command="${1:-help}"

@@ -20,6 +20,7 @@ import {
   Server,
   ShieldCheck,
   Terminal,
+  UserRound,
   WalletCards,
   X,
 } from "lucide-react";
@@ -29,9 +30,9 @@ const DEADLINE = new Date("2026-10-24T14:47:30Z");
 const REPO = "https://github.com/P-U-C/farcaster-in-three";
 
 const commands = [
-  { number: "0", label: "COMPUTE", command: "./farcaster provision" },
-  { number: "1", label: "SNAPCHAIN", command: "./farcaster node up" },
-  { number: "2", label: "CLIENT", command: "./farcaster client create" },
+  { number: "0", label: "COMPUTE", command: "in-three provision" },
+  { number: "1", label: "SNAPCHAIN", command: "in-three node up" },
+  { number: "2", label: "CLIENT", command: "in-three client create" },
 ];
 
 export function App() {
@@ -115,12 +116,12 @@ export function App() {
           <SectionLabel number="00" text="QUICKSTART" />
           <div className="section-heading">
             <h2>Run these three<br />commands.</h2>
-            <p>The operator commands run on macOS or Linux. Use one paid wrapper or the three manual commands below; both create the same owned node and HTTPS client.</p>
+            <p>Install the versioned npm release on macOS or Linux; it ships the compiled setup utility and client assets. Run one paid wrapper or the three commands below from an empty working directory.</p>
           </div>
 
           <div className="clone-line">
-            <span>GET THE SOURCE</span>
-            <CodeBlock code="git clone https://github.com/P-U-C/farcaster-in-three.git && cd farcaster-in-three" />
+            <span>INSTALL PREBUILT CLI</span>
+            <CodeBlock code={"npm install -g https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz\nmkdir in-three-node && cd in-three-node"} />
           </div>
 
           <div className="paid-quickstart">
@@ -130,7 +131,7 @@ export function App() {
               <p>A free preflight checks the fixed Hetzner plan and token permissions. One 25 USDC x402 request creates the server, volume, firewall, and SSH key, then starts Snapchain. Hetzner bills the infrastructure separately.</p>
             </div>
             <div>
-              <CodeBlock code="./farcaster deploy --service https://YOUR_BROKER" label="FULL DEPLOY" />
+              <CodeBlock code="in-three deploy --service https://YOUR_BROKER" label="FULL DEPLOY" />
               <small>Celo is the default rail; add <code>--payment-network base</code> for Base. Keys stay local, and interrupted payments resume without buying again.</small>
             </div>
           </div>
@@ -225,13 +226,13 @@ export function App() {
                   "Small CELO and Base ETH balances for one-time split creation",
                   "Celo facilitator API key plus Coinbase CDP Secret API key",
                 ]} />
-                <CodeBlock code="./farcaster doctor" label="CHECK FIRST" />
+                <CodeBlock code="in-three doctor" label="CHECK FIRST" />
                 <p className="fine-print">The default cloud path is Hetzner. Snapchain itself needs no provider token or hosted RPC key. The infrastructure token creates compute only.</p>
               </Chapter>
 
               <Chapter id="compute" number="0" title="Furnish the compute">
                 <p>Run the provisioner. It shows the selected region, machine class, volume size, and inbound rules before it creates anything billable.</p>
-                <CodeBlock code="./farcaster provision" label="COMMAND 0" />
+                <CodeBlock code="in-three provision" label="COMMAND 0" />
                 <div className="fact-grid">
                   <Fact label="DEFAULT" value="ccx33" detail="validated against the live provider catalog" />
                   <Fact label="DATA" value="2 TiB" detail="mounted at /srv/in-three" />
@@ -243,24 +244,24 @@ export function App() {
                   "Compute is ready at 203.0.113.10",
                   "client URL   https://203-0-113-10.sslip.io (activated by command 2)",
                   "local state  .state/config",
-                  "Next: ./farcaster node up",
+                  "Next: in-three node up",
                 ]} />
                 <Callout tone="orange" icon={<Cloud size={21} />} title="Approximate recurring cost">
-                  At Hetzner&apos;s current Ashburn list rates, the default CCX33 is $165.99/month and 2,048 GiB of volume storage is about $99.12/month: roughly $265/month before IPv4, traffic, or tax. Check the <a href="https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/" target="_blank" rel="noreferrer">server rate</a> and <a href="https://www.hetzner.com/cloud/" target="_blank" rel="noreferrer">volume rate</a> in your console before typing <code>PROVISION</code>. Run <code>./farcaster destroy</code> when finished.
+                  At Hetzner&apos;s current Ashburn list rates, the default CCX33 is $165.99/month and 2,048 GiB of volume storage is about $99.12/month: roughly $265/month before IPv4, traffic, or tax. Check the <a href="https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/" target="_blank" rel="noreferrer">server rate</a> and <a href="https://www.hetzner.com/cloud/" target="_blank" rel="noreferrer">volume rate</a> in your console before typing <code>PROVISION</code>. Run <code>in-three destroy</code> when finished.
                 </Callout>
               </Chapter>
 
               <Chapter id="node" number="1" title="Start the read node">
                 <p>The second command checks for at least 1.5 TB free, verifies the vendored validator set against the pinned Snapchain release checksum, pulls the x86-64 image by digest, and starts snapshot sync.</p>
-                <CodeBlock code="./farcaster node up" label="COMMAND 1" />
+                <CodeBlock code="in-three node up" label="COMMAND 1" />
                 <p>The initial snapshot is several hundred gigabytes. Downloading, decompressing, and replaying newer blocks commonly takes hours. Node up returns after confirming that the container is running; closing your terminal does not stop bootstrap.</p>
                 <OutputBlock lines={[
                   "Snapchain bootstrap is running on the server",
                   "HTTP API      waiting for snapshot bootstrap",
-                  "Check progress: ./farcaster node status",
-                  "Next: ./farcaster client create (waits, then continues)",
+                  "Check progress: in-three node status",
+                  "Next: in-three client create (waits, then continues)",
                 ]} />
-                <CodeBlock code="./farcaster node status" label="WATCH SYNC" />
+                <CodeBlock code="in-three node status" label="WATCH SYNC" />
                 <p><b>Ready means every reported shard delay is under 30 seconds.</b> Start command 2 immediately: it reports bootstrap progress every five minutes and continues automatically when the local HTTP API appears. It does not request the phrase or register an app key while waiting.</p>
                 <div className="source-note">
                   <FileCheck2 size={20} />
@@ -270,7 +271,7 @@ export function App() {
 
               <Chapter id="client" number="2" title="Issue a client key">
                 <p>The final command first validates the client password and both facilitator credentials in hidden prompts. Only then does it request the custody recovery phrase. It derives account zero at <code>m/44&apos;/60&apos;/0&apos;/0/0</code>, checks the FID and storage, prepares the Celo/Base revenue routes, and creates a fresh Ed25519 key.</p>
-                <CodeBlock code="./farcaster client create" label="COMMAND 2" />
+                <CodeBlock code="in-three client create" label="COMMAND 2" />
                 <div className="key-ceremony">
                   <div><span>1</span><strong>Secrets are separated</strong><small>password and both facilitator credentials are validated before custody is requested</small></div>
                   <div><span>2</span><strong>Phrase enters local memory</strong><small>never an argument, environment variable, file, log, or network request</small></div>
@@ -289,7 +290,7 @@ export function App() {
                 <p>The password is scrypt-hashed. The Farcaster signer and payment credentials are installed in separate read-only containers. Caddy obtains TLS for the printed <code>sslip.io</code> hostname, and <code>.state/agent.env</code> stores the owner&apos;s write capability with mode 0600.</p>
                 <div className="source-note">
                   <FileCheck2 size={20} />
-                  <p><b>If a broadcast fails:</b> do not start over. The exact Celo, Base, and Optimism signed bytes, local hashes, and app key were saved before the first broadcast in <code>.state/client.env.pending</code>. Rerun <code>./farcaster client create</code>; it checks confirmed receipts and rebroadcasts only the exact pending bytes. Each raw transaction is removed after confirmation.</p>
+                  <p><b>If a broadcast fails:</b> do not start over. The exact Celo, Base, and Optimism signed bytes, local hashes, and app key were saved before the first broadcast in <code>.state/client.env.pending</code>. Rerun <code>in-three client create</code>; it checks confirmed receipts and rebroadcasts only the exact pending bytes. Each raw transaction is removed after confirmation.</p>
                 </div>
               </Chapter>
 
@@ -305,11 +306,11 @@ export function App() {
 
               <Chapter id="operate" number="O" title="Operate what you own">
                 <div className="ops-table">
-                  <div><code>./farcaster node status</code><span>container, version, block delay, disk</span></div>
-                  <div><code>./farcaster node logs</code><span>follow Snapchain logs</span></div>
-                  <div><code>./farcaster client status</code><span>containers, TLS, node health</span></div>
-                  <div><code>./farcaster client logs</code><span>follow app and proxy logs</span></div>
-                  <div><code>./farcaster destroy</code><span>delete all billable resources</span></div>
+                  <div><code>in-three node status</code><span>container, version, block delay, disk</span></div>
+                  <div><code>in-three node logs</code><span>follow Snapchain logs</span></div>
+                  <div><code>in-three client status</code><span>containers, TLS, node health</span></div>
+                  <div><code>in-three client logs</code><span>follow app and proxy logs</span></div>
+                  <div><code>in-three destroy</code><span>delete all billable resources</span></div>
                 </div>
                 <p>Back up the delegated app key only if you need continuity. Losing it means registering another small OP transaction. Losing the Snapchain database means downloading a new verified snapshot. If provisioning aborts, the cleanup trap removes any cloud resources created during that run; check the provider console before retrying. None of these failures compromises custody.</p>
               </Chapter>
@@ -363,7 +364,7 @@ export function App() {
               <p>The buyer supplies a dedicated Hetzner project token and SSH public key. The broker records a token hash for recovery, creates the fixed <code>ccx33 + 2 TiB</code> plan, and returns the resource IDs. Custody happens later on the buyer&apos;s machine.</p>
             </div>
             <div>
-              <CodeBlock code="./farcaster deploy --service https://YOUR_BROKER" label="25 USDC · ONCE" />
+              <CodeBlock code="in-three deploy --service https://YOUR_BROKER" label="25 USDC · ONCE" />
               <dl>
                 <div><dt>BEFORE PAYMENT</dt><dd>plan + write-access preflight</dd></div>
                 <div><dt>AFTER PAYMENT</dt><dd>idempotent status + free resume</dd></div>
@@ -478,6 +479,31 @@ export function App() {
                 <Voucher number="4" text="Check that no custody phrase appears in shell history, files, process arguments, or logs." />
                 <Voucher number="5" text="Publish a Farcaster endorsement naming what worked and any friction found." />
               </div>
+            </div>
+            <div className="bounty-board" aria-labelledby="bounty-title">
+              <header>
+                <span>2 RESERVED SLOTS · 400 USDC TOTAL</span>
+                <h3 id="bounty-title">Run it. Break it honestly. Show the receipts.</h3>
+                <p>Claim a track before spending. The reward covers testing, not praise; reproducible blockers remain valid findings.</p>
+              </header>
+              <div className="bounty-tracks">
+                <div>
+                  <UserRound size={23} />
+                  <span>HUMAN</span>
+                  <strong>200 <small>USDC</small></strong>
+                  <p>Clean machine, full node and client, security checks, and an honest public Farcaster report.</p>
+                </div>
+                <div>
+                  <Bot size={23} />
+                  <span>AGENT</span>
+                  <strong>200 <small>USDC</small></strong>
+                  <p>Public skill, command transcript, x402 reads on both rails, an authorized paid cast, and receipts.</p>
+                </div>
+              </div>
+              <footer>
+                <span>Evidence due 2026-10-23 · 14:47 UTC</span>
+                <a href={`${REPO}/blob/main/TESTER-BOUNTY.md`} target="_blank" rel="noreferrer">Read rules and claim <ArrowRight size={16} /></a>
+              </footer>
             </div>
             <div className="voucher-cta">
               <div><FileCheck2 size={25} /><span><strong>Tester runbook</strong><small>Exact checks, evidence, and endorsement template</small></span></div>

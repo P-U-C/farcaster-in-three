@@ -7,6 +7,7 @@ on:
       - "site/**"
       - "package.json"
       - "package-lock.json"
+      - "npm-shrinkwrap.json"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 

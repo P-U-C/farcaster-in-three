@@ -60,7 +60,7 @@ up() {
     if node_api_ready; then
       success "Snapchain HTTP API is online"
       status
-      printf '\nNext: ./farcaster client create\n'
+      printf '\nNext: %s client create\n' "$IN_THREE_COMMAND"
       return
     fi
     sleep 5
@@ -76,9 +76,9 @@ up() {
   printf 'The API stays offline while the initial snapshot downloads and loads.\n'
   printf 'This commonly takes hours; closing this terminal will not stop it.\n'
   bootstrap_status
-  printf '\nCheck progress separately: ./farcaster node status\n'
-  printf 'Follow logs separately:    ./farcaster node logs\n'
-  printf 'Next: ./farcaster client create (waits here until the API is online)\n'
+  printf '\nCheck progress separately: %s node status\n' "$IN_THREE_COMMAND"
+  printf 'Follow logs separately:    %s node logs\n' "$IN_THREE_COMMAND"
+  printf 'Next: %s client create (waits here until the API is online)\n' "$IN_THREE_COMMAND"
 }
 
 status() {
@@ -131,5 +131,5 @@ case "${1:-status}" in
     load_state
     remote "cd /srv/in-three && sudo docker compose stop snapchain"
     ;;
-  *) die "usage: ./farcaster node {up|status|logs|stop}" ;;
+  *) die "usage: $IN_THREE_COMMAND node {up|status|logs|stop}" ;;
 esac

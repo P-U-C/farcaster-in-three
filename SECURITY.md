@@ -110,13 +110,14 @@ A cast always exposes an exact signer key. Human client names are inferred from 
 
 - Snapchain and Caddy images are pinned to platform-specific OCI digests.
 - The validator manifest is pinned to a release commit and SHA-256.
-- npm uses a committed lockfile.
+- npm uses matching committed `package-lock.json` and publishable `npm-shrinkwrap.json` files.
+- Each tagged GitHub release runs the full checks, packages compiled client assets, and publishes the npm tarball with a SHA-256 file. The package path does not compile source on the operator machine.
 - `npm audit --audit-level=moderate` must pass.
 - The official Farcaster core bundle expects removed Faker 7 APIs. A narrow compatibility module supplies those names on patched Faker 10; no Faker template evaluator is exposed to requests.
 
 ## Incident response
 
-1. Take the client offline: `./farcaster client status`, then stop Caddy/client remotely.
+1. Take the client offline: `in-three client status`, then stop Caddy/client remotely.
 2. Revoke the affected signer from the Farcaster account's connected-app management.
 3. Rotate the agent write capability plus the Celo and Coinbase CDP facilitator credentials.
 4. Preserve container logs, x402 receipts, split-creation receipts, and OP registration/revocation receipts.

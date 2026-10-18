@@ -28,6 +28,16 @@ bash -n farcaster scripts/*.sh scripts/lib/common.sh deploy/snapchain-entrypoint
 
 For UI changes, inspect both generated desktop and mobile screenshots under `/tmp/in-three-*.png`.
 
+For distribution changes, build and inspect the actual package rather than testing only the source tree:
+
+```bash
+npm run build
+node scripts/verify-package.mjs
+npm pack --ignore-scripts
+```
+
+The package must contain `npm-shrinkwrap.json`, prebuilt `apps/client/dist` assets, and no client source directory. Install the tarball under a temporary npm prefix and confirm `in-three --version`, help output, state isolation, and the package-only Docker build before tagging a release.
+
 ## Protocol changes
 
 A change to Snapchain version, contract address, message format, validator defaults, resource requirements, or port exposure must update all of:

@@ -35,6 +35,8 @@ import {
   type PreparedRevenueSplit,
 } from "./revenue.js";
 
+const operatorCommand = process.env.IN_THREE_COMMAND ?? "./farcaster";
+
 const idRegistryAbi = [
   {
     type: "function",
@@ -483,7 +485,7 @@ export async function submitSavedRevenueSplit({
   } catch (error) {
     console.error(`\nRecovery file      ${output}`);
     console.error(
-      "Keep this file and rerun ./farcaster client create to resume every pending transaction.",
+      `Keep this file and rerun ${operatorCommand} client create to resume every pending transaction.`,
     );
     throw error;
   }
@@ -560,7 +562,7 @@ export async function submitSignedRegistration({
     });
   } catch (error) {
     console.error(`\nRecovery file      ${output}`);
-    console.error("Keep this file and rerun ./farcaster client create.");
+    console.error(`Keep this file and rerun ${operatorCommand} client create.`);
     console.error("The command will rebroadcast the saved transaction without asking for the phrase again.");
     throw error;
   }

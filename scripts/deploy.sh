@@ -22,8 +22,8 @@ while [[ $# -gt 0 ]]; do
     --payment-network) PAYMENT_NETWORK="$2"; PAYMENT_NETWORK_EXPLICIT=true; shift 2 ;;
     --yes) ASSUME_YES=true; shift ;;
     -h|--help)
-      cat <<'EOF'
-Usage: ./farcaster deploy --service https://BROKER [options]
+      cat <<EOF
+Usage: $IN_THREE_COMMAND deploy --service https://BROKER [options]
 
 Buy one deployment, provision the fixed In Three Hetzner plan, start
 Snapchain, wait for it, and finish the local client key ceremony.
@@ -361,7 +361,7 @@ fi
 load_state
 note "Waiting for cloud-init and the auto-started Snapchain container"
 wait_for_ssh 72 ||
-  die "server exists at $SERVER_IP but SSH did not become ready; rerun ./farcaster deploy"
+  die "server exists at $SERVER_IP but SSH did not become ready; rerun $IN_THREE_COMMAND deploy"
 for ((attempt = 1; attempt <= 72; attempt++)); do
   if remote "sudo test -f /var/lib/cloud/instance/in-three-ready" >/dev/null 2>&1; then
     break
@@ -369,6 +369,6 @@ for ((attempt = 1; attempt <= 72; attempt++)); do
   sleep 5
 done
 remote "sudo test -f /var/lib/cloud/instance/in-three-ready" ||
-  die "cloud-init is still running; rerun ./farcaster deploy to continue without paying again"
+  die "cloud-init is still running; rerun $IN_THREE_COMMAND deploy to continue without paying again"
 
 finish_deployment

@@ -250,7 +250,7 @@ export async function assertRevenueRouting(
     .map((chain) => chain.key);
   if (missing.length > 0) {
     throw new Error(
-      `Revenue split is not deployed on: ${missing.join(", ")}. Rerun ./farcaster client create.`,
+      `Revenue split is not deployed on: ${missing.join(", ")}. Rerun client setup from the operator working directory.`,
     );
   }
 }

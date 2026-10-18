@@ -9,6 +9,7 @@ The prize requires at least one other human to complete the tutorial, create a r
 - Use your own existing Farcaster account, cloud account, OP ETH, Celo/Base native gas, Celo facilitator key, and Coinbase CDP key.
 - Never send the author your recovery phrase, cloud token, app key, facilitator credentials, agent write capability, or client password.
 - Record failures and confusing language. A voucher is evidence, not a favor.
+- The [tester bounty](TESTER-BOUNTY.md) compensates execution and evidence, never a positive opinion. Publish an endorsement only if the completed run warrants one.
 
 ## Run
 
@@ -19,7 +20,9 @@ Record:
 | Tester Farcaster username | |
 | Operator OS and version | |
 | Start time, UTC | |
-| Git commit | |
+| Release tag and package version | |
+| Package SHA-256 | |
+| Git commit behind release | |
 | Hetzner region and server type | |
 | Snapchain version | |
 | First synced time, UTC | |
@@ -31,16 +34,19 @@ Record:
 | Base paid-read transaction | |
 | Revenue split address | |
 
-### 1. Clean checkout
+### 1. Clean install
+
+Start in a new empty directory. Install the versioned release asset, verify its published SHA-256 file, and record the release tag and commit it points to.
 
 ```bash
-git clone https://github.com/P-U-C/farcaster-in-three.git
-cd farcaster-in-three
-git rev-parse HEAD
-./farcaster doctor
+npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz
+mkdir in-three-voucher
+cd in-three-voucher
+in-three --version
+in-three doctor
 ```
 
-Expected: all local prerequisite checks pass.
+Expected: version `0.1.0`, all local prerequisite checks pass, and no `.state/` directory exists until a command needs it. The package path must not run a TypeScript or Vite build.
 
 ### 2. Deploy
 
@@ -51,7 +57,7 @@ Paid path, when a public broker is available:
 ```bash
 npm install -g @celo/buy@0.8.3
 buy setup --name in-three
-./farcaster deploy --service https://BROKER
+in-three deploy --service https://BROKER
 ```
 
 Record the free preflight, quoted 25 USDC ceiling, selected payment chain and settlement transaction, returned Hetzner resource IDs, and whether any rerun attempted another payment. The recurring provider bill is separate. Use a new Hetzner project token and rotate it after provisioning.
@@ -59,9 +65,9 @@ Record the free preflight, quoted 25 USDC ceiling, selected payment chain and se
 Manual prize path:
 
 ```bash
-./farcaster provision
-./farcaster node up
-./farcaster client create
+in-three provision
+in-three node up
+in-three client create
 ```
 
 Record each command's start/end time and any intervention not documented on the site.
@@ -69,7 +75,7 @@ Record each command's start/end time and any intervention not documented on the 
 Expected handoffs:
 
 - Paid deploy prints the fixed plan and quote before payment, persists the returned provider IDs, and continues into node/client setup without another setup payment.
-- Provision prints the server IP, future HTTPS URL, local state path, and `Next: ./farcaster node up`.
+- Provision prints the server IP, future HTTPS URL, local state path, and `Next: in-three node up`.
 - Node up may print `Snapchain bootstrap is running on the server` and return while the API remains offline. This is expected; do not restart during extraction.
 - Client create waits, reports bootstrap progress, and continues automatically when the API is online. It must not request the phrase or register a signer while waiting.
 - A successful client deployment prints its URL, agent manifest, local agent-access file, and separate read/write paths.
@@ -77,7 +83,7 @@ Expected handoffs:
 ### 3. Verify the node
 
 ```bash
-./farcaster node status
+in-three node status
 ```
 
 Pass conditions:
@@ -154,7 +160,7 @@ Do not retry an ambiguous paid response. Preserve the receipt and run <code>buy 
 After preserving required evidence:
 
 ```bash
-./farcaster destroy
+in-three destroy
 ```
 
 Expected: server, volume, firewall, and generated cloud SSH key are deleted. Confirm the Hetzner project has no `managed-by=in-three` resources left.

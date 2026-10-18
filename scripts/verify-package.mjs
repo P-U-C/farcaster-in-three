@@ -1,0 +1,48 @@
+import { access, readFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const required = [
+  "bin/in-three.mjs",
+  "farcaster",
+  "npm-shrinkwrap.json",
+  "apps/client/Dockerfile",
+  "apps/client/dist/server/setup.js",
+  "apps/client/dist/server/server.js",
+  "apps/client/dist/server/agent-gateway.js",
+  "apps/client/dist/server/deployment-service.js",
+  "apps/client/dist/web/index.html",
+  "deploy/docker-compose.yml",
+  "scripts/provision.sh",
+  "scripts/node.sh",
+  "scripts/client.sh",
+  "scripts/destroy.sh",
+];
+
+await Promise.all(
+  required.map(async (path) => {
+    try {
+      await access(resolve(root, path), constants.R_OK);
+    } catch {
+      throw new Error(`package artifact is missing ${path}`);
+    }
+  }),
+);
+
+const packageJson = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
+if (packageJson.private === true) throw new Error("package must not be private");
+if (packageJson.bin?.["in-three"] !== "bin/in-three.mjs") {
+  throw new Error("package must expose the in-three executable");
+}
+
+const dockerfile = await readFile(resolve(root, "apps/client/Dockerfile"), "utf8");
+if (/npm run build/.test(dockerfile)) {
+  throw new Error("runtime Dockerfile must consume prebuilt assets");
+}
+if (!/apps\/client\/dist/.test(dockerfile)) {
+  throw new Error("runtime Dockerfile does not copy prebuilt client assets");
+}
+
+process.stdout.write("package artifacts are complete and prebuilt\n");

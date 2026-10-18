@@ -1,0 +1,49 @@
+name: Publish prebuilt CLI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Verify tag and package
+        run: |
+          test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+          npm run check
+          npm run build
+          node scripts/verify-package.mjs
+
+      - name: Build release assets
+        run: |
+          mkdir release
+          npm pack --ignore-scripts --pack-destination release
+          cd release
+          sha256sum farcaster-in-three-*.tgz > farcaster-in-three-${GITHUB_REF_NAME#v}.tgz.sha256
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --verify-tag \
+            --title "In Three ${GITHUB_REF_NAME}" \
+            --notes "Prebuilt npm CLI for macOS and Linux. Install from the attached .tgz; verify it with the attached SHA-256 file. The package stores operational state in the directory where in-three is run."

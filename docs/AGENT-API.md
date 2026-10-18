@@ -23,7 +23,7 @@ Before command 2:
 3. Put a small amount of CELO on Celo and ETH on Base in the Farcaster custody address. These fund one-time split deployment only.
 4. Keep enough ETH on Optimism for Farcaster app-key registration.
 
-<code>./farcaster client create</code> validates both facilitator credentials before asking for the custody phrase. It derives one deterministic, immutable 0xSplits address and creates it on Celo and Base with the same policy: 95% to the operator address, 5% to P-U-C, and a 0.1% permissionless distribution incentive. If the operator is already the P-U-C address, setup routes payment directly instead of creating a redundant split.
+<code>in-three client create</code> validates both facilitator credentials before asking for the custody phrase. It derives one deterministic, immutable 0xSplits address and creates it on Celo and Base with the same policy: 95% to the operator address, 5% to P-U-C, and a 0.1% permissionless distribution incentive. If the operator is already the P-U-C address, setup routes payment directly instead of creating a redundant split.
 
 The Celo, Base, and Optimism signed transactions are written to owner-only <code>.state/client.env.pending</code> before the first broadcast. Rerunning command 2 resumes the exact bytes after an ambiguous RPC response. After both public health checks pass, the pending file is deleted and the deployed facilitator credentials remain only in <code>/srv/in-three/agent-gateway.env</code>. The gateway verifies both split deployments before accepting paid traffic.
 
@@ -75,9 +75,9 @@ Checkout does not bridge. The payer transfers chain-local USDC on the selected r
 Use the repository wrapper instead of constructing the secret-bearing request by hand:
 
 ~~~bash
-./farcaster deploy --service https://YOUR_BROKER
+in-three deploy --service https://YOUR_BROKER
 # Base instead of the default Celo rail:
-./farcaster deploy --service https://YOUR_BROKER --payment-network base
+in-three deploy --service https://YOUR_BROKER --payment-network base
 ~~~
 
 The wrapper:

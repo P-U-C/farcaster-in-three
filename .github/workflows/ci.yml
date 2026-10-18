@@ -28,6 +28,19 @@ jobs:
       - name: Typecheck, test, and build
         run: npm run check && npm run build
 
+      - name: Verify prebuilt npm package
+        run: |
+          mkdir -p /tmp/in-three-pack /tmp/in-three-prefix /tmp/in-three-workspace
+          npm pack --ignore-scripts --pack-destination /tmp/in-three-pack
+          package_tarball="$(find /tmp/in-three-pack -name 'farcaster-in-three-*.tgz' -print -quit)"
+          tar -tzf "$package_tarball" | grep -q 'package/apps/client/dist/server/setup.js'
+          tar -tzf "$package_tarball" | grep -q 'package/apps/client/dist/web/index.html'
+          npm install --global --prefix /tmp/in-three-prefix "$package_tarball"
+          cd /tmp/in-three-workspace
+          test "$(/tmp/in-three-prefix/bin/in-three --version)" = "0.1.0"
+          /tmp/in-three-prefix/bin/in-three --help | grep -q 'in-three provision'
+          test ! -e .state
+
       - name: Audit production and development dependencies
         run: npm audit --audit-level=moderate
 

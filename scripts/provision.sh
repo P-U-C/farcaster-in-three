@@ -22,8 +22,8 @@ while [[ $# -gt 0 ]]; do
     --source-cidr) SOURCE_CIDR="$2"; shift 2 ;;
     --yes) ASSUME_YES=true; shift ;;
     -h|--help)
-      cat <<'EOF'
-Usage: ./farcaster provision [options]
+      cat <<EOF
+Usage: $IN_THREE_COMMAND provision [options]
 
 Options:
   --location CODE       Hetzner location (default: ash)
@@ -50,7 +50,7 @@ done
 
 mkdir -p "$STATE_DIR"
 chmod 700 "$STATE_DIR"
-[[ ! -f "$STATE_FILE" ]] || die "a host is already provisioned; run ./farcaster destroy first"
+[[ ! -f "$STATE_FILE" ]] || die "a host is already provisioned; run $IN_THREE_COMMAND destroy first"
 
 if [[ -z "${HCLOUD_TOKEN:-}" ]]; then
   [[ -t 0 ]] || die "HCLOUD_TOKEN is required in non-interactive mode"
@@ -207,4 +207,4 @@ completed=true
 success "Compute is ready at $server_ip"
 printf '  client URL   https://%s (activated by command 2)\n' "$domain"
 printf '  local state  %s\n' "$STATE_FILE"
-printf '\nNext: ./farcaster node up\n'
+printf '\nNext: %s node up\n' "$IN_THREE_COMMAND"

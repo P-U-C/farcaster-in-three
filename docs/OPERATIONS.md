@@ -1,16 +1,28 @@
 # Operations
 
+## Installed CLI
+
+Install the pinned prebuilt release, create a dedicated working directory, and keep using that directory for the deployment's lifetime:
+
+```bash
+npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz
+mkdir in-three-node && cd in-three-node
+in-three doctor
+```
+
+The package ships compiled setup, browser, agent, and deployment-service assets. It stores operational state in the working directory's `.state/`, not under the global npm prefix. Compare the tarball with the SHA-256 file attached to the GitHub release before handling wallet or cloud credentials.
+
 ## One-purchase deployment
 
 ```bash
-./farcaster deploy --service https://YOUR_BROKER
+in-three deploy --service https://YOUR_BROKER
 # Optional Base rail:
-./farcaster deploy --service https://YOUR_BROKER --payment-network base
+in-three deploy --service https://YOUR_BROKER --payment-network base
 ```
 
 Use a dedicated, otherwise-empty Hetzner project and a read/write token. The command generates the SSH key locally, validates the fixed `ash` / `ccx33` / 2,048 GiB plan, proves cloud write access, prints the x402 quote, and requires `BUY DEPLOY`. Its default payment ceiling is 25 USDC.
 
-The broker fee is paid once. Hetzner charges the buyer separately until teardown. After provisioning, the same command waits for cloud-init, runs node setup, waits through snapshot bootstrap, and opens the local client key ceremony. Pressing Ctrl-C during bootstrap is safe; rerun `./farcaster deploy` and it resumes from `.state/config` without another payment.
+The broker fee is paid once. Hetzner charges the buyer separately until teardown. After provisioning, the same command waits for cloud-init, runs node setup, waits through snapshot bootstrap, and opens the local client key ceremony. Pressing Ctrl-C during bootstrap is safe; rerun `in-three deploy` and it resumes from `.state/config` without another payment.
 
 Before payment, the command writes a random deployment ID. Immediately before the selected buyer runs, it records the broker origin, SSH source CIDR, payment network, Celo buy account when applicable, and `.state/deployment-payment.pending`. On an interrupted response, rerunning checks the free status route. If the broker recorded the paid entitlement but provisioning did not finish, the command uses the free resume route. If neither exists, it stops for chain-specific receipt resolution; it never buys again automatically.
 
@@ -30,8 +42,8 @@ None contains the Hetzner token. Rotate the project token after the host is avai
 ## Sync
 
 ```bash
-./farcaster node status
-./farcaster node logs
+in-three node status
+in-three node logs
 ```
 
 The first start downloads a public snapshot, decompresses it to `/srv/in-three/data/rocks`, and catches up from peers. This commonly takes hours. `node up` waits long enough to detect an immediate container failure, then returns success when bootstrap is still running. It does not require the HTTP API to be ready. Avoid restarting during snapshot extraction.
@@ -43,9 +55,9 @@ Disk growth is protocol dependent. Alert before free space falls below 15%. The 
 ## Client
 
 ```bash
-./farcaster client create
-./farcaster client status
-./farcaster client logs
+in-three client create
+in-three client status
+in-three client logs
 ```
 
 `client create` first checks the local Snapchain API. If bootstrap is incomplete, it remains attached, reports snapshot/database/disk progress every five minutes, and continues automatically when the API responds. It does not request the custody phrase or register a key while waiting. Pressing Ctrl-C only stops the local wait; the remote node keeps bootstrapping and rerunning command 2 is safe.
@@ -78,7 +90,7 @@ The default Ashburn deployment is approximately **$265/month before IPv4, traffi
 - CCX33: $165.99/month
 - 2,048 GiB volume at $0.0484/GiB-month: about $99.12/month
 
-The provider console is authoritative. Confirm the displayed total before typing `PROVISION` or `BUY DEPLOY`, and use `./farcaster destroy` when the node is no longer needed.
+The provider console is authoritative. Confirm the displayed total before typing `PROVISION` or `BUY DEPLOY`, and use `in-three destroy` when the node is no longer needed.
 
 The one-purchase path adds a default 25 USDC broker automation fee. That is a one-time x402 request, not infrastructure credit. The manual three-command path has no broker fee.
 
@@ -119,7 +131,7 @@ Never replace a digest with `latest`.
 Client upgrades rebuild from the local committed lockfile:
 
 ```bash
-./farcaster client create
+in-three client create
 ```
 
 That command currently registers a new signer. For a UI-only upgrade, copy the source archive and run the remote Compose build manually rather than creating another key.
@@ -136,7 +148,7 @@ App key:
 
 - Stored in `/srv/in-three/client.env` after a successful deployment.
 - Before broadcast, `.state/client.env.pending` stores the app key, Celo/Base split transactions, Optimism registration transaction, local hashes, statuses, facilitator credentials, and generated agent capability with mode 0600.
-- If any broadcast returns an error, keep the file: the RPC may have accepted the transaction. Rerun `./farcaster client create`; it validates every saved hash, rebroadcasts only the exact pending bytes, and checks receipts without asking for the phrase.
+- If any broadcast returns an error, keep the file: the RPC may have accepted the transaction. Rerun `in-three client create`; it validates every saved hash, rebroadcasts only the exact pending bytes, and checks receipts without asking for the phrase.
 - Each serialized transaction is removed as soon as its receipt confirms.
 - Recovery and payment metadata are stripped before `client.env` is uploaded to the host.
 - Both facilitator credentials and the write capability are isolated in `agent-gateway.env`; the gateway receives no Farcaster signer.
@@ -158,8 +170,8 @@ Local state:
 
 | Symptom | First check |
 | --- | --- |
-| Node API unavailable during first start | `./farcaster node status`; wait while snapshot/database size changes |
-| Node container stopped | `./farcaster node logs` |
+| Node API unavailable during first start | `in-three node status`; wait while snapshot/database size changes |
+| Node container stopped | `in-three node logs` |
 | Block delay rising | UDP 3382 firewall, peer errors, disk saturation |
 | Snapshot loops | Free disk, volume mount, release notes |
 | Client 503 health | Snapchain container health and internal DNS |
@@ -168,18 +180,18 @@ Local state:
 | Agent write returns 401 | Supply the current owner capability; no payment occurred |
 | Facilitator returns 401/402 | Identify the selected chain, then rotate/fund its Celo or CDP credential |
 | Paid agent request is ambiguous | Do not retry; preserve output and run `buy --account in-three receipts --resolve` |
-| Paid deployment interrupted | Keep `.state/deployment-payment.pending`; rerun `./farcaster deploy` to recover or resume without buying again |
+| Paid deployment interrupted | Keep `.state/deployment-payment.pending`; rerun `in-three deploy` to recover or resume without buying again |
 | Paid deployment has no entitlement | Do not remove the marker or repay; resolve the receipt and contact the broker with deployment ID and transaction only |
 | Hetzner rejects after payment | Correct project quota/token issues, then rerun the free entitled resume path |
 | Validator rejects write | FID storage, signer onchain state, clock, text limits |
 | TLS pending | A/AAAA resolution, ports 80/443, Caddy logs; keep `.state/client.env.pending` and rerun create |
-| Setup interrupted during split or signer broadcast | Keep `.state/client.env.pending`; rerun `./farcaster client create` |
+| Setup interrupted during split or signer broadcast | Keep `.state/client.env.pending`; rerun `in-three client create` |
 | SSH fails after IP change | Update Hetzner firewall source CIDR in console |
 
 ## Teardown
 
 ```bash
-./farcaster destroy
+in-three destroy
 ```
 
 The command deletes the server, data volume, firewall, and generated provider SSH key. Check the provider console for resources labeled `managed-by=in-three`.

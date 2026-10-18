@@ -2,7 +2,7 @@
 
 **A three-command path from bare compute to a sovereign Farcaster client.**
 
-[Microsite and tutorial](https://farcaster.permanentupperclass.com/) | [Paid agent API](docs/AGENT-API.md) | [Architecture](docs/ARCHITECTURE.md) | [Security model](SECURITY.md) | [Human voucher](VOUCHER.md)
+[Microsite and tutorial](https://farcaster.permanentupperclass.com/) | [Tester bounties](TESTER-BOUNTY.md) | [Paid agent API](docs/AGENT-API.md) | [Architecture](docs/ARCHITECTURE.md) | [Security model](SECURITY.md) | [Human voucher](VOUCHER.md)
 
 In Three provisions compute, starts a Snapchain read node, registers a delegated Farcaster app key, and deploys a responsive client. Reads come from the node you operate. Signed writes go directly to a validator. The custody phrase is used only in the local setup process and is never installed on the host.
 
@@ -12,6 +12,29 @@ A running In Three instance can also sell the complete provisioning step through
 
 *Illustrative preview. The generated image uses synthetic accounts and casts; a deployed client reads live protocol data from its own node.*
 
+## Install the prebuilt CLI
+
+The versioned npm tarball contains the compiled setup utility, browser client, agent gateway, and deployment service. It does not compile TypeScript or Vite assets on the operator machine.
+
+```bash
+npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz
+mkdir in-three-node
+cd in-three-node
+in-three --version
+```
+
+The CLI stores keys, receipts, and deployment state in `.state/` under the current directory, never in the global npm installation. Keep using the same directory for status, recovery, and teardown commands.
+
+A source checkout remains supported for auditing and development:
+
+```bash
+git clone https://github.com/P-U-C/farcaster-in-three.git
+cd farcaster-in-three
+./farcaster doctor
+```
+
+The source path builds from the exact lockfile. The packaged `in-three` path uses the release's prebuilt artifacts.
+
 ## One-purchase deployment
 
 Install and fund usebuy.ai's pinned buyer, then point the repository at a running In Three broker:
@@ -19,12 +42,12 @@ Install and fund usebuy.ai's pinned buyer, then point the repository at a runnin
 ```bash
 npm install -g @celo/buy@0.8.3
 buy setup --name in-three
-./farcaster deploy --service https://YOUR_BROKER
+in-three deploy --service https://YOUR_BROKER
 # Or pay the same quote from a dedicated Base wallet:
-./farcaster deploy --service https://YOUR_BROKER --payment-network base
+in-three deploy --service https://YOUR_BROKER --payment-network base
 ```
 
-The command performs a free cloud-token and plan preflight, shows the x402 quote, and asks for `BUY DEPLOY` before spending. The default ceiling is **25 USDC once** for automation. Hetzner bills the buyer separately for the server, IPv4 address, traffic, tax, and 2 TiB volume until `./farcaster destroy` succeeds.
+The command performs a free cloud-token and plan preflight, shows the x402 quote, and asks for `BUY DEPLOY` before spending. The default ceiling is **25 USDC once** for automation. Hetzner bills the buyer separately for the server, IPv4 address, traffic, tax, and 2 TiB volume until `in-three destroy` succeeds.
 
 The command generates the SSH key locally, saves a client-generated deployment ID, buys once, starts Snapchain, waits through snapshot bootstrap, and then opens the same local password, facilitator-key, and custody prompts used by command 2. If the paid response is interrupted, rerun the command: it checks the saved deployment and durable entitlement before it can consider another payment.
 
@@ -36,19 +59,12 @@ The bundled `buy` wrapper selects Celo because `@celo/buy` 0.8.3 manages a Celo 
 
 ## Three commands
 
-The manual path remains available and does not send the Hetzner token to a broker. Clone the repository once:
+The manual path does not send the Hetzner token to a broker. From the working directory created above:
 
 ```bash
-git clone https://github.com/P-U-C/farcaster-in-three.git
-cd farcaster-in-three
-```
-
-Then:
-
-```bash
-./farcaster provision
-./farcaster node up
-./farcaster client create
+in-three provision
+in-three node up
+in-three client create
 ```
 
 The commands are interactive at the boundaries that cost money or grant authority:
@@ -96,21 +112,21 @@ Node:
 - 16 GiB or more RAM
 - At least 1.5 TB free storage
 
-Run `./farcaster doctor` before provisioning.
+Run `in-three doctor` before provisioning.
 
 ## Operations
 
 ```bash
-./farcaster node status
-./farcaster node logs
-./farcaster client status
-./farcaster client logs
-./farcaster destroy
+in-three node status
+in-three node logs
+in-three client status
+in-three client logs
+in-three destroy
 ```
 
 The initial verified snapshot is several hundred gigabytes and commonly takes hours to download, decompress, and catch up. `node up` treats a running bootstrap as success and returns progress commands instead of timing out. `node status` reports snapshot/database growth until the API is online, then each available shard delay; under 30 seconds is treated as ready. `client create` waits with periodic snapshot and disk progress, then continues automatically. It does not request a phrase or register a signer while waiting.
 
-Before broadcast, setup stores the app key, each serialized Celo/Base split transaction, the serialized Optimism registration transaction, locally calculated hashes, facilitator credentials, and generated agent capability in owner-only `.state/client.env.pending`. If an RPC response is lost or a later step fails, rerun `./farcaster client create`; it rebroadcasts the exact saved bytes and checks each receipt without another custody signature. Serialized transactions are removed as they confirm. The pending file is deleted after both browser and agent health checks pass, with a best-effort overwrite when `shred` is available.
+Before broadcast, setup stores the app key, each serialized Celo/Base split transaction, the serialized Optimism registration transaction, locally calculated hashes, facilitator credentials, and generated agent capability in owner-only `.state/client.env.pending`. If an RPC response is lost or a later step fails, rerun `in-three client create`; it rebroadcasts the exact saved bytes and checks each receipt without another custody signature. Serialized transactions are removed as they confirm. The pending file is deleted after both browser and agent health checks pass, with a best-effort overwrite when `shred` is available.
 
 The paid path stores `.state/deployment-id`, `.state/deployment-service`, `.state/deployment-source-cidr`, `.state/deployment-payment-network`, and the Celo buy account when applicable, so a rerun uses the identical request and rail. A payment-pending marker blocks automatic repurchase until the saved deployment or entitlement is recovered. It never stores the Hetzner token.
 

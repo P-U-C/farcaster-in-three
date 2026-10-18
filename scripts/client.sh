@@ -109,12 +109,20 @@ create_client() {
 
   wait_for_node_api
 
-  note "Building the local setup utility"
-  (
-    cd "$IN_THREE_ROOT"
-    npm ci --silent
-    npm run build --workspace @in-three/client --silent
-  )
+  if [[ "${IN_THREE_PREBUILT:-0}" == "1" ]]; then
+    [[ -r "$IN_THREE_ROOT/apps/client/dist/server/setup.js" ]] ||
+      die "prebuilt setup utility is missing; reinstall farcaster-in-three"
+    [[ -r "$IN_THREE_ROOT/apps/client/dist/web/index.html" ]] ||
+      die "prebuilt client assets are missing; reinstall farcaster-in-three"
+    note "Using the release's prebuilt setup utility and client assets"
+  else
+    note "Building the local setup utility from source"
+    (
+      cd "$IN_THREE_ROOT"
+      npm ci --silent
+      npm run build --workspace @in-three/client --silent
+    )
+  fi
 
   mkdir -p "$STATE_DIR"
   chmod 700 "$STATE_DIR"
@@ -156,13 +164,13 @@ create_client() {
   fi
 
   [[ "$(pending_value SIGNER_REGISTRATION_STATUS)" == "confirmed" ]] ||
-    die "app-key registration is not confirmed; rerun ./farcaster client create"
+    die "app-key registration is not confirmed; rerun $IN_THREE_COMMAND client create"
   pending_has_agent_config ||
     die "saved setup predates paid agent access; preserve $PENDING_CLIENT_ENV and finish with the release that created it before upgrading"
 
-  note "Packaging the exact client source and lockfile"
+  note "Packaging the exact prebuilt client and dependency lock"
   tar -C "$IN_THREE_ROOT" -czf "$archive" \
-    package.json package-lock.json .dockerignore \
+    package.json npm-shrinkwrap.json .dockerignore \
     apps/client site/package.json deploy
 
   copy_to "$archive" /tmp/in-three-source.tar.gz
@@ -207,7 +215,7 @@ create_client() {
 
   remote "cd /srv/in-three && sudo docker compose logs --tail=100 client deployer agent-gateway caddy" >&2 || true
   printf '\nThe confirmed app key remains at %s.\n' "$PENDING_CLIENT_ENV" >&2
-  printf 'Fix the reported deployment issue, then rerun ./farcaster client create.\n' >&2
+  printf 'Fix the reported deployment issue, then rerun %s client create.\n' "$IN_THREE_COMMAND" >&2
   die "the containers started but HTTPS did not become healthy"
 }
 
@@ -233,6 +241,6 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     create) create_client ;;
     status) status ;;
     logs) logs ;;
-    *) die "usage: ./farcaster client {create|status|logs}" ;;
+    *) die "usage: $IN_THREE_COMMAND client {create|status|logs}" ;;
   esac
 fi
