@@ -79,7 +79,7 @@ Onchain registries remain relevant for FID ownership and storage:
 - Chain: OP Mainnet, chain ID 10
 - Default BIP-44 path used by this developer tutorial: `m/44'/60'/0'/0/0`
 
-Version 0.1.2 retains recovery code only for a v0.1.0 pending KeyGateway transaction. New setup does not construct one.
+Current releases retain recovery code only for a v0.1.0 pending KeyGateway transaction. New setup does not construct one.
 
 ## Developer custody guidance
 

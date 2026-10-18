@@ -43,7 +43,7 @@ Start in a new empty directory:
 ```bash
 mkdir in-three-voucher
 cd in-three-voucher
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.2/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.3/in-three-container
 chmod +x in-three-container
 ./in-three-container --version
 ./in-three-container doctor
@@ -51,10 +51,10 @@ chmod +x in-three-container
 
 Expected:
 
-- Version is `0.1.2`.
-- The matching amd64 or arm64 archive is downloaded from release `v0.1.2`.
+- Version is `0.1.3`.
+- The matching amd64 or arm64 archive is downloaded from release `v0.1.3`.
 - The archive passes its published SHA-256 check before `docker load`.
-- Doctor passes and the image reports version `0.1.2`.
+- Doctor passes and the image reports version `0.1.3`.
 - No source compile runs.
 - `.state/` contains only the container cache until a stateful command needs more.
 

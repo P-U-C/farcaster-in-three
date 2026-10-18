@@ -27,7 +27,7 @@ Get the small container launcher:
 ```bash
 mkdir in-three-node
 cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.2/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.3/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -72,7 +72,7 @@ The container runs as your user with a read-only root filesystem, dropped capabi
 The release tarball contains the compiled CLI, server, and browser assets:
 
 ```bash
-npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.2/farcaster-in-three-0.1.2.tgz
+npm install --global farcaster-in-three@0.1.3
 mkdir in-three-node && cd in-three-node
 in-three doctor
 ```

@@ -7,12 +7,12 @@ Examples below use the container launcher. For an npm install, replace `./in-thr
 ```bash
 mkdir in-three-node
 cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.2/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.3/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
 
-On first use, the launcher downloads the matching amd64 or arm64 Docker archive from release `v0.1.2`, verifies its published SHA-256 file, and loads the local image `puc/farcaster-in-three:0.1.2`. It runs that image as your UID/GID and mounts the current directory at `/work`. Keep using this directory. State and the cached image archive remain under `.state/`.
+On first use, the launcher downloads the matching amd64 or arm64 Docker archive from release `v0.1.3`, verifies its published SHA-256 file, and loads the local image `puc/farcaster-in-three:0.1.3`. It runs that image as your UID/GID and mounts the current directory at `/work`. Keep using this directory. State and the cached image archive remain under `.state/`.
 
 The release page exposes both the archive and checksum for independent verification before handling wallet or cloud credentials.
 
@@ -152,7 +152,7 @@ It never contains the phrase or derived EVM private key.
 
 On an uncertain result, keep the file and rerun `client create`. Gasless recovery checks current signer state first, verifies the saved protobuf, and resubmits only those bytes. Split recovery checks receipts and rebroadcasts only the saved transactions. Payloads are removed as they confirm. The file is deleted after both public health checks pass.
 
-Version 0.1.2 can also recover a pending v0.1.0 Optimism registration transaction. This compatibility path is not used for new signers.
+Current releases can also recover a pending v0.1.0 Optimism registration transaction. This compatibility path is not used for new signers.
 
 Runtime separation:
 

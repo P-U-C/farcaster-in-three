@@ -137,7 +137,7 @@ export function App() {
 
           <div className="install-block">
             <span>GET THE CONTAINER LAUNCHER</span>
-            <CodeBlock code={"mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.2/in-three-container\nchmod +x in-three-container\n./in-three-container doctor"} />
+            <CodeBlock code={"mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.3/in-three-container\nchmod +x in-three-container\n./in-three-container doctor"} />
             <p>The launcher downloads a checksummed, prebuilt operator image. It does not mount the Docker socket and keeps state in this directory.</p>
           </div>
 
@@ -170,9 +170,9 @@ export function App() {
             </div>
             <div>
               <b>PREBUILT CLI</b>
-              <strong>npm tarball</strong>
-              <p>Install the compiled CLI directly from the signed GitHub release.</p>
-              <a href="https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.2" target="_blank" rel="noreferrer">Open release <ExternalLink size={14} /></a>
+              <strong>npm package</strong>
+              <p><code>npm install -g farcaster-in-three</code></p>
+              <a href="https://www.npmjs.com/package/farcaster-in-three" target="_blank" rel="noreferrer">Open package <ExternalLink size={14} /></a>
             </div>
             <div>
               <b>REVIEW</b>

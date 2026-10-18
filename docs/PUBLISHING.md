@@ -21,22 +21,28 @@ Never move or replace an existing version tag.
 
 ## First npm publication
 
-The package name is currently available, but npm requires one authenticated first publication before OIDC trusted publishing can be attached.
+npm requires one authenticated publication before a trusted publisher can be attached. Bootstrap from an exact, checksummed GitHub release artifact:
 
-1. Create a short-lived granular npm token that can publish `farcaster-in-three`.
-2. Add it as the repository secret `NPM_TOKEN`.
-3. Run **Publish npm package** for the existing release tag.
-4. Confirm that `https://www.npmjs.com/package/farcaster-in-three` shows the expected version and provenance.
-5. In the npm package settings, add this trusted publisher:
-   - provider: GitHub Actions
-   - organization: `P-U-C`
-   - repository: `farcaster-in-three`
-   - workflow: `publish-npm.yml`
-   - allowed action: `npm publish`
-6. Delete the `NPM_TOKEN` secret.
-7. Set package publishing access to require 2FA and disallow traditional tokens.
+```bash
+npm login --auth-type=web
+gh release download vX.Y.Z --pattern 'farcaster-in-three-X.Y.Z.tgz*'
+sha256sum --check farcaster-in-three-X.Y.Z.tgz.sha256
+npm publish farcaster-in-three-X.Y.Z.tgz --access public --provenance=false
+```
 
-Future tagged releases publish with GitHub OIDC and npm provenance. The workflow installs npm 12.2.0 because trusted publishing requires an OIDC-capable npm CLI.
+The bootstrap release has no provenance because npm provenance is issued by supported CI systems, not a local shell. Immediately bind later releases to this repository:
+
+```bash
+npx --yes npm@12.2.0 trust github farcaster-in-three \
+  --file publish-npm.yml \
+  --repo P-U-C/farcaster-in-three \
+  --allow-publish \
+  --yes
+```
+
+Complete the npm browser challenge when prompted. Confirm the trust configuration under the package settings, then set publishing access to require 2FA and disallow traditional tokens.
+
+Future tagged releases publish through GitHub OIDC with automatic npm provenance. The workflow uses Node 24 and npm 12.2.0 because trusted publishing requires an OIDC-capable npm CLI.
 
 ## Public container
 
