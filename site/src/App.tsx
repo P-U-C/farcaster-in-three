@@ -22,9 +22,8 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 
-const DEADLINE = new Date("2026-10-24T14:47:30Z");
 const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 
@@ -36,14 +35,13 @@ const commands = [
 
 const navigation = [
   { id: "quickstart", label: "Start" },
-  { id: "system", label: "What it builds" },
-  { id: "learn", label: "Learn" },
-  { id: "verify", label: "Verify" },
+  { id: "first-cast", label: "First cast" },
+  { id: "learn", label: "Understand" },
+  { id: "help", label: "Help" },
 ];
 
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const remaining = useCountdown(DEADLINE);
 
   return (
     <>
@@ -82,16 +80,16 @@ export function App() {
       <main id="top">
         <section className="hero">
           <div className="hero-copy">
-            <div className="prize-line">
+            <div className="release-line">
               <span>OPEN-SOURCE FARCASTER STARTER</span>
               <i />
-              <span>{remaining}</span>
+              <span>v0.1.4</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
-            <p>Run your own Farcaster node and client in three commands. No hosted Farcaster API key, no source build, and no Optimism transaction for the app key.</p>
+            <p>Provision a server, start a Snapchain node, and open your own browser client. Reads and writes go through infrastructure you operate.</p>
             <div className="hero-actions">
-              <a className="primary-link" href="#quickstart">See the three commands <ArrowDown size={17} /></a>
-              <a className="text-link" href={REPO} target="_blank" rel="noreferrer">Read the source <ArrowRight size={16} /></a>
+              <a className="primary-link" href="#quickstart">Start here <ArrowDown size={17} /></a>
+              <a className="text-link" href={REPO} target="_blank" rel="noreferrer">Inspect the code <ArrowRight size={16} /></a>
             </div>
           </div>
 
@@ -111,8 +109,8 @@ export function App() {
         </section>
 
         <section className="proof-strip" aria-label="Project summary">
-          <div><Terminal size={19} /><strong>3</strong><span>commands</span></div>
-          <div><Network size={19} /><strong>0</strong><span>Farcaster API keys</span></div>
+          <div><Terminal size={19} /><strong>3</strong><span>commands after install</span></div>
+          <div><Network size={19} /><strong>0</strong><span>hosted Farcaster APIs</span></div>
           <div><KeyRound size={19} /><strong>0</strong><span>OP transactions</span></div>
           <div><ShieldCheck size={19} /><strong>MIT</strong><span>open source</span></div>
         </section>
@@ -120,66 +118,51 @@ export function App() {
         <section className="quickstart section" id="quickstart">
           <SectionLabel number="00" text="START HERE" />
           <div className="section-heading">
-            <h2>Know this before<br />you start.</h2>
-            <p>This is a developer setup for a real network node. The scripts remove busywork; they do not turn the infrastructure into a free phone app.</p>
+            <h2>Before you run<br />anything.</h2>
+            <p>This starts real cloud infrastructure and costs about $265 per month. Use a disposable Farcaster test account, not an account holding value.</p>
           </div>
 
           <div className="prereq-grid">
-            <Prerequisite icon={<Box size={22} />} title="Docker" detail="Installed on macOS or Linux." />
-            <Prerequisite icon={<Cloud size={22} />} title="Hetzner token" detail="From a new, empty cloud project." />
-            <Prerequisite icon={<UserRound size={22} />} title="Test account" detail="An FID with storage. Never use a valuable account." />
-            <Prerequisite icon={<Clock3 size={22} />} title="Time and cost" detail="About $265/month. First sync commonly takes hours." />
+            <Prerequisite icon={<Box size={22} />} title="Docker" detail="Running on macOS or Linux." />
+            <Prerequisite icon={<Cloud size={22} />} title="Hetzner token" detail="Create it in a new, empty project." />
+            <Prerequisite icon={<UserRound size={22} />} title="Test account" detail="It needs an FID and active storage." />
+            <Prerequisite icon={<Clock3 size={22} />} title="Several hours" detail="The first Snapchain sync is large." />
           </div>
 
-          <Callout tone="orange" icon={<KeyRound size={21} />} title="Use a disposable Farcaster test account">
-            A recovery phrase controls the account. Enter one only into code you have inspected and trust, never through chat, and never for an account holding value. Production clients should use delegated wallet authorization.
+          <Callout tone="orange" icon={<KeyRound size={21} />} title="A recovery phrase controls the account">
+            Use a test account only. Enter its phrase only after inspecting code you trust. Never paste it into chat. Production clients should use wallet-based delegated authorization.
           </Callout>
 
           <div className="install-block">
-            <span>GET THE CONTAINER LAUNCHER</span>
-            <CodeBlock code={"mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.3/in-three-container\nchmod +x in-three-container\n./in-three-container doctor"} />
-            <p>The launcher downloads a checksummed, prebuilt operator image. It does not mount the Docker socket and keeps state in this directory.</p>
+            <span>INSTALL THE CONTAINER LAUNCHER</span>
+            <CodeBlock code={"mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.4/in-three-container\nchmod +x in-three-container\n./in-three-container doctor"} />
+            <p><b>Expected result:</b> <code>All checks passed.</code> Keep using this directory; it holds the local state needed to resume safely.</p>
           </div>
 
-          <div className="manual-label"><span>THEN RUN EXACTLY THESE</span><i /></div>
+          <div className="manual-label"><span>NOW RUN THESE THREE COMMANDS</span><i /></div>
 
           <div className="three-steps">
             {commands.map((item, index) => (
               <article key={item.number}>
                 <header><b>{item.number}</b><span>{item.label}</span></header>
-                <h3>{["Create the server", "Start the node", "Open the client"][index]}</h3>
+                <h3>{["Create the server", "Start the node", "Create the client"][index]}</h3>
                 <CodeBlock code={item.command} />
                 <p>{[
-                  "Shows the billable plan, asks for confirmation, then creates your cloud server and storage.",
-                  "Starts Snapchain and returns while its large first snapshot continues downloading.",
-                  "Waits for the node, creates a gasless app key, and prints your private HTTPS client URL.",
+                  "Shows the exact Hetzner plan and waits for you to type PROVISION before billing starts.",
+                  "Starts Snapchain, prints its status, and leaves the initial sync running on the server.",
+                  "Waits for the node, creates a gasless app key, deploys the browser client, and prints its URL.",
                 ][index]}</p>
               </article>
             ))}
           </div>
 
-          <Callout tone="green" icon={<CheckCircle2 size={22} />} title="You do not have to babysit the sync">
-            Command 1 leaves the node running. Command 2 waits, prints progress every five minutes, and continues automatically when Snapchain is ready.
+          <Callout tone="green" icon={<CheckCircle2 size={22} />} title="It is safe to stop and resume">
+            If the node is still syncing, command 2 prints progress and keeps waiting. Press Ctrl-C when needed and rerun the same command from this directory.
           </Callout>
 
-          <div className="install-choices">
-            <div>
-              <b>RECOMMENDED</b>
-              <strong>Container launcher</strong>
-              <p>Small host surface, prebuilt application, amd64 and arm64 support.</p>
-            </div>
-            <div>
-              <b>PREBUILT CLI</b>
-              <strong>npm package</strong>
-              <p><code>npm install -g farcaster-in-three</code></p>
-              <a href="https://www.npmjs.com/package/farcaster-in-three" target="_blank" rel="noreferrer">Open package <ExternalLink size={14} /></a>
-            </div>
-            <div>
-              <b>REVIEW</b>
-              <strong>Source checkout</strong>
-              <p>Best when you want to inspect, modify, or contribute to the implementation.</p>
-              <a href={REPO} target="_blank" rel="noreferrer">Open repository <ExternalLink size={14} /></a>
-            </div>
+          <div className="alternate-install">
+            <strong>Prefer npm?</strong>
+            <p>Run <code>npm install -g farcaster-in-three</code>, then replace <code>./in-three-container</code> with <code>in-three</code>. Use the container launcher unless you specifically want a host-installed CLI.</p>
           </div>
         </section>
 
@@ -187,34 +170,34 @@ export function App() {
           <div className="section narrow">
             <SectionLabel number="01" text="WHAT IT BUILDS" light />
             <div className="section-heading light">
-              <h2>Your client talks<br />to your node.</h2>
-              <p>Reads and signed writes both go to your Snapchain read node. The node validates writes and relays them to validators over the Farcaster network.</p>
+              <h2>One server.<br />Two clear paths.</h2>
+              <p>Your browser reads from your Snapchain node. Signed actions go back to that same node, which validates and relays them to validators.</p>
             </div>
             <div className="simple-system">
-              <SystemPart label="YOU" icon={<Terminal size={28} />} title="Browser client" detail="feed, casts, follows, reactions" />
+              <SystemPart label="YOU" icon={<Terminal size={28} />} title="Browser" detail="feed and actions" />
               <ArrowRight />
-              <SystemPart label="YOUR SERVER" icon={<Cloud size={28} />} title="Client service" detail="login and message signing" />
+              <SystemPart label="YOUR SERVER" icon={<Cloud size={28} />} title="Client service" detail="login and signing" />
               <ArrowRight />
-              <SystemPart label="YOUR SERVER" icon={<Server size={28} />} title="Snapchain node" detail="read, validate, and relay" />
+              <SystemPart label="YOUR SERVER" icon={<Server size={28} />} title="Snapchain" detail="read, validate, relay" />
               <ArrowRight />
-              <SystemPart label="NETWORK" icon={<Network size={28} />} title="Validators" detail="order and include messages" />
+              <SystemPart label="NETWORK" icon={<Network size={28} />} title="Validators" detail="include messages" />
             </div>
-            <p className="architecture-note"><b>Plain English:</b> the app does not rent its feed from a data provider. It reads protocol state from the node you pay for and operate.</p>
+            <p className="architecture-note"><b>In plain English:</b> no third-party Farcaster API serves the feed or accepts the cast. The node you operate handles both.</p>
           </div>
         </section>
 
-        <section className="first-run section">
+        <section className="first-run section" id="first-cast">
           <SectionLabel number="02" text="YOUR FIRST CAST" />
           <div className="section-heading">
-            <h2>Once it says<br />client is live.</h2>
-            <p>The final command prints the URL. The browser experience works on desktop and mobile.</p>
+            <h2>The final command<br />prints your URL.</h2>
+            <p>Open it on desktop or mobile. The client supports feeds, casts, follows, likes, recasts, and source filters.</p>
           </div>
           <div className="first-run-grid">
             <ol className="first-run-steps">
-              <li><span>1</span><p>Open the printed HTTPS URL and enter the password you created.</p></li>
+              <li><span>1</span><p>Open the HTTPS URL and enter the password you created.</p></li>
               <li><span>2</span><p>Select <b>New cast</b>, write a test message, and publish it.</p></li>
-              <li><span>3</span><p>Refresh until your node returns the cast, then check it in another Farcaster client.</p></li>
-              <li><span>4</span><p>Try a follow, a like, a recast, and the source filters.</p></li>
+              <li><span>3</span><p>Refresh until your node returns the cast.</p></li>
+              <li><span>4</span><p>Open another Farcaster client and confirm the same cast appears there.</p></li>
             </ol>
             <figure className="client-frame compact-preview">
               <div className="browser-bar"><i /><i /><i /><span>your-node.sslip.io</span></div>
@@ -224,101 +207,71 @@ export function App() {
           </div>
         </section>
 
+        <section className="protocol section" id="learn">
+          <SectionLabel number="03" text="SIX USEFUL TERMS" />
+          <div className="section-heading">
+            <h2>Enough protocol<br />to read the output.</h2>
+            <p>You do not need to memorize Farcaster before starting. These are the terms used by the setup and recovery messages.</p>
+          </div>
+          <div className="concepts">
+            <Concept index="01" title="FID" accent="purple">Your numeric Farcaster account ID.</Concept>
+            <Concept index="02" title="Custody address" accent="orange">The wallet that owns the FID. It stays off the server.</Concept>
+            <Concept index="03" title="App key" accent="cyan">A revocable key for casts, follows, and reactions. Creating it is gasless.</Concept>
+            <Concept index="04" title="Message" accent="green">A signed instruction such as publishing a cast or following an FID.</Concept>
+            <Concept index="05" title="Read node" accent="purple">Your copy of Farcaster data. It also validates and relays writes.</Concept>
+            <Concept index="06" title="Storage" accent="orange">Account capacity for casts, follows, and reactions.</Concept>
+          </div>
+        </section>
+
         <section className="agent-summary section-band">
           <div className="section narrow">
-            <SectionLabel number="03" text="FOR AGENTS" light />
+            <SectionLabel number="04" text="OPTIONAL: AGENT ACCESS" light />
             <div className="agent-summary-grid">
               <div>
-                <h2>Agents use the same node.</h2>
-                <p>The deployment publishes a machine-readable API. Reads are paid with USDC over x402 on Celo or Base. Writes also require a private capability from the owner.</p>
+                <h2>Keep the first run simple.</h2>
+                <p>The normal command creates only the browser client. To add paid x402 access for agents, use <code>client create --with-agent</code> during initial setup and follow the separate agent guide.</p>
               </div>
               <div className="agent-summary-facts">
                 <AgentFact icon={<Bot size={22} />} title="Discover" detail="/.well-known/agent.json" />
-                <AgentFact icon={<Network size={22} />} title="Pay" detail="Celo or Base, no bridge required" />
+                <AgentFact icon={<Network size={22} />} title="Pay" detail="USDC on Celo or Base" />
                 <AgentFact icon={<ShieldCheck size={22} />} title="Write" detail="payment plus owner capability" />
               </div>
             </div>
             <div className="agent-links">
-              <a href="https://usebuy.ai/docs" target="_blank" rel="noreferrer">usebuy.ai documentation <ExternalLink size={15} /></a>
-              <a href={`${DOCS}/docs/AGENT-API.md`} target="_blank" rel="noreferrer">Agent API and pricing <ArrowRight size={15} /></a>
+              <a href={`${DOCS}/docs/AGENT-API.md`} target="_blank" rel="noreferrer">Read the optional agent guide <ArrowRight size={15} /></a>
             </div>
           </div>
         </section>
 
-        <section className="protocol section" id="learn">
-          <SectionLabel number="04" text="SIX PLAIN-ENGLISH TERMS" />
+        <section className="faq section" id="help">
+          <SectionLabel number="05" text="HELP AND REFERENCE" />
           <div className="section-heading">
-            <h2>Enough protocol<br />to stay oriented.</h2>
-            <p>You can start without memorizing Farcaster. These are the words the setup and error messages use.</p>
+            <h2>Go deeper only<br />when you need to.</h2>
+            <p>The quickstart is enough for a clean first run. These references cover recovery, security, architecture, and advanced operation.</p>
           </div>
-          <div className="concepts">
-            <Concept index="01" title="FID" accent="purple">Your numeric Farcaster account ID.</Concept>
-            <Concept index="02" title="Custody address" accent="orange">The wallet that owns the FID. Keep it off the server.</Concept>
-            <Concept index="03" title="App key" accent="cyan">A revocable key that can cast, follow, and react. Creating it is gasless.</Concept>
-            <Concept index="04" title="Message" accent="green">A signed instruction such as "publish this cast" or "follow this FID."</Concept>
-            <Concept index="05" title="Read node" accent="purple">Your copy of Farcaster data. It also validates and relays your writes.</Concept>
-            <Concept index="06" title="Storage" accent="orange">The account capacity required to store casts, follows, and reactions.</Concept>
-          </div>
-
           <div className="docs-grid">
-            <DocLink icon={<BookOpen size={22} />} title="Operations" detail="Costs, expected output, recovery, updates, and teardown." href={`${DOCS}/docs/OPERATIONS.md`} />
-            <DocLink icon={<Network size={22} />} title="Architecture" detail="Trust boundaries and separate read and write paths." href={`${DOCS}/docs/ARCHITECTURE.md`} />
-            <DocLink icon={<ShieldCheck size={22} />} title="Security" detail="Phrase handling, app keys, containers, and threat model." href={`${DOCS}/SECURITY.md`} />
-            <DocLink icon={<Bot size={22} />} title="Agent API" detail="x402 discovery, prices, chains, capabilities, and examples." href={`${DOCS}/docs/AGENT-API.md`} />
-            <DocLink icon={<FileCheck2 size={22} />} title="Primary sources" detail="The exact Farcaster and Snapchain references used here." href={`${DOCS}/docs/SOURCES.md`} />
-            <DocLink icon={<Github size={22} />} title="All source code" detail="MIT-licensed scripts, client, tests, and release files." href={REPO} />
+            <DocLink icon={<BookOpen size={22} />} title="Operations" detail="Expected output, sync status, recovery, upgrades, and teardown." href={`${DOCS}/docs/OPERATIONS.md`} />
+            <DocLink icon={<Network size={22} />} title="Architecture" detail="What runs where and how reads and writes move." href={`${DOCS}/docs/ARCHITECTURE.md`} />
+            <DocLink icon={<ShieldCheck size={22} />} title="Security" detail="Phrase handling, app keys, secrets, and incident response." href={`${DOCS}/SECURITY.md`} />
+            <DocLink icon={<Bot size={22} />} title="Agent API" detail="Optional x402 setup, routes, prices, and payment safety." href={`${DOCS}/docs/AGENT-API.md`} />
+            <DocLink icon={<FileCheck2 size={22} />} title="Primary sources" detail="Pinned Snapchain and Farcaster protocol references." href={`${DOCS}/docs/SOURCES.md`} />
+            <DocLink icon={<Github size={22} />} title="Source code" detail="MIT-licensed scripts, client, tests, and release files." href={REPO} />
           </div>
-        </section>
 
-        <section className="verification section-band light-band" id="verify">
-          <div className="section narrow">
-            <SectionLabel number="05" text="HUMAN PROOF" />
-            <div className="verify-layout">
-              <div>
-                <h2>One clean run<br /><em>still matters.</em></h2>
-                <p>The code and browser tests pass. Prize qualification still requires an independent person to run the full paid infrastructure path and vouch publicly on Farcaster.</p>
-              </div>
-              <div className="voucher-list">
-                <Voucher number="1" text="Start on a clean macOS or Linux machine." />
-                <Voucher number="2" text="Run the three commands and let Snapchain fully sync." />
-                <Voucher number="3" text="Cast, follow, react, and verify the data comes from the owned node." />
-                <Voucher number="4" text="Publish an honest Farcaster report with the resulting cast." />
-              </div>
-            </div>
-            <div className="bounty-board" aria-labelledby="bounty-title">
-              <header>
-                <span>2 RESERVED SLOTS · 400 USDC TOTAL</span>
-                <h3 id="bounty-title">One human. One agent. Real evidence.</h3>
-                <p>Each track pays 200 USDC. Claim before spending; reproducible failures are valid results.</p>
-              </header>
-              <div className="bounty-tracks">
-                <div><UserRound size={23} /><span>HUMAN</span><strong>200 <small>USDC</small></strong><p>Complete the clean-machine node and client run.</p></div>
-                <div><Bot size={23} /><span>AGENT</span><strong>200 <small>USDC</small></strong><p>Exercise discovery, x402 reads, and an authorized write.</p></div>
-              </div>
-              <footer>
-                <span>Evidence due 2026-10-23 · 14:47 UTC</span>
-                <a href={`${DOCS}/TESTER-BOUNTY.md`} target="_blank" rel="noreferrer">Rules and claim process <ArrowRight size={16} /></a>
-              </footer>
-            </div>
-          </div>
-        </section>
-
-        <section className="faq section">
-          <SectionLabel number="06" text="QUICK ANSWERS" />
-          <div className="faq-grid">
-            <h2>Before you<br />spend money.</h2>
+          <div className="faq-grid compact">
+            <h2>Common<br />questions.</h2>
             <div>
-              <Details question="Does Snapchain need an API key?">No. The Hetzner token creates your server; Snapchain syncs the public network without a hosted Farcaster data key.</Details>
-              <Details question="What will this cost?">The default Hetzner server and 2 TiB volume are about $265 per month before IPv4, traffic, tax, or provider price changes. The script shows the plan before creating it.</Details>
-              <Details question="Can the app key move wallet funds?">No. It signs Farcaster casts, follows, and reactions. It cannot transfer custody or sign wallet transactions.</Details>
-              <Details question="How do I stop the bill?">Run <code>./in-three-container destroy</code>, confirm the named resources are gone, and verify the project in the Hetzner console.</Details>
+              <Details question="What will this cost?">The default Hetzner server and 2 TiB volume are about $265 per month before tax, traffic, IPv4, or provider price changes. The script shows the plan before creating it.</Details>
+              <Details question="Can the app key move funds?">No. It can sign Farcaster casts, follows, and reactions. It cannot transfer custody or sign wallet transactions.</Details>
+              <Details question="What does a successful write mean?">Your node accepted the message for relay. Read it back from the synced node to confirm inclusion.</Details>
+              <Details question="How do I stop the bill?">Run <code>./in-three-container destroy</code>, then confirm the server and volume are gone in Hetzner.</Details>
             </div>
           </div>
         </section>
 
         <section className="final-cta">
-          <span className="eyebrow">READ THE COST. USE A TEST ACCOUNT. THEN RUN IT.</span>
-          <h2>Three commands.<br />Your node.</h2>
+          <span className="eyebrow">READ THE COST. USE A TEST ACCOUNT. KEEP THE WORKING DIRECTORY.</span>
+          <h2>Then run<br />the three.</h2>
           <div>
             <a href="#quickstart">Open the quickstart <Terminal size={18} /></a>
             <a href={REPO} target="_blank" rel="noreferrer">Inspect the source <Github size={18} /></a>
@@ -330,7 +283,7 @@ export function App() {
         <div><span className="wordmark compact"><i>III</i><strong>IN THREE</strong></span><p>Built in public by Permanent Upper Class.</p></div>
         <div><span>LICENSE</span><strong>MIT</strong></div>
         <div><span>SNAPCHAIN</span><strong>v0.14.3</strong></div>
-        <div><span>DEADLINE</span><strong>24 OCT 2026 · 14:47 UTC</strong></div>
+        <div><span>RELEASE</span><strong>v0.1.4</strong></div>
       </footer>
     </>
   );
@@ -351,11 +304,10 @@ function Command({ number, label, command }: { number: string; label: string; co
   );
 }
 
-function CodeBlock({ code, label }: { code: string; label?: string }) {
+function CodeBlock({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="code-block">
-      {label && <span>{label}</span>}
       <code><i>$</i> {code}</code>
       <button type="button" title="Copy command" onClick={async () => {
         await navigator.clipboard.writeText(code);
@@ -394,26 +346,6 @@ function DocLink({ icon, title, detail, href }: { icon: React.ReactNode; title: 
   return <a className="doc-link" href={href} target="_blank" rel="noreferrer">{icon}<span><strong>{title}</strong><small>{detail}</small></span><ExternalLink size={15} /></a>;
 }
 
-function Voucher({ number, text }: { number: string; text: string }) {
-  return <div><span>{number}</span><p>{text}</p></div>;
-}
-
 function Details({ question, children }: { question: string; children: React.ReactNode }) {
   return <details><summary>{question}<span>+</span></summary><p>{children}</p></details>;
-}
-
-function useCountdown(deadline: Date) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(interval);
-  }, []);
-  return useMemo(() => {
-    const seconds = Math.max(0, Math.floor((deadline.getTime() - now) / 1000));
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (seconds === 0) return "SUBMISSION WINDOW CLOSED";
-    return `${days}D ${String(hours).padStart(2, "0")}H ${String(minutes).padStart(2, "0")}M TO DEADLINE`;
-  }, [deadline, now]);
 }

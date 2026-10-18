@@ -112,8 +112,6 @@ services:
     depends_on:
       client:
         condition: service_started
-      agent-gateway:
-        condition: service_healthy
     networks: [web]
     security_opt:
       - no-new-privileges:true

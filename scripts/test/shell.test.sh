@@ -273,7 +273,7 @@ case "$(uname -m)" in
 esac
 release_fixture="$container_fixture/release"
 mkdir -p "$release_fixture"
-release_asset="farcaster-in-three-container-0.1.3-linux-${release_arch}.tar.gz"
+release_asset="farcaster-in-three-container-0.1.4-linux-${release_arch}.tar.gz"
 printf 'container archive fixture' | gzip > "$release_fixture/$release_asset"
 if command -v sha256sum >/dev/null 2>&1; then
   release_checksum="$(sha256sum "$release_fixture/$release_asset" | awk '{print $1}')"
@@ -333,7 +333,7 @@ chmod +x "$container_fixture/bin/curl" "$container_fixture/bin/docker"
   fail "container launcher did not retain the versioned release archive"
 grep -Fx '<--pull=never>' "$DOCKER_CALL_LOG" >/dev/null ||
   fail "release-asset image can unexpectedly pull from a registry"
-grep -Fx '<puc/farcaster-in-three:0.1.3>' "$DOCKER_CALL_LOG" >/dev/null ||
+grep -Fx '<puc/farcaster-in-three:0.1.4>' "$DOCKER_CALL_LOG" >/dev/null ||
   fail "container launcher did not run the loaded versioned image"
 
 cat > "$container_fixture/bin/in-three" <<'EOF'
@@ -364,7 +364,7 @@ container_fixture=""
 
 package_fixture="$(mktemp -d)"
 package_version="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --version)"
-[[ "$package_version" == "0.1.3" ]] ||
+[[ "$package_version" == "0.1.4" ]] ||
   fail "prebuilt CLI does not report the package version"
 package_help="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --help)"
 printf '%s\n' "$package_help" | grep -F 'in-three provision' >/dev/null ||
@@ -381,6 +381,18 @@ if grep -F 'npm run build' "$ROOT/apps/client/Dockerfile" >/dev/null; then
 fi
 rm -rf "$package_fixture"
 
+node -e '
+  const { readFileSync } = require("node:fs");
+  const { parse } = require("yaml");
+  const compose = parse(readFileSync(process.argv[1], "utf8"));
+  if (compose.services.caddy.depends_on?.["agent-gateway"]) process.exit(1);
+' "$ROOT/deploy/docker-compose.yml" ||
+  fail "browser-only Caddy still requires the optional agent gateway"
+grep -F 'setup_args+=(--agent-commerce)' "$ROOT/scripts/client.sh" >/dev/null ||
+  fail "client create does not keep agent commerce behind an explicit option"
+grep -F 'AGENT_COMMERCE_ENABLED=' "$ROOT/apps/client/src/setup.ts" >/dev/null ||
+  fail "setup does not persist the selected browser or agent mode"
+
 printf 'ok - generated cloud-init preserves remote variables\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'
@@ -391,3 +403,4 @@ printf 'ok - Base buyer pins network, recipient, and spending ceiling\n'
 printf 'ok - gasless signer setup and read-node write relay are wired\n'
 printf 'ok - container launcher is isolated and credential values stay out of argv\n'
 printf 'ok - prebuilt CLI isolates state and skips compilation\n'
+printf 'ok - browser-only setup does not depend on agent commerce\n'

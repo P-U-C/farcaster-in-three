@@ -84,6 +84,7 @@ async function main() {
       "base-rpc-url": { type: "string" },
       "public-origin": { type: "string" },
       "cookie-secure": { type: "boolean", default: false },
+      "agent-commerce": { type: "boolean", default: false },
       recover: { type: "boolean", default: false },
     },
   });
@@ -101,7 +102,8 @@ async function main() {
     return;
   }
 
-  printHeader();
+  const agentCommerce = values["agent-commerce"];
+  printHeader(agentCommerce);
   const password = await readHidden(
     "Client password (12+ characters; protects the web interface): ",
   );
@@ -109,18 +111,23 @@ async function main() {
   if (password !== confirmation) throw new Error("Passwords did not match; no transaction was sent");
   const passwordHash = await hashPassword(password);
   const sessionSecret = randomBytes(32).toString("base64url");
-  const facilitatorApiKey = validateFacilitatorApiKey(
-    await readHidden(
-      "\nCelo x402 facilitator API key (created at https://x402.celo.org): ",
-    ),
-  );
-  const cdpApiKeyId = validateCdpApiKeyId(
-    await readHidden("Coinbase CDP API key ID (for Base x402 settlement): "),
-  );
-  const cdpApiKeySecret = normalizeCdpApiKeySecret(
-    await readHidden("Coinbase CDP API key secret (PEM \\n escapes are accepted): "),
-  );
-  await validateCdpCredentials(cdpApiKeyId, cdpApiKeySecret);
+  let facilitatorApiKey: string | undefined;
+  let cdpApiKeyId: string | undefined;
+  let cdpApiKeySecret: string | undefined;
+  if (agentCommerce) {
+    facilitatorApiKey = validateFacilitatorApiKey(
+      await readHidden(
+        "\nCelo x402 facilitator API key (created at https://x402.celo.org): ",
+      ),
+    );
+    cdpApiKeyId = validateCdpApiKeyId(
+      await readHidden("Coinbase CDP API key ID (for Base x402 settlement): "),
+    );
+    cdpApiKeySecret = normalizeCdpApiKeySecret(
+      await readHidden("Coinbase CDP API key secret (PEM \\n escapes are accepted): "),
+    );
+    await validateCdpCredentials(cdpApiKeyId, cdpApiKeySecret);
+  }
 
   const publicOrigin = values["public-origin"];
   if (!publicOrigin?.match(/^https:\/\/[^/]+\/?$/)) {
@@ -194,31 +201,35 @@ async function main() {
 
   await assertStorage(Number(fid), setupNodeUrl);
 
-  const revenuePlan = createRevenueSplitPlan(account.address);
-  const revenueInspection = await inspectRevenueSplits({
-    operatorAddress: account.address,
-    publicClients: paymentPublicClients,
-  });
-  const preparedRevenue: Record<PaymentChainKey, PreparedRevenueSplit> = {
-    celo: await prepareRevenueSplitDeployment({
-      chain: celo,
-      plan: revenuePlan,
-      publicClient: paymentPublicClients.celo,
-      walletClient: paymentWalletClients.celo,
-    }),
-    base: await prepareRevenueSplitDeployment({
-      chain: base,
-      plan: revenuePlan,
-      publicClient: paymentPublicClients.base,
-      walletClient: paymentWalletClients.base,
-    }),
-  };
-  for (const prepared of Object.values(preparedRevenue)) {
-    if (
-      prepared.splitAddress.toLowerCase() !==
-      revenueInspection.payTo.toLowerCase()
-    ) {
-      throw new Error("Prepared revenue route does not match its deterministic address");
+  let revenueInspection: Awaited<ReturnType<typeof inspectRevenueSplits>> | undefined;
+  let preparedRevenue: Record<PaymentChainKey, PreparedRevenueSplit> | undefined;
+  if (agentCommerce) {
+    const revenuePlan = createRevenueSplitPlan(account.address);
+    revenueInspection = await inspectRevenueSplits({
+      operatorAddress: account.address,
+      publicClients: paymentPublicClients,
+    });
+    preparedRevenue = {
+      celo: await prepareRevenueSplitDeployment({
+        chain: celo,
+        plan: revenuePlan,
+        publicClient: paymentPublicClients.celo,
+        walletClient: paymentWalletClients.celo,
+      }),
+      base: await prepareRevenueSplitDeployment({
+        chain: base,
+        plan: revenuePlan,
+        publicClient: paymentPublicClients.base,
+        walletClient: paymentWalletClients.base,
+      }),
+    };
+    for (const prepared of Object.values(preparedRevenue)) {
+      if (
+        prepared.splitAddress.toLowerCase() !==
+        revenueInspection.payTo.toLowerCase()
+      ) {
+        throw new Error("Prepared revenue route does not match its deterministic address");
+      }
     }
   }
 
@@ -263,7 +274,6 @@ async function main() {
 
   const signerSecretHex = Buffer.from(signerPrivateKey).toString("hex");
   signerPrivateKey.fill(0);
-  const agentWriteToken = randomBytes(32).toString("base64url");
   const baseEnv = [
     "PORT=3333",
     `FID=${fid}`,
@@ -274,56 +284,78 @@ async function main() {
     `READ_NODE_URL=${values["read-node-url"] ?? "http://snapchain:3381"}`,
     `WRITE_NODE_URL=${values["read-node-url"] ?? "http://snapchain:3381"}`,
     `COOKIE_SECURE=${values["cookie-secure"] ? "true" : "false"}`,
-    "AGENT_GATEWAY_PORT=3334",
-    "AGENT_CLIENT_UPSTREAM=http://client:3333",
-    "AGENT_DEPLOYMENT_UPSTREAM=http://deployer:3335",
-    `AGENT_PUBLIC_ORIGIN=${publicOrigin.replace(/\/$/, "")}`,
-    `AGENT_WRITE_TOKEN=${agentWriteToken}`,
-    `BUY_OPERATOR_PAY_TO=${account.address}`,
-    `BUY_PAY_TO=${revenueInspection.payTo}`,
-    `BUY_ROYALTY_PAY_TO=${PUC_ROYALTY_ADDRESS}`,
-    `BUY_ROYALTY_BPS=${PUC_ROYALTY_BPS}`,
-    "BUY_FACILITATOR_URL=https://api.x402.celo.org",
-    `BUY_FACILITATOR_API_KEY=${facilitatorApiKey}`,
-    `CDP_API_KEY_ID=${cdpApiKeyId}`,
-    `CDP_API_KEY_SECRET_B64=${Buffer.from(cdpApiKeySecret, "utf8").toString("base64")}`,
-    "BUY_AGENT_READ_PRICE=0.005 USDC",
-    "BUY_AGENT_METADATA_PRICE=0.002 USDC",
-    "BUY_AGENT_WRITE_PRICE=0.02 USDC",
-    "BUY_DEPLOY_PRICE=25 USDC",
+    `AGENT_COMMERCE_ENABLED=${agentCommerce ? "true" : "false"}`,
   ];
 
+  if (agentCommerce) {
+    if (
+      !revenueInspection ||
+      !preparedRevenue ||
+      !facilitatorApiKey ||
+      !cdpApiKeyId ||
+      !cdpApiKeySecret
+    ) {
+      throw new Error("Agent-commerce setup is incomplete");
+    }
+    baseEnv.push(
+      "AGENT_GATEWAY_PORT=3334",
+      "AGENT_CLIENT_UPSTREAM=http://client:3333",
+      "AGENT_DEPLOYMENT_UPSTREAM=http://deployer:3335",
+      `AGENT_PUBLIC_ORIGIN=${publicOrigin.replace(/\/$/, "")}`,
+      `AGENT_WRITE_TOKEN=${randomBytes(32).toString("base64url")}`,
+      `BUY_OPERATOR_PAY_TO=${account.address}`,
+      `BUY_PAY_TO=${revenueInspection.payTo}`,
+      `BUY_ROYALTY_PAY_TO=${PUC_ROYALTY_ADDRESS}`,
+      `BUY_ROYALTY_BPS=${PUC_ROYALTY_BPS}`,
+      "BUY_FACILITATOR_URL=https://api.x402.celo.org",
+      `BUY_FACILITATOR_API_KEY=${facilitatorApiKey}`,
+      `CDP_API_KEY_ID=${cdpApiKeyId}`,
+      `CDP_API_KEY_SECRET_B64=${Buffer.from(cdpApiKeySecret, "utf8").toString("base64")}`,
+      "BUY_AGENT_READ_PRICE=0.005 USDC",
+      "BUY_AGENT_METADATA_PRICE=0.002 USDC",
+      "BUY_AGENT_WRITE_PRICE=0.02 USDC",
+      "BUY_DEPLOY_PRICE=25 USDC",
+    );
+  }
+
+  const setupEnv = preparedRevenue
+    ? revenueSetupEnv(baseEnv, preparedRevenue)
+    : baseEnv;
   const initialSetup = gaslessSetupEnv(
-    revenueSetupEnv(baseEnv, preparedRevenue),
+    setupEnv,
     "signed",
     registrationHash,
     registrationPayloadSha256,
     Buffer.from(registrationPayload).toString("base64"),
   );
 
-  const transactionCount = Object.values(preparedRevenue).filter(
-    (item) => !item.alreadyDeployed,
-  ).length;
-  console.log(
-    `\n${transactionCount} Celo/Base transaction${transactionCount === 1 ? "" : "s"} and one gasless Snapchain message will enable revenue routing and the revocable app key.`,
-  );
+  console.log("\nOne gasless Snapchain message will authorize the revocable app key.");
   console.log("Signer scopes       casts, reactions, and follows only");
   console.log("Signer lifetime     90-day sliding window, refreshed by use");
-  console.log("Settlement          95% operator / 5% P-U-C");
-  console.log(`Payment address     ${revenueInspection.payTo}`);
-  const answer = await readVisible("Type ENABLE AND REGISTER to continue: ");
-  if (answer !== "ENABLE AND REGISTER") {
+  if (agentCommerce && revenueInspection && preparedRevenue) {
+    const transactionCount = Object.values(preparedRevenue).filter(
+      (item) => !item.alreadyDeployed,
+    ).length;
+    console.log(`Revenue setup       ${transactionCount} Celo/Base transaction${transactionCount === 1 ? "" : "s"}`);
+    console.log("Settlement          95% operator / 5% P-U-C");
+    console.log(`Payment address     ${revenueInspection.payTo}`);
+  }
+  const expectedAnswer = agentCommerce ? "ENABLE AND REGISTER" : "REGISTER";
+  const answer = await readVisible(`Type ${expectedAnswer} to continue: `);
+  if (answer !== expectedAnswer) {
     throw new Error("Setup cancelled; nothing was broadcast");
   }
 
   await writeSetupFile(values.output, initialSetup, true);
-  for (const { key, chain } of PAYMENT_CHAINS) {
-    await submitSavedRevenueSplit({
-      output: values.output,
-      chainKey: key,
-      chainName: chain.name,
-      client: paymentPublicClients[key],
-    });
+  if (agentCommerce) {
+    for (const { key, chain } of PAYMENT_CHAINS) {
+      await submitSavedRevenueSplit({
+        output: values.output,
+        chainKey: key,
+        chainName: chain.name,
+        client: paymentPublicClients[key],
+      });
+    }
   }
 
   await submitSavedGaslessRegistration({
@@ -331,9 +363,9 @@ async function main() {
     nodeUrl: setupNodeUrl,
   });
 
-  console.log("\nRevenue routes and gasless app key confirmed; deployment can continue.");
+  console.log("\nGasless app key confirmed; deployment can continue.");
   console.log(`App-key message     ${registrationHash}`);
-  console.log("Payment rails       Celo USDC + Base USDC");
+  if (agentCommerce) console.log("Payment rails       Celo USDC + Base USDC");
   console.log("Custody phrase      discarded; it is not present in the output file");
   console.log("Next                deployment continues automatically");
 }
@@ -929,12 +961,15 @@ async function assertStorage(fid: number, nodeUrl: string) {
   console.log(`Storage units     ${data.units}`);
 }
 
-function printHeader() {
+function printHeader(agentCommerce: boolean) {
   console.log("\nIN THREE / APP KEY CEREMONY");
   console.log("Developer build: use a test Farcaster account, never a primary wallet.");
   console.log("The phrase stays in this process and is never sent to the server.");
   console.log("A scoped, gasless Ed25519 app key is stored after setup.");
-  console.log("Celo and Base facilitator credentials stay in the payment gateway.\n");
+  if (agentCommerce) {
+    console.log("Celo and Base facilitator credentials stay in the payment gateway.");
+  }
+  console.log();
 }
 
 export function validateFacilitatorApiKey(input: string): string {

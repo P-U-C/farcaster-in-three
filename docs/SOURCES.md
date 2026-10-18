@@ -1,5 +1,7 @@
 # Source Ledger
 
+This is the evidence behind the implementation, not a setup guide. Start with the [README](../README.md).
+
 Verified on 2026-10-18 UTC. Dates and versions are recorded because the protocol documentation changed shortly before this release.
 
 ## Prize

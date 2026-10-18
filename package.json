@@ -1,6 +1,6 @@
 {
   "name": "farcaster-in-three",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Run a self-hosted Farcaster Snapchain node and client in three commands.",
   "keywords": [
     "farcaster",
@@ -58,7 +58,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @in-three/client && npm run build --workspace @in-three/site",
-    "check": "npm run typecheck --workspace @in-three/client && npm run typecheck --workspace @in-three/site && npm test && npm run test:scripts",
+    "check": "npm run check:docs && npm run typecheck --workspace @in-three/client && npm run typecheck --workspace @in-three/site && npm test && npm run test:scripts",
+    "check:docs": "node scripts/check-docs.mjs",
     "dev:client": "npm run dev --workspace @in-three/client",
     "dev:site": "npm run dev --workspace @in-three/site",
     "prepack": "npm run build && node scripts/verify-package.mjs",

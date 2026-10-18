@@ -8,18 +8,19 @@ export IN_THREE_COMMAND IN_THREE_ROOT
 usage() {
   printf 'IN THREE -- a sovereign Farcaster client in three commands\n\n'
   printf 'Usage:\n'
-  printf '  %s deploy [options]      Buy once and run the complete deployment\n' "$IN_THREE_COMMAND"
   printf '  %s provision [options]   Provision compute and a 2 TiB data volume\n' "$IN_THREE_COMMAND"
   printf '  %s node up               Install and start a Snapchain read node\n' "$IN_THREE_COMMAND"
+  printf '  %s client create         Register an app key and deploy the browser client\n' "$IN_THREE_COMMAND"
   printf '  %s node status           Show sync state and recent logs\n' "$IN_THREE_COMMAND"
-  printf '  %s client create         Register an app key and deploy the client\n' "$IN_THREE_COMMAND"
   printf '  %s client status         Check the deployed client\n' "$IN_THREE_COMMAND"
   printf '  %s destroy               Delete provisioned Hetzner resources\n' "$IN_THREE_COMMAND"
   printf '  %s doctor                Check local prerequisites\n\n' "$IN_THREE_COMMAND"
-  printf 'Agent quickstart:\n  %s deploy --service https://YOUR_BROKER\n\n' "$IN_THREE_COMMAND"
-  printf 'Manual quickstart:\n'
-  printf '  %s provision\n  %s node up\n  %s client create\n' \
+  printf 'Three-command setup:\n'
+  printf '  %s provision\n  %s node up\n  %s client create\n\n' \
     "$IN_THREE_COMMAND" "$IN_THREE_COMMAND" "$IN_THREE_COMMAND"
+  printf 'Optional agent commerce:\n'
+  printf '  %s client create --with-agent\n' "$IN_THREE_COMMAND"
+  printf '  %s deploy --service https://YOUR_BROKER\n' "$IN_THREE_COMMAND"
 }
 
 command="${1:-help}"

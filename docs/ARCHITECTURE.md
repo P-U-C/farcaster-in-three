@@ -1,133 +1,124 @@
 # Architecture
 
-## Protocol data plane
+In Three has one required data path and one optional payment path.
+
+## Browser path
 
 ```text
-Browser ---------------- HTTPS session -----------------+
-                                                        |
-Agent ----- x402 payment + write capability ------> gateway
-                                                        |
-                                                        v
-                                                 Client service
-                                                   /         \
-                                      HTTP reads  /           \ signed protobuf writes
-                                                 v             v
-                                          owned Snapchain read node
-                                                 |             |
-                                      local state|             | validate + gossip
-                                                 v             v
-                                              responses    validators
-                                                               |
-                                                           consensus
-                                                               |
-                                                     next blocks return
-                                                        to read node
+browser
+   |
+   | HTTPS
+   v
+client service
+   |
+   | reads and signed protobuf writes
+   v
+your Snapchain read node
+   |
+   | validates and gossips valid writes
+   v
+Farcaster validators
 ```
 
-The client service has one protocol dependency: the operator's Snapchain read node. It reads through that node and posts binary messages to the node's `POST /v1/submitMessage` endpoint.
+The browser never calls a hosted Farcaster API. The client service reads from the operator's Snapchain node and submits signed messages to that same node.
 
-A read node accepts writes. It validates each message and gossips valid messages to validators, but it has no mempool and does not propose blocks. A successful submit response therefore means **accepted for relay**, not **included in a block**. Confirmation is a later observation of the message in synced node state.
+A read node accepts writes. It validates each message and relays valid messages to validators, but it does not propose blocks. A successful submit response means **accepted for relay**, not **included**. Confirmation is a later read from synced node state.
 
-The node's HTTP and gRPC ports are private. Only QUIC gossip, HTTPS, and CIDR-restricted SSH are exposed.
+Public network ports:
 
-## Paid deployment control plane
+- 80/TCP and 443/TCP+UDP for Caddy and HTTPS
+- 3382/UDP for Snapchain gossip
+- 22/TCP for SSH, restricted to the operator's detected CIDR
+
+Snapchain HTTP on 3381 and gRPC on 3383 remain private.
+
+## What runs on the server
 
 ```text
-Operator machine                  selected broker                    buyer's Hetzner project
+Caddy
+  -> browser routes -> client
+  -> /agent routes -> agent gateway (optional)
 
-SSH keypair generated locally
-cloud token -> HTTPS preflight -> deployment service -> API probe
-x402 wallet -> Celo/Base USDC -> gateway -> immutable 95/5 split
-same bounded request -----------> durable entitlement -> server + volume + firewall
-             <------------------- resource IDs + public IPv4
-
-SSH private key ----------------------------------------------------> new host
-local client command -> SSH tunnel -> owned node -> gasless app-key relay
-test-account phrase remains in the local setup process
+client <-> Snapchain
+agent gateway -> client (optional)
+agent gateway -> deployment service (optional)
 ```
 
-The request has a random client-generated `deploymentId`. Before provisioning, the broker persists that ID with a SHA-256 token binding, SSH public key, and source CIDR. It never persists the Hetzner token. Free status and resume routes require the original inputs to match the paid entitlement, so a dropped paid response can continue without another x402 payment.
+The normal setup starts Snapchain, the client, and Caddy. The `--with-agent` setup also starts the gateway and deployment service.
 
-The broker is trusted while it handles the request: it can use the dedicated Hetzner token within that project's permissions. Use a new, otherwise-empty project and rotate the token after provisioning. The broker never receives the SSH private key, Farcaster phrase, browser password, app key, or facilitator credentials.
+Container networks separate responsibilities:
 
-Cloud-init stages release files under `/opt/in-three-release`, mounts the volume at `/srv/in-three`, copies the release to the mounted volume, and starts the pinned Snapchain image.
+- `protocol`: Snapchain and client
+- `web`: client, optional gateway, and Caddy
+- `deployment`: optional gateway and deployer
+- `node-egress`: Snapchain peers and snapshots
+- `deployer-egress`: Hetzner API
 
-## Agent commerce path
+The gateway cannot reach Snapchain directly. The deployer cannot reach the client. The client never receives payment credentials.
 
-Caddy routes `/agent/*` and `/.well-known/agent.json` to a separate x402 v2 gateway. A valid unpaid request receives equal USDC offers on Celo and Base. A conforming buyer chooses one rail. The selected facilitator verifies and settles payment before the gateway proxies the request.
-
-Trust is split by container:
-
-- The gateway has facilitator credentials, route prices, the revenue address, and the agent write capability.
-- The deployer has the fixed cloud plan and entitlement store, but no payment or Farcaster signer.
-- The client has the delegated Farcaster key, password hash, and session secret.
-- The client can reach Snapchain; the gateway cannot.
-- Caddy prevents public callers from bypassing the gateway for agent routes.
-- Paid reads need payment. Paid writes need the owner capability before the gateway will even return a payment challenge.
-
-The deterministic 0xSplits V2 address is the same on Celo and Base. Its immutable Push split assigns 95% to the operator and 5% to P-U-C, with a 0.1% permissionless distribution incentive. No bridge sits in the request path.
-
-## Feed construction
-
-The reference client does not call a hosted feed API:
-
-1. Query `linksByFid` for active follows.
-2. Query recent `castsByFid` for the owner and up to 35 followed FIDs.
-3. Merge and sort by Farcaster timestamp.
-4. Resolve user-data messages for username, display name, bio, and profile image.
-5. Query `signersByFid` for unified onchain and gasless signer records.
-
-Every discovered signer key remains available in the source filter. Keys sharing available app attribution are grouped. If attribution is absent, the UI retains exact-key controls instead of inventing a client name.
-
-This is a chronological reference feed. A production client would add pagination, durable profile caches, moderation, spam controls, channel indexes, and user-selectable ranking.
-
-## Test-account key ceremony
+## App-key setup
 
 ```text
-browser password + confirmation
-  -> facilitator credentials validated
-  -> local SSH tunnel to owned read node
-  -> explicit TEST ACCOUNT acknowledgement
-test-account BIP-39 phrase
-  -> m/44'/60'/0'/0/0 custody address
-  -> FID resolved on Optimism; storage checked through owned node
-  -> Celo/Base 95/5 split state inspected
-fresh Ed25519 app key
-  -> casts/reactions/follows scopes
-  -> 90-day sliding TTL
-  -> next per-FID gasless nonce
-custody account
-  -> EIP-712 authorization for scoped signer
-app key
-  -> signed gasless KEY_ADD Snapchain message
-  -> exact protobuf + hash + checksum + app key saved owner-only
-  -> protobuf submitted through SSH tunnel to owned read node
-  -> read node validates and gossips to validators
-  -> setup waits for signer in unified node API
-  -> only delegated app key uploaded
-  -> saved protobuf removed after confirmation
-  -> pending file removed after public health checks
-  -> phrase discarded with local process exit
+test-account phrase
+  -> derive custody address locally
+  -> resolve FID on Optimism
+  -> check storage through owned node
+  -> create a fresh Ed25519 app key
+  -> sign scoped gasless KEY_ADD
+  -> save exact message before submission
+  -> submit through local SSH tunnel to owned node
+  -> wait until signer appears in node state
+  -> upload only the app key
+  -> discard phrase when the process exits
 ```
 
-No Optimism transaction or OP ETH is required. If a deterministic Celo or Base revenue split is absent, setup may separately sign one zero-value contract-creation transaction on that chain; those transactions and local hashes are also saved before broadcast.
+The app key is limited to casts, reactions, and follows. It has a 90-day sliding lifetime. No Optimism transaction or OP ETH is required.
 
-If submission produces an uncertain network result, setup preserves the exact gasless message and app key. A rerun checks signer state first, verifies the saved checksum, and resubmits only those bytes. It never creates a replacement key while the first authorization may be live.
+If submission is uncertain, setup retains the exact signed message and app key. A rerun checks signer state first and resubmits only the saved bytes. It does not create another key while the first authorization may be live.
 
-This phrase-based ceremony exists to teach the low-level protocol path. Recovery phrases are equivalent to account control and should only be entered into code the tester has inspected and trusts. Real client onboarding should use delegated signer authorization from a trusted wallet and should not collect raw phrases.
+This phrase-based path exists for a developer tutorial. Production clients should request delegated authorization from a trusted wallet and should not collect recovery phrases.
 
-## Container boundaries
+## Feed
 
-The operator image is a packaging boundary, not the deployed service. It runs as the host UID/GID with a read-only root filesystem, no Linux capabilities, no Docker socket, and only the current working directory mounted at `/work`. Persistent operator state remains under `.state/`.
+The reference feed is built without a hosted feed service:
 
-The deployed service uses these networks:
+1. Read active follows for the owner.
+2. Read recent casts for the owner and up to 35 followed FIDs.
+3. Merge and sort by Farcaster time.
+4. Resolve profile data from user-data messages.
+5. Read signer records for source filtering.
 
-- `protocol`: Snapchain and client only
-- `deployment`: gateway and deployment service only
-- `deployer-egress`: Hetzner API access for the deployment service
-- `node-egress`: peer and snapshot access for Snapchain
-- `web`: client, gateway, and Caddy
+When multiple signer keys have the same app attribution, the UI groups them. Keys without reliable attribution remain available as exact-key controls.
+
+This is a chronological reference feed. A production service would add pagination, moderation, spam controls, durable caches, channel indexes, and ranking.
+
+## Optional agent commerce
+
+With `client create --with-agent`, Caddy exposes `/.well-known/agent.json` and `/agent/*` through a separate x402 gateway.
+
+- Reads require USDC payment.
+- Writes require both payment and an owner capability.
+- Buyers choose Celo or Base; no bridge runs during checkout.
+- Revenue uses the same deterministic 95% operator / 5% P-U-C split on both chains.
+- Facilitator credentials stay in the gateway.
+- Farcaster signing stays in the client.
+
+The automated deployment service uses a client-generated deployment ID and durable entitlement. It receives a dedicated Hetzner token only for the request and never receives the SSH private key, Farcaster phrase, browser password, or app key.
+
+## Operator container
+
+The local operator image is a packaging boundary. The launcher gives it:
+
+- the caller's UID and GID
+- a read-only root filesystem
+- no Linux capabilities
+- `no-new-privileges`
+- a no-exec temporary filesystem
+- only the current directory mounted at `/work`
+- no Docker socket
+
+Persistent local state remains under `.state/`.
 
 ## Upstream boundary
 
-The repository does not fork or vendor Snapchain. It runs the official GPL-3.0 image by immutable digest and supplies configuration at runtime. Original scripts, client code, and documentation are MIT licensed.
+This repository does not fork or vendor Snapchain. It runs the official GPL-3.0 image by immutable digest and supplies configuration at runtime. Original scripts, client code, and documentation are MIT licensed.

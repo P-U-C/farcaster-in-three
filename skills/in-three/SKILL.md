@@ -1,106 +1,131 @@
 ---
 name: use-in-three
-description: Deploy and safely operate an In Three Farcaster client through x402 v2 on Celo or Base. Use for one-purchase Hetzner provisioning, paid feed reads, source inspection, casts, follows, likes, and recasts.
+description: Safely deploy and use an In Three Farcaster node, browser client, or optional x402 agent API.
 ---
 
-# Use an In Three Farcaster client
+# Use In Three
 
-An In Three deployment exposes a machine-readable API protected by x402 v2 payments in USDC on Celo and Base. It can also provision another buyer-owned In Three host for one 25 USDC payment. The repository's pinned <code>@celo/buy</code> 0.8.3 release selects the Celo offer; a conforming multi-network x402 client may choose Base.
+In Three has two modes:
 
-## Boundaries
+- **Basic:** provision a server, start Snapchain, and deploy a browser client.
+- **Agent commerce:** add paid x402 reads, authorized writes, and one-payment deployment.
 
-- Fetch <code>/.well-known/agent.json</code> and <code>/agent/openapi.json</code> before constructing a request.
-- For deployment, state the selected chain and both charges before approval: 25 USDC once to the broker and the recurring Hetzner bill to the buyer.
-- Use only a user-selected HTTPS broker and a dedicated, otherwise-empty Hetzner project token.
-- Never print or retain the Hetzner token. Do not place it in an MCP argument or chat transcript; pass it through the local hidden prompt or existing environment.
-- Never remove <code>.state/deployment-payment.pending</code> or buy again after an ambiguous deployment response.
-- Quote the exact method, URL, headers, and body before paying.
-- Obtain approval for the exact USDC amount unless the user already authorized it.
-- Reads need payment. Writes also need the owner-issued <code>AGENT_WRITE_TOKEN</code>.
-- Never print, return, log, or file an issue containing that token.
-- Never blindly retry a paid timeout, disconnect, 500, or uncertain settlement.
-- A write payment can settle before Farcaster rejects the message. Validate against OpenAPI first.
+Do not introduce payment credentials into the basic path.
+
+## Safety rules
+
+- Never request, accept, print, or store a Farcaster recovery phrase in chat.
+- The developer key ceremony requires a human at the local terminal with a disposable test account.
+- Use a new, empty Hetzner project and a restricted token.
+- State the recurring Hetzner cost before provisioning.
+- Quote the exact x402 request before paying.
+- Use a dedicated low-balance payment wallet and exact spending ceiling.
+- Never expose the owner write capability.
+- Never retry an ambiguous paid response until its receipt is resolved.
+- Preserve the working directory; recovery state lives under `.state/`.
 
 ## Install
 
-Prefer the pinned operator container:
-
-~~~sh
+```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.3/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.4/in-three-container
 chmod +x in-three-container
-./in-three-container --version
-~~~
+./in-three-container doctor
+```
 
-Verify the tagged release archive and SHA-256 before spending. Keep the same working directory because recovery state stays under its local <code>.state/</code> directory. The launcher runs as the host UID/GID, mounts only this directory, drops capabilities, uses a read-only root filesystem, and does not mount the Docker socket.
+The launcher uses the checksummed release image, runs without a Docker socket mount, and mounts only the working directory.
 
-## Deploy
+## Basic deployment
 
-Prefer the installed wrapper because it owns idempotency, local SSH-key generation, exact-request quoting, and payment recovery:
+```bash
+./in-three-container provision
+./in-three-container node up
+./in-three-container client create
+```
 
-~~~sh
-./in-three-container deploy \
-  --service https://USER_SELECTED_BROKER \
-  --payment-network base
-~~~
+Stop before `provision` unless the user has approved the displayed cloud plan and recurring cost.
 
-The command performs a free preflight and displays the plan before payment. Stop at the confirmation unless the user explicitly authorized the displayed 25 USDC ceiling and acknowledged the separate recurring Hetzner cost. Use <code>--yes</code> only when that exact authorization is already present.
+The initial Snapchain sync may take hours. Report progress with:
 
-The wrapper may remain attached for hours while Snapchain loads its initial snapshot. Report progress from <code>./in-three-container node status</code>; do not restart the node during extraction. Browser and facilitator credentials plus the developer-only test-account ceremony require a human at the local terminal. Never request or accept a recovery phrase through chat. New app keys use a scoped gasless <code>KEY_ADD</code>; no Optimism transaction is sent.
+```bash
+./in-three-container node status
+```
 
-If the command stops after payment, rerun the same command. The saved marker makes it query free status/resume endpoints and prevents automatic repurchase. If it reports no matching entitlement, run <code>buy --account in-three receipts --resolve</code>, preserve the deployment ID and settlement transaction, and stop. Do not pay again.
+Do not restart the node during snapshot extraction.
 
-## Discover
+The local key ceremony needs human input. No Optimism transaction is sent; the result is a scoped gasless app key.
 
-~~~sh
+## Optional paid API
+
+The seller enables agent commerce with:
+
+```bash
+./in-three-container client create --with-agent
+```
+
+Discover the live contract before building requests:
+
+```bash
 curl --fail --silent --show-error "$AGENT_PUBLIC_ORIGIN/.well-known/agent.json"
 curl --fail --silent --show-error "$AGENT_PUBLIC_ORIGIN/agent/openapi.json"
-~~~
+```
 
-Use the manifest's current prices. The 402 quote is authoritative.
+Treat the manifest and unpaid 402 response as authoritative for routes, networks, assets, and prices.
 
-## Quote
+## Quote before payment
 
-For a read:
+Read:
 
-~~~sh
+```bash
 buy quote "$AGENT_PUBLIC_ORIGIN/agent/v1/feed"
-~~~
+```
 
-For a write, keep the owner capability attached to both quote and purchase:
+Authorized write:
 
-~~~sh
+```bash
 buy quote -X POST \
   -H "Authorization: Bearer $AGENT_WRITE_TOKEN" \
   -H "Content-Type: application/json" \
   --data '{"text":"hello"}' \
   "$AGENT_PUBLIC_ORIGIN/agent/v1/casts"
-~~~
+```
 
-With MCP, call <code>buy_pay_quote</code> with the same URL, method, headers, and body. It does not pay.
+With MCP, call `buy_pay_quote` with the same URL, method, headers, and body. It does not pay.
 
-## Buy once
+## Pay once
 
-Use the decimal quote as the CLI ceiling:
+After exact user approval:
 
-~~~sh
+```bash
 buy curl --max-amount '<quoted USDC amount>' \
   -H "Authorization: Bearer $AGENT_WRITE_TOKEN" \
   -H "Content-Type: application/json" \
   -X POST --data '{"text":"hello"}' \
   "$AGENT_PUBLIC_ORIGIN/agent/v1/casts"
-~~~
+```
 
-For MCP, pass the quote's atomic <code>price.atomic</code> unchanged as <code>buy_curl.maxAmount</code>.
+With MCP, pass the quote's atomic amount unchanged to `buy_curl.maxAmount`.
 
-Preserve the response and receipt. Report the operation, amount, token, settlement transaction, Farcaster message hash, and submitting read node. Treat submission as accepted for relay until the message appears in synced node state.
+Keep the response, receipt, settlement transaction, Farcaster message hash, and submitting node. A successful submit means accepted for relay until the message appears in synced node state.
 
-## Fail safely
+## Buy a deployment
 
-- Initial 401: no payment; the write capability is missing or wrong.
-- Initial 400, 405, 413, or 429: no payment; correct the request or wait.
-- Initial 402: no payment yet; this is the quote.
-- Paid response with a settlement receipt: payment occurred even if the Farcaster operation failed.
-- Network interruption or settlement uncertainty: do not buy again. Resolve the receipt with the buyer used, inspect the transfer on the selected chain, and report what is known.
+```bash
+./in-three-container deploy \
+  --service https://USER_SELECTED_BROKER \
+  --payment-network base
+```
 
-A retry creates a new payment authorization and may create a second Farcaster action. Deployment is the exception only through the repository wrapper: its saved marker uses the free status/resume path and does not submit another payment.
+The wrapper runs a free preflight, displays the cloud plan and 25 USDC quote, and waits for confirmation. Use `--yes` only when the user already authorized both the exact payment and recurring Hetzner cost.
+
+If the command stops after payment, rerun the identical command. The saved marker uses free status and resume routes. If no matching entitlement is found, resolve the receipt and stop. Do not pay again.
+
+## Interpret failures
+
+- Initial 401: capability missing or wrong; no payment.
+- Initial 400, 405, 413, or 429: request rejected before payment.
+- Initial 402: quote only; no payment yet.
+- Paid response with receipt: payment occurred even if the operation failed.
+- Timeout or disconnect after payment: resolve the receipt before any retry.
+
+A retry may create a second payment and a second Farcaster action.

@@ -132,6 +132,16 @@ wait_for_node_api() {
 }
 
 create_client() {
+  local agent_commerce="false"
+  case "${1:-}" in
+    "") ;;
+    --with-agent) agent_commerce="true" ;;
+    *) die "usage: $IN_THREE_COMMAND client create [--with-agent]" ;;
+  esac
+  local requested_agent_commerce="$agent_commerce"
+  local saved_agent_commerce
+  local -a setup_args
+
   load_state
   for command in node npm tar scp ssh curl awk; do
     require_command "$command"
@@ -195,18 +205,39 @@ create_client() {
         ;;
     esac
   else
-    node "$IN_THREE_ROOT/apps/client/dist/server/setup.js" \
-      --output "$PENDING_CLIENT_ENV" \
-      --read-node-url "http://snapchain:3381" \
-      --setup-node-url "$SETUP_NODE_URL" \
-      --public-origin "https://$CLIENT_DOMAIN" \
+    setup_args=(
+      --output "$PENDING_CLIENT_ENV"
+      --read-node-url "http://snapchain:3381"
+      --setup-node-url "$SETUP_NODE_URL"
+      --public-origin "https://$CLIENT_DOMAIN"
       --cookie-secure
+    )
+    if [[ "$agent_commerce" == "true" ]]; then
+      setup_args+=(--agent-commerce)
+    fi
+    node "$IN_THREE_ROOT/apps/client/dist/server/setup.js" "${setup_args[@]}"
   fi
 
   [[ "$(pending_value SIGNER_REGISTRATION_STATUS)" == "confirmed" ]] ||
     die "app-key registration is not confirmed; rerun $IN_THREE_COMMAND client create"
-  pending_has_agent_config ||
-    die "saved setup predates paid agent access; preserve $PENDING_CLIENT_ENV and finish with the release that created it before upgrading"
+
+  saved_agent_commerce="$(pending_value AGENT_COMMERCE_ENABLED)"
+  if [[ -z "$saved_agent_commerce" ]] && pending_has_agent_config; then
+    saved_agent_commerce="true"
+  fi
+  case "$saved_agent_commerce" in
+    true)
+      agent_commerce="true"
+      pending_has_agent_config ||
+        die "saved agent-commerce setup is incomplete; preserve $PENDING_CLIENT_ENV and rerun client create"
+      ;;
+    false|"")
+      agent_commerce="false"
+      [[ "$requested_agent_commerce" != "true" || ! -f "$PENDING_CLIENT_ENV" ]] ||
+        die "saved browser-only setup cannot be upgraded in place; finish it, then follow docs/AGENT-API.md"
+      ;;
+    *) die "invalid AGENT_COMMERCE_ENABLED value in $PENDING_CLIENT_ENV" ;;
+  esac
 
   note "Packaging the exact prebuilt client and dependency lock"
   tar -C "$IN_THREE_ROOT" -czf "$archive" \
@@ -215,36 +246,52 @@ create_client() {
 
   copy_to "$archive" /tmp/in-three-source.tar.gz
   write_client_env "$PENDING_CLIENT_ENV" "$client_deploy_env"
-  write_agent_gateway_env "$PENDING_CLIENT_ENV" "$agent_gateway_env"
   copy_to "$client_deploy_env" /tmp/in-three-client.env
-  copy_to "$agent_gateway_env" /tmp/in-three-agent-gateway.env
+  if [[ "$agent_commerce" == "true" ]]; then
+    write_agent_gateway_env "$PENDING_CLIENT_ENV" "$agent_gateway_env"
+    copy_to "$agent_gateway_env" /tmp/in-three-agent-gateway.env
+  fi
 
-  note "Installing separate client and payment secrets with owner-only permissions"
+  note "Installing client files with owner-only permissions"
   remote "mkdir -p /srv/in-three/source && rm -rf /srv/in-three/source/*"
   remote "tar -xzf /tmp/in-three-source.tar.gz -C /srv/in-three/source"
   remote "install -m 600 /tmp/in-three-client.env /srv/in-three/client.env"
-  remote "install -m 600 /tmp/in-three-agent-gateway.env /srv/in-three/agent-gateway.env"
+  if [[ "$agent_commerce" == "true" ]]; then
+    remote "install -m 600 /tmp/in-three-agent-gateway.env /srv/in-three/agent-gateway.env"
+  else
+    remote "rm -f /srv/in-three/agent-gateway.env"
+  fi
   remote "rm -f /tmp/in-three-source.tar.gz /tmp/in-three-client.env /tmp/in-three-agent-gateway.env"
   remote "printf '%s\n' 'CLIENT_DOMAIN=$CLIENT_DOMAIN' > /srv/in-three/.env && chmod 600 /srv/in-three/.env"
 
-  note "Preparing owner-only deployment entitlement storage"
-  remote "sudo install -d -o 1000 -g 1000 -m 700 /srv/in-three/data/deployer"
-
-  note "Building and starting the browser client and paid agent gateway"
-  remote "cd /srv/in-three && sudo docker compose up -d --build client deployer agent-gateway caddy"
+  if [[ "$agent_commerce" == "true" ]]; then
+    note "Preparing owner-only deployment entitlement storage"
+    remote "sudo install -d -o 1000 -g 1000 -m 700 /srv/in-three/data/deployer"
+    note "Building and starting the browser client and paid agent gateway"
+    remote "cd /srv/in-three && sudo docker compose up -d --build client deployer agent-gateway caddy"
+  else
+    note "Building and starting the browser client"
+    remote "cd /srv/in-three && sudo docker compose stop agent-gateway deployer >/dev/null 2>&1 || true; sudo docker compose up -d --build client caddy"
+  fi
 
   local attempt
   for ((attempt = 1; attempt <= 36; attempt++)); do
-    if curl -fsS --max-time 8 "https://$CLIENT_DOMAIN/api/health" >/dev/null 2>&1 &&
-      curl -fsS --max-time 8 "https://$CLIENT_DOMAIN/agent/health" >/dev/null 2>&1; then
-      write_agent_access_env "$PENDING_CLIENT_ENV" "$AGENT_ACCESS_ENV"
-      success "Client and paid agent gateway are live"
+    if curl -fsS --max-time 8 "https://$CLIENT_DOMAIN/api/health" >/dev/null 2>&1; then
+      if [[ "$agent_commerce" == "true" ]] &&
+        ! curl -fsS --max-time 8 "https://$CLIENT_DOMAIN/agent/health" >/dev/null 2>&1; then
+        sleep 5
+        continue
+      fi
+      success "Browser client is live"
       printf '  URL           https://%s\n' "$CLIENT_DOMAIN"
-      printf '  agent API     https://%s/.well-known/agent.json\n' "$CLIENT_DOMAIN"
-      printf '  agent access  %s\n' "$AGENT_ACCESS_ENV"
-      printf '  payment rails Celo USDC + Base USDC\n'
-      printf '  settlement    95%% operator + 5%% P-U-C at %s\n' "$(pending_value BUY_PAY_TO)"
-      printf '  read path     browser or paid agent -> client service -> your Snapchain node\n'
+      if [[ "$agent_commerce" == "true" ]]; then
+        write_agent_access_env "$PENDING_CLIENT_ENV" "$AGENT_ACCESS_ENV"
+        printf '  agent API     https://%s/.well-known/agent.json\n' "$CLIENT_DOMAIN"
+        printf '  agent access  %s\n' "$AGENT_ACCESS_ENV"
+        printf '  payment rails Celo USDC + Base USDC\n'
+        printf '  settlement    95%% operator + 5%% P-U-C at %s\n' "$(pending_value BUY_PAY_TO)"
+      fi
+      printf '  read path     browser -> client service -> your Snapchain node\n'
       printf '  write path    authorized client -> your read node -> validator gossip\n'
       printf '  custody key   not stored\n'
       secure_delete "$PENDING_CLIENT_ENV"
@@ -253,7 +300,7 @@ create_client() {
     sleep 5
   done
 
-  remote "cd /srv/in-three && sudo docker compose logs --tail=100 client deployer agent-gateway caddy" >&2 || true
+  remote "cd /srv/in-three && sudo docker compose logs --tail=100 client caddy agent-gateway deployer" >&2 || true
   printf '\nThe confirmed app key remains at %s.\n' "$PENDING_CLIENT_ENV" >&2
   printf 'Fix the reported deployment issue, then rerun %s client create.\n' "$IN_THREE_COMMAND" >&2
   die "the containers started but HTTPS did not become healthy"
@@ -262,13 +309,18 @@ create_client() {
 status() {
   load_state
   printf 'IN THREE / CLIENT STATUS\n\n'
-  remote "cd /srv/in-three && sudo docker compose ps client deployer agent-gateway caddy"
+  remote "cd /srv/in-three && sudo docker compose ps client caddy"
   printf '\nURL           https://%s\n' "$CLIENT_DOMAIN"
   curl -fsS --max-time 10 "https://$CLIENT_DOMAIN/api/health" | jq . ||
     die "browser client health check failed"
-  curl -fsS --max-time 10 "https://$CLIENT_DOMAIN/agent/health" | jq . ||
-    die "agent gateway health check failed"
-  success "Browser client and paid agent gateway are healthy"
+  if remote "test -f /srv/in-three/agent-gateway.env"; then
+    remote "cd /srv/in-three && sudo docker compose ps deployer agent-gateway"
+    curl -fsS --max-time 10 "https://$CLIENT_DOMAIN/agent/health" | jq . ||
+      die "agent gateway health check failed"
+    success "Browser client and paid agent gateway are healthy"
+  else
+    success "Browser client is healthy"
+  fi
 }
 
 logs() {
@@ -278,9 +330,9 @@ logs() {
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   case "${1:-status}" in
-    create) create_client ;;
+    create) create_client "${2:-}" ;;
     status) status ;;
     logs) logs ;;
-    *) die "usage: $IN_THREE_COMMAND client {create|status|logs}" ;;
+    *) die "usage: $IN_THREE_COMMAND client {create [--with-agent]|status|logs}" ;;
   esac
 fi

@@ -1,86 +1,75 @@
 # Publishing
 
-In Three has two release channels:
+A version tag publishes three artifacts:
 
 - npm: `farcaster-in-three`
 - OCI: `ghcr.io/p-u-c/farcaster-in-three`
+- GitHub release: npm tarball plus checksummed amd64 and arm64 container archives
 
-GitHub release tarballs and checksummed Docker archives remain the offline fallback.
+npm uses GitHub OIDC trusted publishing. GHCR is public.
 
 ## Release checklist
 
-1. Run the full verification suite.
-2. Update every versioned launcher and document together.
-3. Commit the release.
-4. Tag that commit `vX.Y.Z`.
-5. Push the commit and tag.
-6. Wait for the release, npm, container, CI, and Pages workflows.
-7. Test each public install command without repository credentials.
+1. Choose `X.Y.Z`.
+2. Update package versions, `in-three-container`, `Dockerfile.operator`, README, website, voucher, operations guide, and agent skill together.
+3. Run the full verification suite.
+4. Commit the release.
+5. Create the signed or annotated tag `vX.Y.Z` on that commit.
+6. Push main and the tag.
+7. Wait for release, npm, container, CI, and Pages workflows.
+8. Test every public artifact without repository credentials.
 
-Never move or replace an existing version tag.
+Never move or replace a published tag.
 
-## First npm publication
-
-npm requires one authenticated publication before a trusted publisher can be attached. Bootstrap from an exact, checksummed GitHub release artifact:
-
-```bash
-npm login --auth-type=web
-gh release download vX.Y.Z --pattern 'farcaster-in-three-X.Y.Z.tgz*'
-sha256sum --check farcaster-in-three-X.Y.Z.tgz.sha256
-npm publish farcaster-in-three-X.Y.Z.tgz --access public --provenance=false
-```
-
-The bootstrap release has no provenance because npm provenance is issued by supported CI systems, not a local shell. Immediately bind later releases to this repository:
+## Local verification
 
 ```bash
-npx --yes npm@12.2.0 trust github farcaster-in-three \
-  --file publish-npm.yml \
-  --repo P-U-C/farcaster-in-three \
-  --allow-publish \
-  --yes
+npm ci
+npm run check
+npm run build
+npm audit --audit-level=moderate
+node scripts/verify-package.mjs
+npm pack --dry-run --ignore-scripts
+
+docker build -f Dockerfile.operator -t in-three-operator:test .
+docker run --rm in-three-operator:test --version
+docker run --rm in-three-operator:test doctor
+
+node scripts/visual-check.mjs
 ```
 
-Complete the npm browser challenge when prompted. Confirm the trust configuration under the package settings, then set publishing access to require 2FA and disallow traditional tokens.
-
-Future tagged releases publish through GitHub OIDC with automatic npm provenance. The workflow uses Node 24 and npm 12.2.0 because trusted publishing requires an OIDC-capable npm CLI.
-
-## Public container
-
-The release workflow pushes architecture images and a combined manifest:
-
-```text
-ghcr.io/p-u-c/farcaster-in-three:X.Y.Z-amd64
-ghcr.io/p-u-c/farcaster-in-three:X.Y.Z-arm64
-ghcr.io/p-u-c/farcaster-in-three:X.Y.Z
-ghcr.io/p-u-c/farcaster-in-three:latest
-```
-
-GitHub creates container packages as private by default. A P-U-C organization owner must open the package settings once and change **Package visibility** to **Public**. After that, anonymous pulls work for current and future tags.
-
-The image is linked to this repository through its OCI source label.
+Inspect the generated desktop and mobile screenshots.
 
 ## Public verification
 
-After publication, test from a logged-out or credential-free shell:
+Use a clean npm prefix:
 
 ```bash
-npm view farcaster-in-three version dist.integrity
-npm install --global farcaster-in-three
-in-three --version
-in-three doctor
+PREFIX="$(mktemp -d)"
+npm install --global --prefix "$PREFIX" farcaster-in-three@X.Y.Z
+"$PREFIX/bin/in-three" --version
+"$PREFIX/bin/in-three" doctor
+npm view farcaster-in-three@X.Y.Z dist.integrity dist.attestations --json
 ```
 
+Use an empty Docker configuration so the pull is anonymous:
+
 ```bash
-docker logout ghcr.io || true
-docker pull ghcr.io/p-u-c/farcaster-in-three:X.Y.Z
+DOCKER_CONFIG="$(mktemp -d)" docker pull ghcr.io/p-u-c/farcaster-in-three:X.Y.Z
+DOCKER_CONFIG="$(mktemp -d)" docker buildx imagetools inspect ghcr.io/p-u-c/farcaster-in-three:X.Y.Z
 docker run --rm ghcr.io/p-u-c/farcaster-in-three:X.Y.Z --version
 docker run --rm ghcr.io/p-u-c/farcaster-in-three:X.Y.Z doctor
 ```
 
-Verify that both `linux/amd64` and `linux/arm64` are present:
+Confirm the manifest contains both `linux/amd64` and `linux/arm64`.
 
-```bash
-docker buildx imagetools inspect ghcr.io/p-u-c/farcaster-in-three:X.Y.Z
-```
+Download both GitHub release archives and compare them with their published SHA-256 files. Finally, load the live website at desktop and mobile widths and verify that its install URL points to the new immutable tag.
 
-The website and README should switch to registry commands only after these anonymous checks pass.
+## Automation
+
+- `.github/workflows/publish-npm.yml` publishes on `v*` tags with npm provenance.
+- `.github/workflows/release.yml` creates release files, architecture images, and the combined GHCR manifest.
+- `.github/workflows/pages.yml` publishes the tutorial when site files change on main.
+- `.github/workflows/ci.yml` validates main and pull requests.
+
+Manual workflow dispatch exists for recovery. It must target an existing immutable tag whose version matches `package.json`.
