@@ -14,16 +14,21 @@ The test costs real money. Read the estimated cost, agree on reimbursement befor
 - Record the exact release, commands, timings, and errors.
 - Do not use an existing project contributor as the independent tester.
 
+For an agent-led run, give the agent [`skills/in-three/SKILL.md`](skills/in-three/SKILL.md). The human operator must enter secrets directly, approve spending, and keep phrases, tokens, and private keys out of agent chat. Record every human intervention.
+
 ## Test record
 
 Fill this in as you work:
 
 ```text
 Tester:
+Run type: human-led/agent-led
 Farcaster account:
 Machine and OS:
 CPU architecture:
 Docker version:
+Agent, model, and tool versions (if applicable):
+Human interventions (if applicable):
 In Three release:
 Started at (UTC):
 Finished at (UTC):

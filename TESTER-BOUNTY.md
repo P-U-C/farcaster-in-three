@@ -1,49 +1,47 @@
-# Field-Test Bounties
+# Independent Test Offer
 
-Two independent testing slots are reserved:
+Two independent testers are needed before **2026-10-23 at 14:47 UTC**:
 
-- **Human clean-machine test:** 200 USDC
-- **Agent-led x402 test:** 200 USDC
+- one human-led clean-machine run
+- one agent-led clean-machine run
 
-Payment is for execution and reproducible evidence, not praise. A failed run can qualify when the report identifies the failure clearly enough to reproduce it.
+Approved Hetzner test costs will be reimbursed when agreed in writing before the run. If In Three receives the **$2,048 first-place prize**, each accepted tester will also receive **200 USDC**.
 
-Evidence is due **2026-10-23 at 14:47 UTC**.
+Payment is for completing the run and publishing reproducible evidence, not for praise. A failed run can qualify when the report makes the failure reproducible.
 
-## Claim first
+## Claim a slot
 
 Before spending money, reply publicly to the announcement cast with:
 
-- the track you are claiming
+- `human` or `agent`
 - your Farcaster account
 - your OS and CPU architecture
-- confirmation that you can start before the deadline
+- when you can start
 
-A slot is reserved only after the announcement author confirms it. One person or team may claim one track.
+A slot is reserved only after the announcement author confirms it. One person or team may claim one slot.
 
-## Human track
+## Human-led run
 
 1. Start on a clean macOS or Linux machine.
 2. Use release `v0.1.4` and a new, empty Hetzner project.
 3. Follow [VOUCHER.md](VOUCHER.md).
-4. Sync the node, open the browser client, cast, follow, and react.
-5. Test desktop and mobile layouts plus source filters.
-6. Destroy all cloud resources.
-7. Publish the honest public report required by the checklist.
+4. Sync the node and open the browser client.
+5. Publish a cast, follow an FID, and add a reaction.
+6. Test desktop, mobile, and source filters.
+7. Destroy every cloud resource.
+8. Publish an honest public report.
 
-Get written approval before incurring a cost. Reimbursement covers the agreed test infrastructure, not unrelated cloud resources.
+## Agent-led run
 
-## Agent track
+1. Start with a clean machine, a new Hetzner project, and a disposable Farcaster account.
+2. Give the agent this repository and [`skills/in-three/SKILL.md`](skills/in-three/SKILL.md).
+3. Ask it to complete the same [independent test](VOUCHER.md) using release `v0.1.4`.
+4. Keep the recovery phrase, cloud token, wallet keys, and spending confirmations out of agent chat. The human operator must handle secret prompts directly.
+5. Record the agent, model, tool versions, initial prompt, commands, errors, retries, and every human intervention.
+6. Publish the resulting cast and an honest public report.
+7. Destroy every cloud resource.
 
-1. Start the agent in a clean workspace with the repository and [`skills/in-three/SKILL.md`](skills/in-three/SKILL.md).
-2. Record the agent, model, tool versions, prompts, commands, and human interventions.
-3. Discover the API through `/.well-known/agent.json` and inspect OpenAPI.
-4. Quote before every payment and use exact spending limits.
-5. Complete at least one paid read.
-6. Complete one authorized paid write with an owner capability.
-7. Resolve receipts before retrying any ambiguous result.
-8. Publish an honest public report with transaction and message evidence.
-
-Never give an agent the Farcaster custody phrase, a valuable wallet, or an unrestricted cloud token.
+The optional paid x402 API is not required for this run. Testing it is useful only when separately agreed and funded.
 
 ## Required evidence
 
@@ -56,13 +54,16 @@ Submit:
 - node readiness evidence
 - client URL with secrets removed
 - message hashes for successful writes
-- x402 receipt and settlement transaction for agent tests
-- screenshots with all secrets redacted
+- desktop and mobile screenshots
 - teardown confirmation
-- every failure, workaround, and manual intervention
+- every failure, workaround, retry, and manual intervention
 
-Do not publish phrases, private keys, API keys, bearer capabilities, complete environment files, or unredacted cloud tokens.
+For an agent-led run, also include the agent, model, tool versions, initial prompt, and a redacted transcript.
 
-## Payment
+Do not publish recovery phrases, private keys, API keys, bearer capabilities, complete environment files, or unredacted cloud tokens.
 
-The announcement author validates the evidence against this document and [VOUCHER.md](VOUCHER.md). Accepted work is paid in USDC to the tester's public Farcaster wallet unless another address was agreed before work began.
+## Acceptance and payment
+
+The announcement author checks the evidence against this document and [VOUCHER.md](VOUCHER.md).
+
+Approved infrastructure reimbursement is paid after the accepted report and teardown evidence. The 200 USDC tester award is paid only if In Three receives the $2,048 first-place prize. Payment goes to the tester's public Farcaster wallet unless another address was agreed before the run.
