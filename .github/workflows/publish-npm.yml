@@ -49,14 +49,5 @@ jobs:
           node scripts/verify-package.mjs
           npm pack --dry-run --ignore-scripts
 
-      - name: Bootstrap first npm publication
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          unset ACTIONS_ID_TOKEN_REQUEST_URL ACTIONS_ID_TOKEN_REQUEST_TOKEN
-          npm publish --access public --provenance=false
-
       - name: Publish with provenance
-        if: github.event_name == 'release'
         run: npm publish --access public --provenance
