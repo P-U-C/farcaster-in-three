@@ -162,12 +162,12 @@ export function App() {
               detail={usesNpm ? "Installed on macOS or Linux." : "Running on macOS or Linux."}
             />
             <Prerequisite icon={<Cloud size={22} />} title="Hetzner token" detail="Create it in a new, empty project." />
-            <Prerequisite icon={<UserRound size={22} />} title="Test account" detail="It needs an FID and active storage." />
+            <Prerequisite icon={<UserRound size={22} />} title="Farcaster account" detail="Yes: use a test account with an FID and storage." />
             <Prerequisite icon={<Clock3 size={22} />} title="Several hours" detail="The first Snapchain sync is large." />
           </div>
 
-          <Callout tone="orange" icon={<KeyRound size={21} />} title="A recovery phrase controls the account">
-            Use a test account only. Enter its phrase only after inspecting code you trust. Never paste it into chat. Production clients should use wallet-based delegated authorization.
+          <Callout tone="orange" icon={<KeyRound size={21} />} title="Use an existing test account only">
+            In Three does not create a Farcaster account. It imports a test account that already has an FID and storage. Enter that account&apos;s recovery phrase only after inspecting code you trust, and never paste it into chat.
           </Callout>
 
           <div className="install-method-picker">

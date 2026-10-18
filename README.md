@@ -34,7 +34,10 @@ Keep using the same working directory. It stores the local state needed to resum
 
 ## What you need
 
-- a disposable Farcaster test account with an FID and active storage
+**Yes, you need an existing Farcaster account for this tutorial.** Create a disposable test account first. It must already have an FID and active storage, because In Three imports that account and gives the new client a revocable app key; it does not register a new Farcaster account.
+
+You also need:
+
 - several hours for the first Snapchain sync
 - about $265/month for the default server and 2 TiB volume
 
