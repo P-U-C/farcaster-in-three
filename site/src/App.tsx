@@ -31,13 +31,27 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.4`;
+const RELEASE = `${REPO}/releases/tag/v0.1.5`;
 
-const commands = [
-  { number: "0", label: "COMPUTE", command: "./in-three-container provision" },
-  { number: "1", label: "SNAPCHAIN", command: "./in-three-container node up" },
-  { number: "2", label: "CLIENT", command: "./in-three-container client create" },
-];
+type InstallMethod = "npm" | "container";
+
+const setupCommands: Record<InstallMethod, Array<{ number: string; label: string; command: string }>> = {
+  npm: [
+    { number: "0", label: "COMPUTE", command: "in-three provision" },
+    { number: "1", label: "SNAPCHAIN", command: "in-three node up" },
+    { number: "2", label: "CLIENT", command: "in-three client create" },
+  ],
+  container: [
+    { number: "0", label: "COMPUTE", command: "./in-three-container provision" },
+    { number: "1", label: "SNAPCHAIN", command: "./in-three-container node up" },
+    { number: "2", label: "CLIENT", command: "./in-three-container client create" },
+  ],
+};
+
+const installCommands: Record<InstallMethod, string> = {
+  npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.5/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+};
 
 const navigation = [
   { id: "quickstart", label: "Start" },
@@ -48,6 +62,9 @@ const navigation = [
 
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [installMethod, setInstallMethod] = useState<InstallMethod>("npm");
+  const commands = setupCommands[installMethod];
+  const usesNpm = installMethod === "npm";
 
   return (
     <>
@@ -69,7 +86,7 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">INSTALL <b>v0.1.4</b></span>
+        <span className="package-bar-label">INSTALL <b>v0.1.5</b></span>
         <div className="package-links">
           <PackageLink icon={<Package size={14} />} label="npm" detail="farcaster-in-three" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
@@ -99,7 +116,7 @@ export function App() {
             <div className="release-line">
               <span>OPEN-SOURCE FARCASTER STARTER</span>
               <i />
-              <span>v0.1.4</span>
+              <span>v0.1.5</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
             <p>Provision a server, start a Snapchain node, and open your own browser client. Reads and writes go through infrastructure you operate.</p>
@@ -139,7 +156,11 @@ export function App() {
           </div>
 
           <div className="prereq-grid">
-            <Prerequisite icon={<Box size={22} />} title="Docker" detail="Running on macOS or Linux." />
+            <Prerequisite
+              icon={usesNpm ? <Package size={22} /> : <Box size={22} />}
+              title={usesNpm ? "Node.js 22+" : "Docker"}
+              detail={usesNpm ? "Installed on macOS or Linux." : "Running on macOS or Linux."}
+            />
             <Prerequisite icon={<Cloud size={22} />} title="Hetzner token" detail="Create it in a new, empty project." />
             <Prerequisite icon={<UserRound size={22} />} title="Test account" detail="It needs an FID and active storage." />
             <Prerequisite icon={<Clock3 size={22} />} title="Several hours" detail="The first Snapchain sync is large." />
@@ -149,9 +170,35 @@ export function App() {
             Use a test account only. Enter its phrase only after inspecting code you trust. Never paste it into chat. Production clients should use wallet-based delegated authorization.
           </Callout>
 
+          <div className="install-method-picker">
+            <span>CHOOSE HOW TO RUN IT</span>
+            <div className="install-method-switch" aria-label="Installation method">
+              <button
+                className={usesNpm ? "active" : ""}
+                type="button"
+                aria-pressed={usesNpm}
+                onClick={() => setInstallMethod("npm")}
+              >
+                <Package size={17} />
+                <b>npm CLI</b>
+                <small>Node.js 22+</small>
+              </button>
+              <button
+                className={!usesNpm ? "active" : ""}
+                type="button"
+                aria-pressed={!usesNpm}
+                onClick={() => setInstallMethod("container")}
+              >
+                <Container size={17} />
+                <b>Docker</b>
+                <small>isolated package</small>
+              </button>
+            </div>
+          </div>
+
           <div className="install-block">
-            <span>INSTALL THE CONTAINER LAUNCHER</span>
-            <CodeBlock code={"mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.4/in-three-container\nchmod +x in-three-container\n./in-three-container doctor"} />
+            <span>{usesNpm ? "INSTALL THE CLI" : "INSTALL THE CONTAINER LAUNCHER"}</span>
+            <CodeBlock code={installCommands[installMethod]} />
             <p><b>Expected result:</b> <code>All checks passed.</code> Keep using this directory; it holds the local state needed to resume safely.</p>
           </div>
 
@@ -176,10 +223,9 @@ export function App() {
             If the node is still syncing, command 2 prints progress and keeps waiting. Press Ctrl-C when needed and rerun the same command from this directory.
           </Callout>
 
-          <div className="alternate-install">
-            <strong>Prefer npm?</strong>
-            <p>Run <code>npm install -g farcaster-in-three</code>, then replace <code>./in-three-container</code> with <code>in-three</code>. Use the container launcher unless you specifically want a host-installed CLI.</p>
-          </div>
+          <p className="install-note">
+            npm runs the prebuilt CLI directly. Docker runs the same release in an isolated container. Both create the same remote server and client.
+          </p>
         </section>
 
         <section className="architecture section-band" id="system">
@@ -280,7 +326,7 @@ export function App() {
               <Details question="What will this cost?">The default Hetzner server and 2 TiB volume are about $265 per month before tax, traffic, IPv4, or provider price changes. The script shows the plan before creating it.</Details>
               <Details question="Can the app key move funds?">No. It can sign Farcaster casts, follows, and reactions. It cannot transfer custody or sign wallet transactions.</Details>
               <Details question="What does a successful write mean?">Your node accepted the message for relay. Read it back from the synced node to confirm inclusion.</Details>
-              <Details question="How do I stop the bill?">Run <code>./in-three-container destroy</code>, then confirm the server and volume are gone in Hetzner.</Details>
+              <Details question="How do I stop the bill?">Run <code>in-three destroy</code> (or <code>./in-three-container destroy</code> with Docker), then confirm the server and volume are gone in Hetzner.</Details>
             </div>
           </div>
         </section>
@@ -299,7 +345,7 @@ export function App() {
         <div><span className="wordmark compact"><i>III</i><strong>IN THREE</strong></span><p>Built in public by Permanent Upper Class.</p></div>
         <div><span>LICENSE</span><strong>MIT</strong></div>
         <div><span>SNAPCHAIN</span><strong>v0.14.3</strong></div>
-        <div><span>RELEASE</span><strong>v0.1.4</strong></div>
+        <div><span>RELEASE</span><strong>v0.1.5</strong></div>
       </footer>
     </>
   );

@@ -2046,19 +2046,86 @@ code {
   line-height: 1.55;
 }
 
-.install-block {
+.install-method-picker {
   display: grid;
   grid-template-columns: 155px minmax(0, 1fr);
   align-items: start;
-  gap: 12px 20px;
-  margin: 42px 0 26px;
+  gap: 20px;
+  margin-top: 42px;
 }
 
+.install-method-picker > span,
 .install-block > span {
   padding-top: 17px;
   font-family: "IBM Plex Mono", monospace;
   font-size: 8px;
   font-weight: 700;
+}
+
+.install-method-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--ink);
+  background: var(--white);
+}
+
+.install-method-switch button {
+  display: grid;
+  min-height: 52px;
+  grid-template-columns: 25px auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 0;
+  border-right: 1px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.install-method-switch button:last-child {
+  border-right: 0;
+}
+
+.install-method-switch button:hover {
+  background: #f1edf7;
+}
+
+.install-method-switch button.active {
+  background: var(--ink);
+  color: var(--white);
+}
+
+.install-method-switch button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid var(--purple);
+  outline-offset: 2px;
+}
+
+.install-method-switch b {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+}
+
+.install-method-switch small {
+  justify-self: end;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.install-method-switch button.active small {
+  color: #bdb6c1;
+}
+
+.install-block {
+  display: grid;
+  grid-template-columns: 155px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px 20px;
+  margin: 14px 0 26px;
 }
 
 .install-block > p {
@@ -2069,22 +2136,10 @@ code {
   line-height: 1.6;
 }
 
-.alternate-install {
-  display: grid;
-  grid-template-columns: 155px minmax(0, 1fr);
-  gap: 20px;
-  margin-top: 34px;
-  padding-top: 20px;
+.install-note {
+  margin: 30px 0 0;
+  padding-top: 18px;
   border-top: 1px solid var(--ink);
-}
-
-.alternate-install strong {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 9px;
-}
-
-.alternate-install p {
-  margin: 0;
   color: var(--muted);
   font-size: 10px;
   line-height: 1.65;
@@ -2484,22 +2539,29 @@ code {
     min-height: 126px;
   }
 
+  .install-method-picker,
   .install-block {
     grid-template-columns: 1fr;
     gap: 8px;
   }
 
+  .install-method-picker > span,
   .install-block > span {
     padding-top: 0;
   }
 
-  .install-block > p {
-    grid-column: 1;
+  .install-method-switch button {
+    min-height: 48px;
+    grid-template-columns: 22px 1fr;
+    padding: 0 12px;
   }
 
-  .alternate-install {
-    grid-template-columns: 1fr;
-    gap: 8px;
+  .install-method-switch small {
+    display: none;
+  }
+
+  .install-block > p {
+    grid-column: 1;
   }
 
   .simple-system > div {

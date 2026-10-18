@@ -273,7 +273,7 @@ case "$(uname -m)" in
 esac
 release_fixture="$container_fixture/release"
 mkdir -p "$release_fixture"
-release_asset="farcaster-in-three-container-0.1.4-linux-${release_arch}.tar.gz"
+release_asset="farcaster-in-three-container-0.1.5-linux-${release_arch}.tar.gz"
 printf 'container archive fixture' | gzip > "$release_fixture/$release_asset"
 if command -v sha256sum >/dev/null 2>&1; then
   release_checksum="$(sha256sum "$release_fixture/$release_asset" | awk '{print $1}')"
@@ -333,7 +333,7 @@ chmod +x "$container_fixture/bin/curl" "$container_fixture/bin/docker"
   fail "container launcher did not retain the versioned release archive"
 grep -Fx '<--pull=never>' "$DOCKER_CALL_LOG" >/dev/null ||
   fail "release-asset image can unexpectedly pull from a registry"
-grep -Fx '<puc/farcaster-in-three:0.1.4>' "$DOCKER_CALL_LOG" >/dev/null ||
+grep -Fx '<puc/farcaster-in-three:0.1.5>' "$DOCKER_CALL_LOG" >/dev/null ||
   fail "container launcher did not run the loaded versioned image"
 
 cat > "$container_fixture/bin/in-three" <<'EOF'
@@ -364,7 +364,7 @@ container_fixture=""
 
 package_fixture="$(mktemp -d)"
 package_version="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --version)"
-[[ "$package_version" == "0.1.4" ]] ||
+[[ "$package_version" == "0.1.5" ]] ||
   fail "prebuilt CLI does not report the package version"
 package_help="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --help)"
 printf '%s\n' "$package_help" | grep -F 'in-three provision' >/dev/null ||

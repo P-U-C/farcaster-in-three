@@ -208,12 +208,30 @@ try {
   const expectedPackageHrefs = [
     "https://www.npmjs.com/package/farcaster-in-three",
     "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three",
-    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.4",
+    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.5",
     "https://github.com/P-U-C/farcaster-in-three",
   ];
   if (expectedPackageHrefs.some((href) => !packageHrefs.includes(href))) {
     throw new Error("one or more top package links has the wrong destination");
   }
+
+  const npmMethod = sitePage.getByRole("button", { name: /npm CLI/ });
+  const dockerMethod = sitePage.getByRole("button", { name: /Docker/ });
+  if (await npmMethod.getAttribute("aria-pressed") !== "true") {
+    throw new Error("npm must be the default website install method");
+  }
+  if (!(await sitePage.locator(".install-block").innerText()).includes("npm install --global farcaster-in-three")) {
+    throw new Error("website npm quickstart is missing");
+  }
+  await dockerMethod.click();
+  if (!(await sitePage.locator(".install-block").innerText()).includes("./in-three-container doctor")) {
+    throw new Error("website Docker quickstart does not switch in");
+  }
+  if (!(await sitePage.locator(".three-steps").innerText()).includes("./in-three-container provision")) {
+    throw new Error("website Docker commands do not switch with the installer");
+  }
+  await npmMethod.click();
+
   await sitePage.screenshot({ path: "/tmp/in-three-site-desktop.png", fullPage: true });
   await assertNoOverflow(sitePage, "site desktop");
 
@@ -224,6 +242,12 @@ try {
       throw new Error(`top package link ${index + 1} is hidden on mobile`);
     }
   }
+  if (!(await npmMethod.isVisible()) || !(await dockerMethod.isVisible())) {
+    throw new Error("installation method selector is hidden on mobile");
+  }
+  await dockerMethod.click();
+  await assertNoOverflow(sitePage, "site mobile Docker method");
+  await npmMethod.click();
   await sitePage.screenshot({ path: "/tmp/in-three-site-mobile.png", fullPage: true });
   await assertNoOverflow(sitePage, "site mobile");
 

@@ -6,57 +6,45 @@ Run your own Farcaster node and browser client in three commands.
 
 In Three creates a Hetzner server, starts a Snapchain read node, and deploys a private web client. The client reads from your node and sends signed writes back to it. No hosted Farcaster API is used.
 
-## Before you start
+## Quickstart with npm
 
-You need:
+You need macOS or Linux, Node.js 22 or newer, and a Hetzner Cloud token from a new, empty project.
 
-- Docker running on macOS or Linux
-- a Hetzner Cloud token from a new, empty project
-- a disposable Farcaster test account with an FID and active storage
-- several hours for the first Snapchain sync
-- about $265/month for the default server and 2 TiB volume
-
-The script shows the current Hetzner plan and waits for confirmation before creating anything.
-
-> **Use a test account only.** A recovery phrase controls the account. Enter one only into code you have inspected and trust. Never paste it into chat or use an account that holds value. Production clients should use wallet-based delegated authorization.
-
-## Install
-
-Create a working directory and install the small container launcher:
+Install the prebuilt CLI and check your machine:
 
 ```bash
-mkdir in-three-node
-cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.4/in-three-container
-chmod +x in-three-container
-./in-three-container doctor
+npm install --global farcaster-in-three
+mkdir in-three-node && cd in-three-node
+in-three doctor
 ```
 
-Expected result:
-
-```text
-All checks passed.
-```
-
-Keep using this directory. It stores the local state required to resume setup safely.
-
-## Run the three commands
+Then run the three setup commands:
 
 ```bash
-./in-three-container provision
-./in-three-container node up
-./in-three-container client create
+in-three provision
+in-three node up
+in-three client create
 ```
 
 1. **Provision** shows the billable plan, waits for `PROVISION`, then creates the server, volume, firewall, and SSH key.
 2. **Node up** starts Snapchain. The initial snapshot keeps downloading on the server.
 3. **Client create** waits for the node, creates a gasless Farcaster app key, deploys the browser client, and prints its HTTPS URL.
 
-You can stop command 3 with Ctrl-C and rerun it later. Setup checks saved state before repeating any signed action.
+Keep using the same working directory. It stores the local state needed to resume setup safely. You can stop command 3 with Ctrl-C and rerun it later; setup checks saved state before repeating a signed action.
 
-## Publish the first cast
+## What you need
 
-1. Open the printed HTTPS URL.
+- a disposable Farcaster test account with an FID and active storage
+- several hours for the first Snapchain sync
+- about $265/month for the default server and 2 TiB volume
+
+The CLI shows the current Hetzner plan and waits for confirmation before creating anything.
+
+> **Use a test account only.** A recovery phrase controls the account. Enter one only into code you have inspected and trust. Never paste it into chat or use an account that holds value. Production clients should use wallet-based delegated authorization whenever possible.
+
+## Publish your first cast
+
+1. Open the HTTPS URL printed by `client create`.
 2. Sign in with the password created during setup.
 3. Select **New cast**, write a test message, and publish it.
 4. Refresh until your node returns the cast.
@@ -67,26 +55,33 @@ A successful write means your node accepted the message for relay. Reading it ba
 ## Useful commands
 
 ```bash
-./in-three-container node status
-./in-three-container node logs
-./in-three-container client status
-./in-three-container client logs
-./in-three-container destroy
+in-three node status
+in-three node logs
+in-three client status
+in-three client logs
+in-three destroy
 ```
 
 Run `destroy` when finished, then confirm the server and volume are gone in Hetzner.
 
-## Other install methods
+## Container install
 
-Install the same prebuilt CLI through npm:
+Use this path if you prefer to run packaged code inside Docker. It requires a running Docker daemon but does not require a global npm install:
 
 ```bash
-npm install --global farcaster-in-three
 mkdir in-three-node && cd in-three-node
-in-three doctor
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.5/in-three-container
+chmod +x in-three-container
+./in-three-container doctor
 ```
 
-Replace `./in-three-container` with `in-three` in every command.
+Run the same three commands with `./in-three-container`:
+
+```bash
+./in-three-container provision
+./in-three-container node up
+./in-three-container client create
+```
 
 Use a source checkout only when reviewing or changing the implementation:
 
@@ -101,19 +96,19 @@ cd farcaster-in-three
 The normal setup creates only the browser client. To add paid x402 access for agents during initial setup, use:
 
 ```bash
-./in-three-container client create --with-agent
+in-three client create --with-agent
 ```
 
-This advanced path also asks for Celo and Coinbase facilitator credentials and configures USDC settlement on Celo and Base. See the [agent guide](docs/AGENT-API.md) before choosing it.
+This advanced path also asks for Celo and Coinbase facilitator credentials and configures USDC settlement on Celo and Base. Read the [agent guide](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/AGENT-API.md) before choosing it.
 
 ## Reference
 
-- [Operations](docs/OPERATIONS.md): expected output, sync status, recovery, upgrades, and teardown
-- [Architecture](docs/ARCHITECTURE.md): what runs where and how reads and writes move
-- [Security](SECURITY.md): phrase handling, app keys, secrets, and incident response
-- [Agent API](docs/AGENT-API.md): optional x402 routes, prices, and payment safety
-- [Primary sources](docs/SOURCES.md): pinned Farcaster, Snapchain, and infrastructure references
-- [Independent test](VOUCHER.md): clean-machine validation checklist
+- [Operations](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/OPERATIONS.md): expected output, sync status, recovery, upgrades, and teardown
+- [Architecture](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/ARCHITECTURE.md): what runs where and how reads and writes move
+- [Security](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/SECURITY.md): phrase handling, app keys, secrets, and incident response
+- [Agent API](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/AGENT-API.md): optional x402 routes, prices, and payment safety
+- [Primary sources](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/SOURCES.md): pinned Farcaster, Snapchain, and infrastructure references
+- [Independent test](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/VOUCHER.md): clean-machine validation checklist
 
 ## Development
 

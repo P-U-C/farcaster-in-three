@@ -12,6 +12,7 @@ const required = [
   "in-three-container",
   "in-three.compose.yml",
   "npm-shrinkwrap.json",
+  "README.md",
   "apps/client/Dockerfile",
   "apps/client/dist/server/setup.js",
   "apps/client/dist/server/server.js",
@@ -42,6 +43,19 @@ if (packageJson.bin?.["in-three"] !== "bin/in-three.mjs") {
 }
 if (packageJson.dependencies?.["@celo/buy"] !== "0.8.3") {
   throw new Error("package must pin the reviewed usebuy.ai CLI release");
+}
+
+const readme = await readFile(resolve(root, "README.md"), "utf8");
+const npmInstall = readme.indexOf("npm install --global farcaster-in-three");
+const containerInstall = readme.indexOf("curl -fsSLO");
+if (npmInstall < 0 || containerInstall < 0 || npmInstall > containerInstall) {
+  throw new Error("package README must lead with the npm quickstart");
+}
+if (!readme.includes("in-three provision\nin-three node up\nin-three client create")) {
+  throw new Error("package README must show the three npm commands");
+}
+if (!readme.includes(`/v${packageJson.version}/in-three-container`)) {
+  throw new Error("package README container link must match the package version");
 }
 
 const dockerfile = await readFile(resolve(root, "apps/client/Dockerfile"), "utf8");
