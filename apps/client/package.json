@@ -1,6 +1,6 @@
 {
   "name": "@in-three/client",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "type": "module",
   "scripts": {
@@ -19,6 +19,7 @@
     "@fontsource/ibm-plex-mono": "5.2.7",
     "@hono/node-server": "1.19.17",
     "@noble/ed25519": "2.3.0",
+    "@scure/bip39": "1.6.0",
     "@x402/core": "2.28.0",
     "@x402/evm": "2.28.0",
     "@x402/fetch": "2.28.0",

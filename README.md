@@ -28,22 +28,31 @@ in-three client create
 
 1. **Provision** shows the billable plan, waits for `PROVISION`, then creates the server, volume, firewall, and SSH key.
 2. **Node up** starts Snapchain. The initial snapshot keeps downloading on the server.
-3. **Client create** waits for the node, creates a gasless Farcaster app key, deploys the browser client, and prints its HTTPS URL.
+3. **Client create** waits for the node, creates or imports a disposable test account, adds a gasless app key, deploys the browser client, and prints its HTTPS URL.
 
-Keep using the same working directory. It stores the local state needed to resume setup safely. You can stop command 3 with Ctrl-C and rerun it later; setup checks saved state before repeating a signed action.
+Keep using the same working directory. It stores the local state needed to resume setup safely. You can stop `client create` with Ctrl-C and rerun it later; setup checks saved state before repeating a signed action.
 
 ## What you need
 
-**Yes, you need an existing Farcaster account for this tutorial.** Create a disposable test account first. It must already have an FID and active storage, because In Three imports that account and gives the new client a revocable app key; it does not register a new Farcaster account.
+You do **not** need a Farcaster account before starting. When `client create` asks, press Enter at `CREATE or IMPORT [CREATE]`. In Three then:
+
+1. Generates a new 12-word test-account phrase locally.
+2. Shows the phrase once and waits for you to save it.
+3. Shows a new address and the amount of ETH to send on Optimism.
+4. Signs one local account-registration transaction that creates the FID and one storage unit.
+5. Adds the client app key with a gasless Snapchain message.
+
+This account setup stays inside the third command. If you already have a disposable test account, choose `IMPORT` instead.
 
 You also need:
 
+- the quoted amount of ETH on Optimism when creating a new account
 - several hours for the first Snapchain sync
 - about $265/month for the default server and 2 TiB volume
 
 The CLI shows the current Hetzner plan and waits for confirmation before creating anything.
 
-> **Use a test account only.** A recovery phrase controls the account. Enter one only into code you have inspected and trust. Never paste it into chat or use an account that holds value. Production clients should use wallet-based delegated authorization whenever possible.
+> **Use a test account only.** The 12 words control the account. Save newly generated words privately, never paste them into chat, and never import an account that holds value. Production clients should use wallet-based delegated authorization whenever possible.
 
 ## Publish your first cast
 
@@ -73,7 +82,7 @@ Use this path if you prefer to run packaged code inside Docker. It requires a ru
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.5/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.6/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -102,16 +111,16 @@ The normal setup creates only the browser client. To add paid x402 access for ag
 in-three client create --with-agent
 ```
 
-This advanced path also asks for Celo and Coinbase facilitator credentials and configures USDC settlement on Celo and Base. Read the [agent guide](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/AGENT-API.md) before choosing it.
+This advanced path also asks for Celo and Coinbase facilitator credentials and configures USDC settlement on Celo and Base. Read the [agent guide](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.6/docs/AGENT-API.md) before choosing it.
 
 ## Reference
 
-- [Operations](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/OPERATIONS.md): expected output, sync status, recovery, upgrades, and teardown
-- [Architecture](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/ARCHITECTURE.md): what runs where and how reads and writes move
-- [Security](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/SECURITY.md): phrase handling, app keys, secrets, and incident response
-- [Agent API](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/AGENT-API.md): optional x402 routes, prices, and payment safety
-- [Primary sources](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/docs/SOURCES.md): pinned Farcaster, Snapchain, and infrastructure references
-- [Independent test](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.5/VOUCHER.md): clean-machine validation checklist
+- [Operations](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.6/docs/OPERATIONS.md): expected output, sync status, recovery, upgrades, and teardown
+- [Architecture](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.6/docs/ARCHITECTURE.md): what runs where and how reads and writes move
+- [Security](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.6/SECURITY.md): phrase handling, app keys, secrets, and incident response
+- [Agent API](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.6/docs/AGENT-API.md): optional x402 routes, prices, and payment safety
+- [Primary sources](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.6/docs/SOURCES.md): pinned Farcaster, Snapchain, and infrastructure references
+- [Independent test](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.6/VOUCHER.md): clean-machine validation checklist
 
 ## Development
 

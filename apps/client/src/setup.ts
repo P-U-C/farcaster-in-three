@@ -6,13 +6,20 @@ import * as ed from "@noble/ed25519";
 import {
   createPublicClient,
   createWalletClient,
+  encodeFunctionData,
   fallback,
+  formatEther,
   http,
   keccak256,
+  parseEther,
+  zeroAddress,
   type Hex,
+  type PublicClient,
+  type Transport,
 } from "viem";
-import { mnemonicToAccount } from "viem/accounts";
+import { generateMnemonic, mnemonicToAccount } from "viem/accounts";
 import { base, celo, optimism } from "viem/chains";
+import { wordlist } from "@scure/bip39/wordlists/english";
 import { hashPassword } from "./auth.js";
 import { CONTRACTS, PUBLIC_OP_RPC_URLS } from "./constants.js";
 import {
@@ -47,6 +54,28 @@ const idRegistryAbi = [
     outputs: [{ name: "fid", type: "uint256" }],
   },
 ] as const;
+
+const idGatewayAbi = [
+  {
+    type: "function",
+    name: "price",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "register",
+    stateMutability: "payable",
+    inputs: [{ name: "recovery", type: "address" }],
+    outputs: [
+      { name: "fid", type: "uint256" },
+      { name: "overpayment", type: "uint256" },
+    ],
+  },
+] as const;
+
+const MINIMUM_REGISTRATION_GAS_RESERVE = parseEther("0.001");
 
 const GASLESS_SIGNER_TTL_SECONDS = 90 * 24 * 60 * 60;
 const GASLESS_SIGNER_SCOPES = [
@@ -138,30 +167,6 @@ async function main() {
     throw new Error("--setup-node-url must be the local SSH tunnel to your read node");
   }
 
-  console.log("\nUse a test Farcaster account only.");
-  console.log("A recovery phrase controls the account. Read and trust this source before entering it.");
-  console.log("Production clients should request delegated authorization from a wallet instead.");
-  const testAccountConfirmation = await readVisible(
-    "Type TEST ACCOUNT to acknowledge this developer-only setup: ",
-  );
-  if (testAccountConfirmation !== "TEST ACCOUNT") {
-    throw new Error("Setup cancelled before the custody phrase was requested");
-  }
-
-  let mnemonic = await readHidden(
-    "\nTest-account recovery phrase (used in memory for signing only): ",
-  );
-  let account;
-  try {
-    account = mnemonicToAccount(mnemonic.trim(), {
-      addressIndex: 0,
-      accountIndex: 0,
-    });
-  } catch {
-    throw new Error("That recovery phrase is not a valid BIP-39 mnemonic");
-  }
-  mnemonic = "";
-
   const optimismTransport = fallback(
     values["rpc-url"]
       ? [http(values["rpc-url"])]
@@ -173,6 +178,62 @@ async function main() {
     chain: optimism,
     transport: optimismTransport,
   });
+
+  console.log("\nUse a disposable test account only.");
+  console.log("CREATE makes one here. IMPORT uses a test account you already control.");
+  console.log("Production clients should request delegated authorization from a trusted wallet.");
+  const modeInput = await readVisible("Choose CREATE or IMPORT [CREATE]: ");
+  const accountMode = modeInput.trim().toUpperCase() || "CREATE";
+  if (!["CREATE", "IMPORT"].includes(accountMode)) {
+    throw new Error("Choose CREATE or IMPORT");
+  }
+
+  let mnemonic: string;
+  if (accountMode === "CREATE") {
+    mnemonic = generateMnemonic(wordlist);
+    console.log("\nSAVE THESE 12 WORDS");
+    console.log("They are the only recovery method for this disposable test account.");
+    console.log("Do not use them for any wallet or account holding value.\n");
+    console.log(mnemonic);
+    console.log();
+    const saved = await readVisible("After saving them somewhere private, type I SAVED IT: ");
+    if (saved !== "I SAVED IT") {
+      throw new Error("Setup stopped before account creation; the phrase was not stored");
+    }
+  } else {
+    console.log("\nImport a disposable test account only.");
+    console.log("The phrase is used in memory and is never written to the server.");
+    mnemonic = await readHidden("Test-account recovery phrase: ");
+  }
+
+  let account;
+  try {
+    account = mnemonicToAccount(mnemonic.trim(), {
+      addressIndex: 0,
+      accountIndex: 0,
+    });
+  } catch {
+    throw new Error("That recovery phrase is not a valid BIP-39 mnemonic");
+  }
+  mnemonic = "";
+
+  let fid = await publicClient.readContract({
+    address: CONTRACTS.idRegistry,
+    abi: idRegistryAbi,
+    functionName: "idOf",
+    args: [account.address],
+  });
+
+  if (fid === 0n) {
+    fid = await registerTestAccount({
+      account,
+      client: publicClient,
+      pendingPath: `${values.output}.fid-registration`,
+    });
+  } else {
+    await unlink(`${values.output}.fid-registration`).catch(() => undefined);
+  }
+
   const paymentPublicClients = {
     celo: createPublicClient({ chain: celo, transport: celoTransport }),
     base: createPublicClient({ chain: base, transport: baseTransport }),
@@ -181,19 +242,6 @@ async function main() {
     celo: createWalletClient({ account, chain: celo, transport: celoTransport }),
     base: createWalletClient({ account, chain: base, transport: baseTransport }),
   };
-
-  const fid = await publicClient.readContract({
-    address: CONTRACTS.idRegistry,
-    abi: idRegistryAbi,
-    functionName: "idOf",
-    args: [account.address],
-  });
-
-  if (fid === 0n) {
-    throw new Error(
-      `No FID is registered to ${account.address}. Import the custody phrase for an existing Farcaster account.`,
-    );
-  }
 
   console.log(`\nCustody address  ${account.address}`);
   console.log(`Farcaster FID    ${fid}`);
@@ -368,6 +416,215 @@ async function main() {
   if (agentCommerce) console.log("Payment rails       Celo USDC + Base USDC");
   console.log("Custody phrase      discarded; it is not present in the output file");
   console.log("Next                deployment continues automatically");
+}
+
+type CustodyAccount = ReturnType<typeof mnemonicToAccount>;
+
+export function registrationFundingTarget(
+  registrationPrice: bigint,
+  gasPrice: bigint,
+): bigint {
+  const dynamicReserve = gasPrice * 600_000n * 3n;
+  const gasReserve =
+    dynamicReserve > MINIMUM_REGISTRATION_GAS_RESERVE
+      ? dynamicReserve
+      : MINIMUM_REGISTRATION_GAS_RESERVE;
+  return registrationPrice + gasReserve;
+}
+
+export async function submitSavedFidRegistration({
+  pendingPath,
+  accountAddress,
+  client,
+}: {
+  pendingPath: string;
+  accountAddress: string;
+  client: RegistrationClient;
+}): Promise<Hex> {
+  const pending = await readFile(pendingPath, "utf8");
+  const savedAddress = envValue(pending, "FID_REGISTRATION_ADDRESS");
+  const savedHash = envValue(pending, "FID_REGISTRATION_TX");
+  const savedTransaction = envValue(pending, "FID_REGISTRATION_RAW_TX");
+  if (
+    savedAddress?.toLowerCase() !== accountAddress.toLowerCase() ||
+    !savedHash?.match(/^0x[0-9a-fA-F]{64}$/) ||
+    !savedTransaction?.match(/^0x(?:[0-9a-fA-F]{2})+$/)
+  ) {
+    throw new Error(
+      `Account-registration recovery data is incomplete at ${pendingPath}`,
+    );
+  }
+
+  const serializedTransaction = savedTransaction as Hex;
+  const transactionHash = keccak256(serializedTransaction);
+  if (transactionHash.toLowerCase() !== savedHash.toLowerCase()) {
+    throw new Error("Saved account-registration transaction failed its checksum");
+  }
+
+  try {
+    const rpcHash = await client.sendRawTransaction({ serializedTransaction });
+    if (rpcHash.toLowerCase() !== transactionHash.toLowerCase()) {
+      throw new Error(`RPC returned an unexpected transaction hash: ${rpcHash}`);
+    }
+    console.log(`Account transaction  ${transactionHash}`);
+  } catch {
+    console.error("\nThe broadcast response was inconclusive.");
+    console.error(`The exact signed transaction remains in ${pendingPath}.`);
+    console.error(`Receipt polling will continue; rerunning ${operatorCommand} client create safely resumes it.`);
+  }
+
+  let receipt;
+  try {
+    receipt = await client.waitForTransactionReceipt({
+      hash: transactionHash,
+      confirmations: 1,
+      timeout: 300_000,
+    });
+  } catch (error) {
+    console.error(`\nRecovery file        ${pendingPath}`);
+    console.error(`Keep it and rerun ${operatorCommand} client create with IMPORT and the saved 12 words.`);
+    throw error;
+  }
+  if (receipt.status !== "success") {
+    throw new Error(
+      `Account registration reverted; keep ${pendingPath} for diagnosis`,
+    );
+  }
+  return transactionHash;
+}
+
+async function registerTestAccount<transport extends Transport>({
+  account,
+  client,
+  pendingPath,
+}: {
+  account: CustodyAccount;
+  client: PublicClient<transport, typeof optimism>;
+  pendingPath: string;
+}): Promise<bigint> {
+  let serializedTransaction: Hex | undefined;
+  let transactionHash: Hex | undefined;
+
+  try {
+    const pending = await readFile(pendingPath, "utf8");
+    const savedAddress = envValue(pending, "FID_REGISTRATION_ADDRESS");
+    const savedHash = envValue(pending, "FID_REGISTRATION_TX");
+    const savedTransaction = envValue(pending, "FID_REGISTRATION_RAW_TX");
+    if (
+      savedAddress?.toLowerCase() !== account.address.toLowerCase() ||
+      !savedHash?.match(/^0x[0-9a-fA-F]{64}$/) ||
+      !savedTransaction?.match(/^0x(?:[0-9a-fA-F]{2})+$/)
+    ) {
+      throw new Error(
+        `Account-registration recovery data is incomplete at ${pendingPath}`,
+      );
+    }
+    serializedTransaction = savedTransaction as Hex;
+    transactionHash = keccak256(serializedTransaction);
+    if (transactionHash.toLowerCase() !== savedHash.toLowerCase()) {
+      throw new Error("Saved account-registration transaction failed its checksum");
+    }
+    console.log(`\nResuming account registration  ${transactionHash}`);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  if (!serializedTransaction || !transactionHash) {
+    const registrationPrice = await client.readContract({
+      address: CONTRACTS.idGateway,
+      abi: idGatewayAbi,
+      functionName: "price",
+    });
+    const gasPrice = await client.getGasPrice();
+    const requiredBalance = registrationFundingTarget(registrationPrice, gasPrice);
+
+    console.log("\nNEW TEST ACCOUNT");
+    console.log(`Address             ${account.address}`);
+    console.log("Network             Optimism");
+    console.log(`Send at least       ${formatEther(requiredBalance)} ETH`);
+    console.log(`Registration price  ${formatEther(registrationPrice)} ETH`);
+    console.log(`Gas reserve         ${formatEther(requiredBalance - registrationPrice)} ETH`);
+    console.log("Bridge or buy ETH   https://app.optimism.io/bridge/deposit");
+    console.log(
+      `Check the address   https://optimistic.etherscan.io/address/${account.address}`,
+    );
+    console.log("\nSend ETH on the Optimism network, not Ethereum mainnet.");
+
+    for (;;) {
+      const balance = await client.getBalance({ address: account.address });
+      if (balance >= requiredBalance) {
+        console.log(`Balance confirmed   ${formatEther(balance)} ETH`);
+        break;
+      }
+      console.log(
+        `Current balance     ${formatEther(balance)} ETH (need ${formatEther(requiredBalance - balance)} more)`,
+      );
+      const check = await readVisible("After funding the address, type CHECK: ");
+      if (check !== "CHECK") {
+        throw new Error(
+          `Setup stopped before account registration; rerun ${operatorCommand} client create and choose IMPORT`,
+        );
+      }
+    }
+
+    console.log("\nThis creates one FID with one storage unit.");
+    console.log("The 12 saved words remain the only recovery method for this test account.");
+    const answer = await readVisible("Type CREATE FID to sign and send the transaction: ");
+    if (answer !== "CREATE FID") {
+      throw new Error("Setup cancelled before the account transaction was signed");
+    }
+
+    const data = encodeFunctionData({
+      abi: idGatewayAbi,
+      functionName: "register",
+      args: [zeroAddress],
+    });
+    const request = await client.prepareTransactionRequest({
+      account,
+      chain: optimism,
+      to: CONTRACTS.idGateway,
+      data,
+      value: registrationPrice,
+    });
+    const { account: _account, chain: _chain, ...signableRequest } = request;
+    serializedTransaction = await account.signTransaction(
+      signableRequest as Parameters<typeof account.signTransaction>[0],
+    );
+    transactionHash = keccak256(serializedTransaction);
+
+    await writeSetupFile(
+      pendingPath,
+      [
+        `FID_REGISTRATION_ADDRESS=${account.address}`,
+        `FID_REGISTRATION_TX=${transactionHash}`,
+        `FID_REGISTRATION_RAW_TX=${serializedTransaction}`,
+        "",
+      ].join("\n"),
+      true,
+    );
+  }
+
+  await submitSavedFidRegistration({
+    pendingPath,
+    accountAddress: account.address,
+    client,
+  });
+
+  const fid = await client.readContract({
+    address: CONTRACTS.idRegistry,
+    abi: idRegistryAbi,
+    functionName: "idOf",
+    args: [account.address],
+  });
+  if (fid === 0n) {
+    throw new Error(
+      `Registration confirmed but no FID was returned; keep ${pendingPath} and rerun ${operatorCommand} client create`,
+    );
+  }
+
+  await unlink(pendingPath).catch(() => undefined);
+  console.log(`Farcaster account    created as FID ${fid}`);
+  return fid;
 }
 
 type RegistrationStatus = "signed" | "submitted" | "confirmed" | "reverted";
@@ -942,30 +1199,47 @@ async function recoverLegacyRegistration(output: string, rpcUrl?: string) {
   console.log("Saved app-key registration is confirmed; resuming deployment.");
 }
 
-async function assertStorage(fid: number, nodeUrl: string) {
-  const response = await fetch(
-    `${nodeUrl.replace(/\/$/, "")}/v1/storageLimitsByFid?fid=${fid}`,
-    { signal: AbortSignal.timeout(8_000) },
+async function assertStorage(
+  fid: number,
+  nodeUrl: string,
+  attempts = 60,
+  delayMs = 2_000,
+) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(
+        `${nodeUrl.replace(/\/$/, "")}/v1/storageLimitsByFid?fid=${fid}`,
+        { signal: AbortSignal.timeout(8_000) },
+      );
+      if (response.ok) {
+        const data = (await response.json()) as { units?: number };
+        if (data.units && data.units >= 1) {
+          console.log(`Storage units     ${data.units}`);
+          return;
+        }
+      }
+    } catch {
+      // A newly registered account can take a moment to reach the local node.
+    }
+
+    if (attempt === 1) {
+      console.log("Waiting for the new account and storage to reach your node...");
+    }
+    if (attempt < attempts) {
+      await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw new Error(
+    `FID ${fid} storage is not visible on your node yet. Keep the working directory and rerun ${operatorCommand} client create.`,
   );
-  if (!response.ok) {
-    throw new Error(
-      `Could not verify storage through your read node (HTTP ${response.status})`,
-    );
-  }
-  const data = (await response.json()) as { units?: number };
-  if (!data.units || data.units < 1) {
-    throw new Error(
-      `FID ${fid} has no active Farcaster storage. Rent storage before creating a client.`,
-    );
-  }
-  console.log(`Storage units     ${data.units}`);
 }
 
 function printHeader(agentCommerce: boolean) {
-  console.log("\nIN THREE / APP KEY CEREMONY");
-  console.log("Developer build: use a test Farcaster account, never a primary wallet.");
-  console.log("The phrase stays in this process and is never sent to the server.");
-  console.log("A scoped, gasless Ed25519 app key is stored after setup.");
+  console.log("\nIN THREE / ACCOUNT + APP KEY");
+  console.log("Developer build: create or import a disposable test account.");
+  console.log("The phrase stays local and is never sent to the server.");
+  console.log("Only a scoped, gasless Ed25519 app key is deployed.");
   if (agentCommerce) {
     console.log("Celo and Base facilitator credentials stay in the payment gateway.");
   }

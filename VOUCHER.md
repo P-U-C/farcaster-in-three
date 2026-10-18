@@ -8,7 +8,7 @@ The test costs real money. Read the estimated cost, agree on reimbursement befor
 
 - Use a clean macOS or Linux machine.
 - Use a new, empty Hetzner project.
-- Use a disposable Farcaster account with an FID and storage.
+- Create a disposable Farcaster account inside `client create`, or import an existing test account with an FID and storage.
 - Never send the recovery phrase to the project author.
 - Keep screenshots free of tokens, keys, phrases, capabilities, and complete environment files.
 - Record the exact release, commands, timings, and errors.
@@ -23,7 +23,7 @@ Fill this in as you work:
 ```text
 Tester:
 Run type: human-led/agent-led
-Farcaster account:
+Farcaster account path (created/imported) and FID:
 Machine and OS:
 CPU architecture:
 Docker version:
@@ -49,12 +49,12 @@ Public report URL:
 ```bash
 mkdir in-three-test
 cd in-three-test
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.5/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.6/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
 
-Record the output. Confirm the downloaded launcher contains `VERSION="0.1.5"`.
+Record the output. Confirm the downloaded launcher contains `VERSION="0.1.6"`.
 
 The first operational command downloads the matching public amd64 or arm64 container release and checks its SHA-256 before loading it.
 
@@ -84,8 +84,9 @@ During client setup:
 - confirm no phrase is requested before the node is ready
 - confirm the password is entered twice before any signed action
 - read the test-account warning
-- use a disposable account only
-- confirm setup reports a gasless app key and no OP transaction
+- choose CREATE, save the generated words privately, and record the quoted Optimism amount
+- confirm the locally signed FID registration survives interruption, if recovery testing was agreed
+- confirm setup reports one account transaction and a separate gasless app-key authorization
 - record the final HTTPS URL
 
 ## 3. Exercise the client

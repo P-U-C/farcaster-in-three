@@ -105,7 +105,7 @@ wait_for_node_api() {
   fi
 
   printf 'Snapchain is still downloading or loading its initial snapshot.\n'
-  printf 'Command 2 will continue automatically when the API is online.\n'
+  printf 'Client setup will continue automatically when the API is online.\n'
   printf 'No app key is registered and no custody phrase is requested while waiting.\n'
   printf 'Press Ctrl-C to stop waiting; rerunning this command is safe.\n'
 

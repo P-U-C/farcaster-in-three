@@ -7,21 +7,22 @@ This project has not received an independent security audit.
 ## Rules that matter most
 
 - Use a disposable Farcaster test account.
-- Inspect and trust the exact release before entering a recovery phrase.
-- Never put a phrase in chat, an environment variable, a command argument, a file, or a remote shell.
+- Inspect and trust the exact release before creating or importing an account.
+- Save a newly generated phrase privately. Never put it in chat, an environment variable, a command argument, a remote shell, or another account.
 - Do not reuse a phrase that controls valuable assets.
 - Prefer delegated wallet authorization for production clients.
 - Keep the working directory and `.state/` private.
 - Destroy cloud resources when the test ends.
 
-The setup asks you to type `TEST ACCOUNT` before the hidden phrase prompt. This is a warning, not a security guarantee. JavaScript strings cannot be reliably zeroized; process exit is the final memory boundary.
+Setup defaults to `CREATE`, prints a fresh phrase once, and requires `I SAVED IT` before continuing. `IMPORT` uses hidden terminal input. These prompts are warnings, not security guarantees. JavaScript strings cannot be reliably zeroized; process exit is the final memory boundary.
 
 ## What each key can do
 
 | Item | Where it exists | Authority |
 | --- | --- | --- |
 | Hetzner token | Local setup process | Resources in the selected Hetzner project |
-| Test-account phrase | Local process memory during setup | Full custody account control |
+| Test-account phrase | Terminal and local process memory during setup | Full custody account control |
+| Signed FID registration | Local owner-only recovery file until confirmed | Creates one FID and storage unit for the shown address |
 | App key | Local recovery file, then client container | Casts, reactions, and follows for one FID |
 | Signed `KEY_ADD` | Local recovery file until confirmed | Authorizes one exact app key |
 | Browser password | User memory | Opens the web client |
@@ -33,11 +34,13 @@ The setup asks you to type `TEST ACCOUNT` before the hidden phrase prompt. This 
 
 The recovery phrase and derived custody private key are never written to disk or uploaded by In Three.
 
-## App-key recovery
+## Account and app-key recovery
 
-Before requesting a phrase, setup confirms the browser password and opens a local SSH tunnel to the owned node.
+For a new account, setup generates the phrase locally, quotes the required Optimism balance, and signs the IdGateway transaction only after explicit confirmation. It saves the exact signed transaction and local hash before broadcasting. If the RPC response is lost, rerunning `client create`, choosing `IMPORT`, and entering the saved phrase resumes the same transaction.
 
-It then:
+The recovery file contains the address and signed transaction, never the phrase or custody private key. Once the FID is confirmed, setup deletes that transaction file and waits for the bundled storage unit to appear on the owned node.
+
+Before creating the app key, setup confirms the browser password and opens a local SSH tunnel to the owned node. It then:
 
 1. Derives the custody address locally.
 2. Resolves the FID.

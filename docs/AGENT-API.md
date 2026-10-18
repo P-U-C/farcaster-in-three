@@ -17,11 +17,11 @@ You need:
 - a Celo facilitator key from [x402.celo.org](https://x402.celo.org/)
 - a Coinbase CDP Secret API key for Base settlement
 - small CELO and ETH balances on the disposable test account if its deterministic split contracts do not exist
-- the same test Farcaster account, Hetzner host, and synced node used by the browser setup
+- the same disposable Farcaster account, Hetzner host, and synced node used by the browser setup
 
-No OP ETH is required.
+Creating a new Farcaster test account still requires the IdGateway price and Optimism gas quoted by the CLI. Importing an existing test account with storage does not. App-key authorization remains gasless.
 
-Setup validates payment credentials before asking for the test-account phrase. It creates one deterministic revenue address on Celo and Base:
+Setup validates payment credentials before starting the account ceremony. It creates one deterministic revenue address on Celo and Base:
 
 - 95% to the operator
 - 5% to P-U-C

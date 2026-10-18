@@ -56,27 +56,37 @@ Container networks separate responsibilities:
 
 The gateway cannot reach Snapchain directly. The deployer cannot reach the client. The client never receives payment credentials.
 
-## App-key setup
+## Account and app-key setup
 
 ```text
-test-account phrase
-  -> derive custody address locally
-  -> resolve FID on Optimism
-  -> check storage through owned node
-  -> create a fresh Ed25519 app key
-  -> sign scoped gasless KEY_ADD
-  -> save exact message before submission
-  -> submit through local SSH tunnel to owned node
-  -> wait until signer appears in node state
-  -> upload only the app key
-  -> discard phrase when the process exits
+CREATE (default)                    IMPORT
+  -> generate phrase locally          -> read test phrase locally
+  -> user saves phrase                -> derive custody address
+  -> derive custody address                    |
+  -> quote IdGateway price                     |
+  -> fund address on Optimism                   |
+  -> save + send signed registration            |
+  -> create FID + one storage unit              |
+                     \__________________________/
+                                  |
+                     resolve FID on Optimism
+                     verify storage on owned node
+                     create fresh Ed25519 app key
+                     sign scoped gasless KEY_ADD
+                     save exact message before submission
+                     submit through local tunnel to owned node
+                     wait for signer in node state
+                     upload only the app key
+                     discard phrase when process exits
 ```
 
-The app key is limited to casts, reactions, and follows. It has a 90-day sliding lifetime. No Optimism transaction or OP ETH is required.
+New-account registration is one Optimism transaction. Its exact signed bytes are saved before broadcast so an uncertain RPC response can be resumed. Existing accounts skip that transaction.
+
+The app key is limited to casts, reactions, and follows. It has a 90-day sliding lifetime, and its authorization is a gasless Snapchain message.
 
 If submission is uncertain, setup retains the exact signed message and app key. A rerun checks signer state first and resubmits only the saved bytes. It does not create another key while the first authorization may be live.
 
-This phrase-based path exists for a developer tutorial. Production clients should request delegated authorization from a trusted wallet and should not collect recovery phrases.
+This custody path exists for a developer tutorial. Production clients should request delegated authorization from a trusted wallet and should not collect recovery phrases.
 
 ## Feed
 

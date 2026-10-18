@@ -760,6 +760,132 @@ code {
   line-height: 1.65;
 }
 
+.account-guide {
+  margin: 32px 0;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: white;
+}
+
+.account-guide > header {
+  display: grid;
+  grid-template-columns: 0.65fr 1.1fr 0.85fr;
+  align-items: end;
+  gap: 26px;
+  padding: 27px;
+  border-bottom: 1px solid #4b454f;
+}
+
+.account-guide > header > span {
+  color: var(--green);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.account-guide h3 {
+  margin: 0;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 32px;
+  font-weight: 480;
+  line-height: 1.05;
+}
+
+.account-guide > header p {
+  margin: 0;
+  color: #bbb5bf;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.account-guide code {
+  color: var(--green);
+  font-size: 0.92em;
+}
+
+.account-guide ol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-guide li {
+  display: grid;
+  min-height: 155px;
+  grid-template-columns: 38px 1fr;
+  align-content: start;
+  gap: 16px;
+  padding: 24px 27px;
+  border-right: 1px solid #4b454f;
+  border-bottom: 1px solid #4b454f;
+}
+
+.account-guide li:nth-child(2n) {
+  border-right: 0;
+}
+
+.account-guide li > b {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--purple-light);
+  color: var(--purple-light);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+
+.account-guide li strong {
+  display: block;
+  margin: 4px 0 8px;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.account-guide li p {
+  margin: 0;
+  color: #aaa4ae;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.account-guide li > code {
+  grid-column: 2;
+  display: block;
+  overflow-x: auto;
+  padding: 10px;
+  border: 1px solid #514b55;
+  background: #211e24;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.account-guide footer {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 17px 27px;
+}
+
+.account-guide footer a {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid #77717b;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.account-guide footer a:hover,
+.account-guide footer a:focus-visible {
+  color: var(--green);
+  outline: 0;
+}
+
 .callout {
   display: grid;
   grid-template-columns: 26px 1fr;
@@ -2461,6 +2587,11 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .account-guide > header {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
   .paid-quickstart,
   .deploy-offer {
     grid-template-columns: 1fr;
@@ -2706,6 +2837,27 @@ code {
 
   .three-steps article {
     padding: 20px;
+  }
+
+  .account-guide ol {
+    grid-template-columns: 1fr;
+  }
+
+  .account-guide li {
+    min-height: 0;
+    padding: 20px;
+    border-right: 0;
+  }
+
+  .account-guide > header {
+    padding: 22px 20px;
+  }
+
+  .account-guide footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 20px;
   }
 
   .system-map {

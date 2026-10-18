@@ -11,7 +11,9 @@ import { privateKeyToAccount } from "viem/accounts";
 import {
   normalizeCdpApiKeySecret,
   readHidden,
+  registrationFundingTarget,
   readVisible,
+  submitSavedFidRegistration,
   submitSavedGaslessRegistration,
   submitSavedRevenueSplit,
   submitSignedRegistration,
@@ -86,6 +88,62 @@ async function writeGaslessFixture(output: string) {
   );
   return { publicKeyHex, messageHash, payload };
 }
+
+test("new account funding includes the protocol price and a gas reserve", () => {
+  assert.equal(
+    registrationFundingTarget(5_000n, 1n),
+    1_000_000_000_005_000n,
+  );
+  assert.equal(
+    registrationFundingTarget(5_000n, 1_000_000_000_000n),
+    1_800_000_000_000_005_000n,
+  );
+});
+
+test("new account registration preserves signed bytes across an ambiguous broadcast", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "in-three-account-"));
+  const pendingPath = join(directory, "client.env.pending.fid-registration");
+  const accountAddress = "0x1111111111111111111111111111111111111111";
+  const serializedTransaction = "0x02beef" as const;
+  const transactionHash = keccak256(serializedTransaction);
+
+  try {
+    await writeFile(
+      pendingPath,
+      [
+        `FID_REGISTRATION_ADDRESS=${accountAddress}`,
+        `FID_REGISTRATION_TX=${transactionHash}`,
+        `FID_REGISTRATION_RAW_TX=${serializedTransaction}`,
+        "",
+      ].join("\n"),
+      { mode: 0o600 },
+    );
+
+    const confirmedHash = await submitSavedFidRegistration({
+      pendingPath,
+      accountAddress,
+      client: {
+        async sendRawTransaction() {
+          const persistedBeforeBroadcast = await readFile(pendingPath, "utf8");
+          assert.match(persistedBeforeBroadcast, /FID_REGISTRATION_RAW_TX=0x02beef/);
+          throw new Error("response lost after RPC accepted the transaction");
+        },
+        async waitForTransactionReceipt({ hash }) {
+          assert.equal(hash, transactionHash);
+          return { status: "success" as const };
+        },
+      },
+    });
+
+    assert.equal(confirmedHash, transactionHash);
+    assert.match(
+      await readFile(pendingPath, "utf8"),
+      /FID_REGISTRATION_RAW_TX=0x02beef/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("facilitator keys are validated before the custody phrase is requested", () => {
   assert.equal(

@@ -11,7 +11,7 @@ Install once:
 ```bash
 mkdir in-three-node
 cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.5/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.6/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -60,11 +60,12 @@ The default command deploys only the browser client:
 It asks for:
 
 1. A browser password.
-2. Confirmation that this is a disposable test account.
-3. The test account recovery phrase through hidden terminal input.
-4. Final confirmation before submitting a gasless app-key message.
+2. `CREATE` for a new disposable account or `IMPORT` for an existing test account.
+3. For `CREATE`: save the 12 generated words, fund the shown address with the quoted ETH on Optimism, then approve one FID-and-storage transaction.
+4. For `IMPORT`: enter the test-account phrase through hidden terminal input.
+5. Final confirmation before submitting a gasless app-key message.
 
-No OP ETH or Optimism transaction is required.
+A new account requires one Optimism transaction. App-key authorization is gasless. Existing test accounts with active storage skip the account transaction.
 
 The phrase stays in the local setup process. The server receives only the revocable app key. That key can cast, follow, and react; it cannot move wallet funds.
 
@@ -102,6 +103,8 @@ See [AGENT-API.md](AGENT-API.md) for prices, routes, capabilities, receipts, and
 
 ## Recovery
 
+During new-account setup, `.state/client.env.pending.fid-registration` temporarily contains the custody address and exact signed IdGateway transaction. It never contains the phrase or custody private key. Rerun `client create`, choose `IMPORT`, and enter the saved phrase to resume it.
+
 During app-key setup, `.state/client.env.pending` may temporarily contain:
 
 - the delegated app key
@@ -111,7 +114,7 @@ During app-key setup, `.state/client.env.pending` may temporarily contain:
 
 It never contains the recovery phrase or derived custody private key.
 
-If setup stops after signing, keep the file and rerun the same `client create` command. Recovery checks current node state before resubmitting the exact saved bytes. Confirmed payloads are removed, and the file is deleted after the deployed service passes health checks.
+If setup stops after signing either transaction or message, keep the recovery files and rerun the same `client create` command. Recovery checks current node state before resubmitting the exact saved bytes. Confirmed payloads are removed, and the file is deleted after the deployed service passes health checks.
 
 Losing the app key does not affect custody. Authorize a replacement and revoke the old key.
 
@@ -125,6 +128,8 @@ The default Ashburn plan was about **$265/month** when checked on 2026-10-17:
 | 2,048 GiB volume | $99.12 |
 
 IPv4, traffic, tax, and provider price changes are extra. The Hetzner console is authoritative. Read the displayed total before typing `PROVISION`.
+
+Creating a new Farcaster test account also requires the live IdGateway price plus an Optimism gas reserve. `client create` reads both from the network, prints the required ETH balance before signing, and leaves any unused reserve in the test account. Importing an account that already has an FID and storage skips this cost.
 
 Optional agent prices default to 0.002 USDC for metadata, 0.005 USDC for a feed, and 0.02 USDC for a write. The automated deployment purchase is 25 USDC and does not include cloud costs.
 
@@ -148,7 +153,8 @@ The default hostname uses `sslip.io`. To use your own domain:
 | Login fails | Check password, hostname, HTTPS, and cookie scope |
 | Message accepted but absent | Wait for sync, then retry the same signed action |
 | TLS remains pending | Check DNS and ports 80/443 |
-| Setup stopped after signing | Keep the pending file and rerun `client create` |
+| Account setup stopped after signing | Keep the pending file; rerun `client create`, choose `IMPORT`, and use the saved words |
+| App-key setup stopped after signing | Keep the pending file and rerun `client create` |
 | Agent read returns 402 | This is the payment quote |
 | Agent write returns 401 | Supply the owner capability; no payment occurred |
 | Paid result is ambiguous | Preserve the receipt and do not retry blindly |

@@ -31,7 +31,7 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.5`;
+const RELEASE = `${REPO}/releases/tag/v0.1.6`;
 
 type InstallMethod = "npm" | "container";
 
@@ -50,7 +50,7 @@ const setupCommands: Record<InstallMethod, Array<{ number: string; label: string
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.5/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.6/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
 const navigation = [
@@ -86,7 +86,7 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">INSTALL <b>v0.1.5</b></span>
+        <span className="package-bar-label">INSTALL <b>v0.1.6</b></span>
         <div className="package-links">
           <PackageLink icon={<Package size={14} />} label="npm" detail="farcaster-in-three" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
@@ -116,7 +116,7 @@ export function App() {
             <div className="release-line">
               <span>OPEN-SOURCE FARCASTER STARTER</span>
               <i />
-              <span>v0.1.5</span>
+              <span>v0.1.6</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
             <p>Provision a server, start a Snapchain node, and open your own browser client. Reads and writes go through infrastructure you operate.</p>
@@ -144,7 +144,7 @@ export function App() {
         <section className="proof-strip" aria-label="Project summary">
           <div><Terminal size={19} /><strong>3</strong><span>commands after install</span></div>
           <div><Network size={19} /><strong>0</strong><span>hosted Farcaster APIs</span></div>
-          <div><KeyRound size={19} /><strong>0</strong><span>OP transactions</span></div>
+          <div><KeyRound size={19} /><strong>1*</strong><span>only when creating an account</span></div>
           <div><ShieldCheck size={19} /><strong>MIT</strong><span>open source</span></div>
         </section>
 
@@ -152,7 +152,7 @@ export function App() {
           <SectionLabel number="00" text="START HERE" />
           <div className="section-heading">
             <h2>Before you run<br />anything.</h2>
-            <p>This starts real cloud infrastructure and costs about $265 per month. Use a disposable Farcaster test account, not an account holding value.</p>
+            <p>This starts real cloud infrastructure and costs about $265 per month. The final command can create the disposable Farcaster test account for you.</p>
           </div>
 
           <div className="prereq-grid">
@@ -162,12 +162,12 @@ export function App() {
               detail={usesNpm ? "Installed on macOS or Linux." : "Running on macOS or Linux."}
             />
             <Prerequisite icon={<Cloud size={22} />} title="Hetzner token" detail="Create it in a new, empty project." />
-            <Prerequisite icon={<UserRound size={22} />} title="Farcaster account" detail="Yes: use a test account with an FID and storage." />
+            <Prerequisite icon={<UserRound size={22} />} title="A little OP ETH" detail="Only for a new test account. The CLI quotes the amount." />
             <Prerequisite icon={<Clock3 size={22} />} title="Several hours" detail="The first Snapchain sync is large." />
           </div>
 
-          <Callout tone="orange" icon={<KeyRound size={21} />} title="Use an existing test account only">
-            In Three does not create a Farcaster account. It imports a test account that already has an FID and storage. Enter that account&apos;s recovery phrase only after inspecting code you trust, and never paste it into chat.
+          <Callout tone="orange" icon={<KeyRound size={21} />} title="No Farcaster account? That is fine.">
+            Choose CREATE inside the final command. In Three generates a disposable account locally, tells you exactly how much ETH to send on Optimism, registers its FID and storage, then continues automatically. <a href="#account-setup">Open the click-by-click guide.</a>
           </Callout>
 
           <div className="install-method-picker">
@@ -213,14 +213,45 @@ export function App() {
                 <p>{[
                   "Shows the exact Hetzner plan and waits for you to type PROVISION before billing starts.",
                   "Starts Snapchain, prints its status, and leaves the initial sync running on the server.",
-                  "Waits for the node, creates a gasless app key, deploys the browser client, and prints its URL.",
+                  "Waits for the node, creates or imports a test account, adds a gasless app key, deploys the client, and prints its URL.",
                 ][index]}</p>
               </article>
             ))}
           </div>
 
+          <div className="account-guide" id="account-setup">
+            <header>
+              <span>COMMAND 2 / BEGINNER PATH</span>
+              <h3>No account? Make the test account here.</h3>
+              <p>This happens inside <code>{usesNpm ? "in-three client create" : "./in-three-container client create"}</code>. It does not add a fourth command.</p>
+            </header>
+            <ol>
+              <li>
+                <b>1</b>
+                <div><strong>Choose CREATE</strong><p>At the prompt, press Enter. CREATE is already the default.</p></div>
+                <code>Choose CREATE or IMPORT [CREATE]:</code>
+              </li>
+              <li>
+                <b>2</b>
+                <div><strong>Save the 12 words</strong><p>Write them somewhere private, then type <code>I SAVED IT</code>. Never use these words for a valuable account.</p></div>
+              </li>
+              <li>
+                <b>3</b>
+                <div><strong>Fund the address shown</strong><p>Send the quoted amount of ETH on <em>Optimism</em>. Copy the address exactly. Do not use Ethereum mainnet.</p></div>
+              </li>
+              <li>
+                <b>4</b>
+                <div><strong>Return and continue</strong><p>Type <code>CHECK</code>, then <code>CREATE FID</code>. In Three registers the account, storage, and app key and deploys the client.</p></div>
+              </li>
+            </ol>
+            <footer>
+              <a href="https://app.optimism.io/bridge/deposit" target="_blank" rel="noreferrer">Open the Optimism bridge <ExternalLink size={14} /></a>
+              <a href="https://snapchain.farcaster.xyz/guides/writing-messages" target="_blank" rel="noreferrer">Read the protocol source <ExternalLink size={14} /></a>
+            </footer>
+          </div>
+
           <Callout tone="green" icon={<CheckCircle2 size={22} />} title="It is safe to stop and resume">
-            If the node is still syncing, command 2 prints progress and keeps waiting. Press Ctrl-C when needed and rerun the same command from this directory.
+            If the node is still syncing, the final command prints progress and keeps waiting. Press Ctrl-C when needed and rerun the same command from this directory.
           </Callout>
 
           <p className="install-note">
@@ -323,6 +354,7 @@ export function App() {
           <div className="faq-grid compact">
             <h2>Common<br />questions.</h2>
             <div>
+              <Details question="Do I need a Farcaster account first?">No. In the final command, press Enter to choose CREATE. The CLI generates a disposable account locally and walks you through funding and registering it. IMPORT remains available for an existing test account.</Details>
               <Details question="What will this cost?">The default Hetzner server and 2 TiB volume are about $265 per month before tax, traffic, IPv4, or provider price changes. The script shows the plan before creating it.</Details>
               <Details question="Can the app key move funds?">No. It can sign Farcaster casts, follows, and reactions. It cannot transfer custody or sign wallet transactions.</Details>
               <Details question="What does a successful write mean?">Your node accepted the message for relay. Read it back from the synced node to confirm inclusion.</Details>
@@ -332,7 +364,7 @@ export function App() {
         </section>
 
         <section className="final-cta">
-          <span className="eyebrow">READ THE COST. USE A TEST ACCOUNT. KEEP THE WORKING DIRECTORY.</span>
+          <span className="eyebrow">READ THE COST. CREATE A TEST ACCOUNT IN COMMAND 2. KEEP THE DIRECTORY.</span>
           <h2>Then run<br />the three.</h2>
           <div>
             <a href="#quickstart">Open the quickstart <Terminal size={18} /></a>
@@ -345,7 +377,7 @@ export function App() {
         <div><span className="wordmark compact"><i>III</i><strong>IN THREE</strong></span><p>Built in public by Permanent Upper Class.</p></div>
         <div><span>LICENSE</span><strong>MIT</strong></div>
         <div><span>SNAPCHAIN</span><strong>v0.14.3</strong></div>
-        <div><span>RELEASE</span><strong>v0.1.5</strong></div>
+        <div><span>RELEASE</span><strong>v0.1.6</strong></div>
       </footer>
     </>
   );

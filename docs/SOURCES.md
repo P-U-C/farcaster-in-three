@@ -70,22 +70,25 @@ Current app-key registration uses a gasless `KEY_ADD` Snapchain message:
 - nonce is per FID;
 - `GET /v1/signersByFid` returns unified onchain and gasless signer records.
 
-No Optimism transaction or OP ETH is required. This release scopes the signer to cast add/remove, reaction add/remove, and link add/remove.
+App-key authorization requires no Optimism transaction or OP ETH. This release scopes the signer to cast add/remove, reaction add/remove, and link add/remove.
+
+Creating a new test account is separate: it calls IdGateway `register(address recovery)` once on OP Mainnet. The payable registration includes an FID and one storage unit. Setup reads the live `price()`, adds an explicit gas reserve, signs locally, and persists the exact transaction before broadcast.
 
 Onchain registries remain relevant for FID ownership and storage:
 
 - Protocol: https://github.com/farcasterxyz/protocol
 - Contracts: https://github.com/farcasterxyz/contracts
+- IdGateway: `0x00000000fc25870c6ed6b6c7e41fb078b7656f69`
 - IdRegistry: `0x00000000fc6c5f01fc30151999387bb99a9f489b`
 - StorageRegistry: `0x00000000fcce7f938e7ae6d3c335bd6a1a7c593d`
 - Chain: OP Mainnet, chain ID 10
 - Default BIP-44 path used by this developer tutorial: `m/44'/60'/0'/0/0`
 
-Current releases retain recovery code only for a v0.1.0 pending KeyGateway transaction. New setup does not construct one.
+Current setup has two independent recovery boundaries: a locally signed IdGateway account-registration transaction for new accounts, and a signed gasless `KEY_ADD` message for app-key authorization. Legacy v0.1.0 KeyGateway recovery remains readable but is not used for new setup.
 
 ## Developer custody guidance
 
-A recovery phrase gives full account control. This tutorial uses phrase input only to expose the protocol's low-level developer flow and restricts instructions to disposable test accounts. Testers should enter a phrase only into code they have inspected and trust. Production client onboarding should use delegated signer authorization through a trusted wallet and should not collect raw phrases.
+A recovery phrase gives full account control. The default path generates a phrase locally for a disposable test account and prints it once; the import path accepts an existing test phrase through hidden terminal input. In Three never writes the phrase to disk or uploads it. Testers should inspect and trust the code, save generated words privately, and never use a valuable account. Production client onboarding should use delegated signer authorization through a trusted wallet and should not collect raw phrases.
 
 ## Operator image
 
