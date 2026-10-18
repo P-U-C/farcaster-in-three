@@ -18,17 +18,17 @@ A running instance can also sell agent access over x402 v2 on Celo and Base. Pai
 
 ## Container quickstart
 
-The supported operator image is multi-architecture and versioned. The host needs Docker, Bash, and the small launcher below. The application itself runs inside the image.
+The supported operator image is versioned for amd64 and arm64. The host needs Docker, Bash, curl, gzip, and either `sha256sum` or `shasum`; the application itself runs inside the image.
 
 ```bash
 mkdir in-three-node
 cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.2/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
 
-The launcher is short enough to inspect. It runs the image as your UID/GID, mounts only the current directory, uses a read-only root filesystem, drops Linux capabilities, and never mounts the Docker socket. Keys, receipts, and deployment state stay in `.state/` in the current directory.
+The launcher is short enough to inspect. On first use it downloads the architecture-specific image from the tagged GitHub release, verifies its SHA-256 file, and loads it into Docker. It then runs the image as your UID/GID, mounts only the current directory, uses a read-only root filesystem, drops Linux capabilities, and never mounts the Docker socket. Keys, receipts, deployment state, and the cached release archive stay in `.state/` in the current directory.
 
 Then run the three commands:
 
@@ -40,10 +40,10 @@ Then run the three commands:
 
 `node up` returns once the node is safely bootstrapping. `client create` waits for the local Snapchain API, reports snapshot and disk progress, and continues when the node is ready.
 
-Direct Compose usage is also available:
+After the launcher has loaded the local image, direct Compose usage is also available:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three.compose.yml
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.2/in-three.compose.yml
 IN_THREE_UID="$(id -u)" IN_THREE_GID="$(id -g)" \
   docker compose -f in-three.compose.yml run --rm in-three doctor
 ```
@@ -53,7 +53,7 @@ IN_THREE_UID="$(id -u)" IN_THREE_GID="$(id -g)" \
 The versioned npm tarball contains compiled server and browser assets. It does not build TypeScript or Vite on the operator machine.
 
 ```bash
-npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.1/farcaster-in-three-0.1.1.tgz
+npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.2/farcaster-in-three-0.1.2.tgz
 mkdir in-three-node
 cd in-three-node
 in-three doctor

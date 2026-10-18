@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE="${IN_THREE_IMAGE:-ghcr.io/p-u-c/farcaster-in-three:0.1.1}"
+VERSION="0.1.2"
+DEFAULT_IMAGE="puc/farcaster-in-three:${VERSION}"
+IMAGE="${IN_THREE_IMAGE:-$DEFAULT_IMAGE}"
+RELEASE_BASE="${IN_THREE_RELEASE_BASE:-https://github.com/P-U-C/farcaster-in-three/releases/download/v${VERSION}}"
 
 command -v docker >/dev/null 2>&1 || {
   printf 'error: Docker is required\n' >&2
@@ -12,12 +15,89 @@ docker info >/dev/null 2>&1 || {
   exit 1
 }
 
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+    return
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+    return
+  fi
+  printf 'error: sha256sum or shasum is required\n' >&2
+  exit 1
+}
+
+load_release_image() {
+  [[ -z "${IN_THREE_IMAGE:-}" ]] || return 0
+  docker image inspect "$IMAGE" >/dev/null 2>&1 && return 0
+
+  local arch asset cache_dir archive checksum expected actual
+  case "$(uname -m)" in
+    x86_64|amd64) arch="amd64" ;;
+    arm64|aarch64) arch="arm64" ;;
+    *)
+      printf 'error: unsupported container architecture: %s\n' "$(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+
+  command -v curl >/dev/null 2>&1 || {
+    printf 'error: curl is required to fetch the container release\n' >&2
+    exit 1
+  }
+  command -v gzip >/dev/null 2>&1 || {
+    printf 'error: gzip is required to load the container release\n' >&2
+    exit 1
+  }
+
+  cache_dir="$workspace/.state/container-cache"
+  umask 077
+  mkdir -p "$cache_dir"
+  chmod 700 "$workspace/.state" "$cache_dir"
+  asset="farcaster-in-three-container-${VERSION}-linux-${arch}.tar.gz"
+  archive="$cache_dir/$asset"
+  checksum="$cache_dir/${asset}.sha256"
+
+  if [[ ! -f "$archive" || ! -f "$checksum" ]]; then
+    local curl_args=(--fail --location --retry 3 --silent --show-error)
+    if [[ "$RELEASE_BASE" == https://* ]]; then
+      curl_args+=(--proto '=https' --tlsv1.2)
+    fi
+    printf 'Fetching In Three %s for linux/%s...\n' "$VERSION" "$arch"
+    curl "${curl_args[@]}" --output "${checksum}.tmp" "$RELEASE_BASE/${asset}.sha256"
+    curl "${curl_args[@]}" --output "${archive}.tmp" "$RELEASE_BASE/$asset"
+    mv "${checksum}.tmp" "$checksum"
+    mv "${archive}.tmp" "$archive"
+  fi
+
+  expected="$(awk 'NR == 1 {print $1}' "$checksum")"
+  actual="$(sha256_file "$archive")"
+  if [[ ! "$expected" =~ ^[0-9a-f]{64}$ || "$actual" != "$expected" ]]; then
+    printf 'error: container archive checksum mismatch; remove %s and retry\n' "$cache_dir" >&2
+    exit 1
+  fi
+
+  printf 'Loading verified In Three %s container...\n' "$VERSION"
+  gzip -dc "$archive" | docker load >/dev/null
+  docker image inspect "$IMAGE" >/dev/null 2>&1 || {
+    printf 'error: release archive did not contain %s\n' "$IMAGE" >&2
+    exit 1
+  }
+}
+
 workspace="$(pwd -P)"
+load_release_image
+
+pull_policy="never"
+if [[ -n "${IN_THREE_IMAGE:-}" ]]; then
+  pull_policy="missing"
+fi
 args=(
   run
   --rm
   --init
-  --pull=missing
+  "--pull=$pull_policy"
   --interactive
   --read-only
   --tmpfs "/tmp:rw,noexec,nosuid,size=64m"

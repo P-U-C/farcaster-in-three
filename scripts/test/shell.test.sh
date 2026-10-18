@@ -266,6 +266,76 @@ fi
 grep -F 'args+=(--entrypoint buy)' "$ROOT/in-three-container" >/dev/null ||
   fail "container launcher cannot dispatch the bundled usebuy.ai CLI"
 
+case "$(uname -m)" in
+  x86_64|amd64) release_arch="amd64" ;;
+  arm64|aarch64) release_arch="arm64" ;;
+  *) fail "test host has an unsupported architecture" ;;
+esac
+release_fixture="$container_fixture/release"
+mkdir -p "$release_fixture"
+release_asset="farcaster-in-three-container-0.1.2-linux-${release_arch}.tar.gz"
+printf 'container archive fixture' | gzip > "$release_fixture/$release_asset"
+if command -v sha256sum >/dev/null 2>&1; then
+  release_checksum="$(sha256sum "$release_fixture/$release_asset" | awk '{print $1}')"
+else
+  release_checksum="$(shasum -a 256 "$release_fixture/$release_asset" | awk '{print $1}')"
+fi
+printf '%s  %s\n' "$release_checksum" "$release_asset" > "$release_fixture/${release_asset}.sha256"
+export RELEASE_FIXTURE="$release_fixture"
+export DOCKER_IMAGE_PRESENT="$container_fixture/image-present"
+cat > "$container_fixture/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+output=""
+url=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --output)
+      output="$2"
+      shift 2
+      ;;
+    *)
+      url="$1"
+      shift
+      ;;
+  esac
+done
+cp "$RELEASE_FIXTURE/$(basename "$url")" "$output"
+EOF
+cat > "$container_fixture/bin/docker" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "info" ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == "image" && "${2:-}" == "inspect" ]]; then
+  [[ -f "$DOCKER_IMAGE_PRESENT" ]]
+  exit
+fi
+if [[ "${1:-}" == "load" ]]; then
+  cat >/dev/null
+  touch "$DOCKER_IMAGE_PRESENT"
+  exit
+fi
+printf '<%s>\n' "$@" >> "$DOCKER_CALL_LOG"
+EOF
+chmod +x "$container_fixture/bin/curl" "$container_fixture/bin/docker"
+: > "$DOCKER_CALL_LOG"
+(
+  cd "$container_fixture/work"
+  PATH="$container_fixture/bin:$PATH" \
+  IN_THREE_RELEASE_BASE="file://$release_fixture" \
+    "$ROOT/in-three-container" doctor
+)
+[[ -f "$DOCKER_IMAGE_PRESENT" ]] ||
+  fail "container launcher did not load the verified release archive"
+[[ -f "$container_fixture/work/.state/container-cache/$release_asset" ]] ||
+  fail "container launcher did not retain the versioned release archive"
+grep -Fx '<--pull=never>' "$DOCKER_CALL_LOG" >/dev/null ||
+  fail "release-asset image can unexpectedly pull from a registry"
+grep -Fx '<puc/farcaster-in-three:0.1.2>' "$DOCKER_CALL_LOG" >/dev/null ||
+  fail "container launcher did not run the loaded versioned image"
+
 cat > "$container_fixture/bin/in-three" <<'EOF'
 #!/usr/bin/env bash
 exit 0
@@ -294,7 +364,7 @@ container_fixture=""
 
 package_fixture="$(mktemp -d)"
 package_version="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --version)"
-[[ "$package_version" == "0.1.1" ]] ||
+[[ "$package_version" == "0.1.2" ]] ||
   fail "prebuilt CLI does not report the package version"
 package_help="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --help)"
 printf '%s\n' "$package_help" | grep -F 'in-three provision' >/dev/null ||

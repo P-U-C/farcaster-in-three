@@ -9,7 +9,7 @@ The [tester bounty](TESTER-BOUNTY.md) pays for execution and evidence, not prais
 - Start on a machine that was not used to develop this repository.
 - Follow the public tutorial without private help from the author.
 - Use your own cloud account and an otherwise disposable Farcaster test account.
-- Inspect the launcher, image provenance, and source before entering credentials.
+- Inspect the launcher, tagged release archive checksum, and source before entering credentials.
 - Never send anyone your phrase, cloud token, app key, facilitator keys, write capability, browser password, or unredacted environment files.
 - Do not reuse a phrase that controls valuable assets.
 - Record every intervention, failure, and unclear instruction.
@@ -23,8 +23,8 @@ The [tester bounty](TESTER-BOUNTY.md) pays for execution and evidence, not prais
 | Start time, UTC | |
 | Release tag | |
 | Git commit | |
-| OCI manifest digest | |
-| Platform image digest | |
+| Release archive SHA-256 | |
+| Loaded image ID | |
 | Hetzner region and server type | |
 | Snapchain version | |
 | First synced time, UTC | |
@@ -43,7 +43,7 @@ Start in a new empty directory:
 ```bash
 mkdir in-three-voucher
 cd in-three-voucher
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.2/in-three-container
 chmod +x in-three-container
 ./in-three-container --version
 ./in-three-container doctor
@@ -51,12 +51,12 @@ chmod +x in-three-container
 
 Expected:
 
-- Version is `0.1.1`.
-- The image is pulled from the versioned GHCR tag.
-- The release digest matches the recorded image.
-- Doctor passes.
+- Version is `0.1.2`.
+- The matching amd64 or arm64 archive is downloaded from release `v0.1.2`.
+- The archive passes its published SHA-256 check before `docker load`.
+- Doctor passes and the image reports version `0.1.2`.
 - No source compile runs.
-- No `.state/` exists until a stateful command needs it.
+- `.state/` contains only the container cache until a stateful command needs more.
 
 Inspect the launcher invocation. It must run as the host UID/GID, mount only the current directory, use a read-only root, drop capabilities, set `no-new-privileges`, and omit the Docker socket.
 

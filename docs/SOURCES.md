@@ -79,7 +79,7 @@ Onchain registries remain relevant for FID ownership and storage:
 - Chain: OP Mainnet, chain ID 10
 - Default BIP-44 path used by this developer tutorial: `m/44'/60'/0'/0/0`
 
-Version 0.1.1 retains recovery code only for a v0.1.0 pending KeyGateway transaction. New setup does not construct one.
+Version 0.1.2 retains recovery code only for a v0.1.0 pending KeyGateway transaction. New setup does not construct one.
 
 ## Developer custody guidance
 
@@ -87,14 +87,15 @@ A recovery phrase gives full account control. This tutorial uses phrase input on
 
 ## Operator image
 
-- Registry: `ghcr.io/p-u-c/farcaster-in-three`
+- Distribution: architecture-specific Docker archives and SHA-256 files attached to each tagged GitHub release
+- Local image: `puc/farcaster-in-three:<version>`
 - Node base: `node:22.22.0-bookworm-slim`
 - Base manifest: `sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94`
 - Platforms: linux/amd64 and linux/arm64
 - Build definition: `Dockerfile.operator`
 - Runtime entrypoint: prebuilt `in-three` package
 
-Tagged builds publish OCI provenance and an SBOM. The launcher uses a read-only root, host UID/GID, dropped capabilities, `no-new-privileges`, and no Docker socket.
+Tagged builds compile and smoke-test each platform image before publishing its archive and SHA-256 file. The image records the source URL, version, and commit revision. The launcher uses a read-only root, host UID/GID, dropped capabilities, `no-new-privileges`, and no Docker socket.
 
 ## Infrastructure and price
 

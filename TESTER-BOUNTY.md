@@ -27,7 +27,7 @@ The reward includes the tester's cloud, gas, x402, and other execution costs. Te
 
 Use a clean machine and follow the public tutorial without private coaching.
 
-1. Pull the versioned OCI release from a new empty working directory. Record its version, manifest/platform digests, release tag, provenance, and underlying commit.
+1. Load the versioned container release from a new empty working directory. Record its version, archive SHA-256, loaded image ID, release tag, and underlying commit.
 2. Run `./in-three-container doctor` and inspect the launcher's mount, user, capability, and Docker-socket boundaries.
 3. Run the three manual commands: `./in-three-container provision`, `./in-three-container node up`, and `./in-three-container client create`.
 4. Let Snapchain complete its initial sync. Record elapsed time, storage use, and any undocumented intervention.

@@ -144,7 +144,7 @@ A cast exposes its exact signer key. App attribution can be absent or self-asser
 - Snapchain and Caddy images are pinned to platform-specific OCI digests.
 - The validator manifest is pinned to a release commit and SHA-256.
 - npm uses committed matching lock and shrinkwrap files.
-- The operator image pins its Node base image by manifest digest and is published for amd64 and arm64 with provenance and an SBOM.
+- The operator image pins its Node base image by manifest digest; tagged amd64 and arm64 archives are smoke-tested and published with SHA-256 files and source-revision labels.
 - Tagged releases run checks, package prebuilt assets, publish a SHA-256 file, and exercise an anonymous image pull.
 - `npm audit --audit-level=moderate` must pass.
 - The Farcaster core bundle expects removed Faker 7 APIs; a narrow compatibility module supplies those names on pinned Faker 10 without exposing a template evaluator.

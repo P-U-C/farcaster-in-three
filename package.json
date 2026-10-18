@@ -1,6 +1,6 @@
 {
   "name": "farcaster-in-three",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A three-command path from bare compute to a sovereign Farcaster client.",
   "license": "MIT",
   "author": "Permanent Upper Class",

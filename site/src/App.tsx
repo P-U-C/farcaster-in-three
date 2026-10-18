@@ -116,12 +116,12 @@ export function App() {
           <SectionLabel number="00" text="QUICKSTART" />
           <div className="section-heading">
             <h2>Run these three<br />commands.</h2>
-            <p>Pull the versioned operator image on macOS or Linux. The launcher mounts only this directory, runs as your user, drops capabilities, and never mounts the Docker socket.</p>
+            <p>Load the versioned operator image on macOS or Linux. The launcher verifies the tagged release archive, mounts only this directory, runs as your user, drops capabilities, and never mounts the Docker socket.</p>
           </div>
 
           <div className="clone-line">
             <span>GET THE CONTAINER LAUNCHER</span>
-            <CodeBlock code={"mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three-container\nchmod +x in-three-container"} />
+            <CodeBlock code={"mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.2/in-three-container\nchmod +x in-three-container"} />
           </div>
 
           <div className="paid-quickstart">
@@ -219,7 +219,7 @@ export function App() {
               <Chapter id="before" number="A" title="Before you begin">
                 <p>You need Docker, a Hetzner Cloud token, an otherwise disposable Farcaster test account with storage, a Celo x402 facilitator key from <a href="https://x402.celo.org/" target="_blank" rel="noreferrer">x402.celo.org</a>, and a Coinbase CDP key for Base settlement.</p>
                 <Checklist items={[
-                  "Linux or macOS operator machine with Docker, Bash, and curl",
+                  "Linux or macOS with Docker, Bash, curl, gzip, and a SHA-256 tool",
                   "Recovery phrase for a disposable test account that owns an FID",
                   "At least one active Farcaster storage unit",
                   "No OP ETH: app-key authorization is gasless",

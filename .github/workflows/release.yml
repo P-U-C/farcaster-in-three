@@ -1,4 +1,4 @@
-name: Publish prebuilt CLI
+name: Publish prebuilt CLI and containers
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   release:
@@ -38,7 +37,7 @@ jobs:
           mkdir release
           npm pack --ignore-scripts --pack-destination release
           cd release
-          sha256sum farcaster-in-three-*.tgz > farcaster-in-three-${GITHUB_REF_NAME#v}.tgz.sha256
+          sha256sum farcaster-in-three-*.tgz > "farcaster-in-three-${GITHUB_REF_NAME#v}.tgz.sha256"
 
       - name: Publish GitHub release
         env:
@@ -46,11 +45,17 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" release/* \
             --verify-tag \
-            --title "In Three ${GITHUB_REF_NAME}" \
-            --notes "Prebuilt npm CLI plus a multi-architecture OCI operator image for macOS and Linux. Verify the attached npm tarball with its SHA-256 file, or pull ghcr.io/p-u-c/farcaster-in-three:${GITHUB_REF_NAME#v}. Operational state stays in the mounted working directory."
+            --title "In Three $GITHUB_REF_NAME" \
+            --notes "Prebuilt npm CLI plus checksummed linux/amd64 and linux/arm64 Docker images for macOS and Linux hosts. The small in-three-container launcher downloads, verifies, and loads the correct image. Operational state stays in the mounted working directory."
 
   container:
     needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -63,49 +68,40 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Log in to GHCR
+      - name: Build the operator image
         env:
-          GHCR_TOKEN: ${{ github.token }}
-        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Build and publish the operator image
-        env:
-          IMAGE: ghcr.io/p-u-c/farcaster-in-three
-          VERSION: ${{ github.ref_name }}
+          ARCH: ${{ matrix.arch }}
         run: |
-          version="${VERSION#v}"
+          version="${GITHUB_REF_NAME#v}"
+          mkdir release-container
+          tar_path="release-container/farcaster-in-three-container-${version}-linux-${ARCH}.tar"
           docker buildx build \
             --file Dockerfile.operator \
-            --platform linux/amd64,linux/arm64 \
+            --platform "linux/${ARCH}" \
             --build-arg "VERSION=${version}" \
             --build-arg "REVISION=${GITHUB_SHA}" \
             --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --tag "${IMAGE}:${version}" \
-            --tag "${IMAGE}:${VERSION}" \
-            --tag "${IMAGE}:latest" \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
-            --provenance=mode=max \
-            --sbom=true \
-            --push \
+            --tag "puc/farcaster-in-three:${version}" \
+            --cache-from type=gha,scope="operator-${ARCH}" \
+            --cache-to type=gha,mode=max,scope="operator-${ARCH}" \
+            --output "type=docker,dest=${tar_path}" \
             .
+          gzip -9 "${tar_path}"
+          cd release-container
+          sha256sum "farcaster-in-three-container-${version}-linux-${ARCH}.tar.gz" \
+            > "farcaster-in-three-container-${version}-linux-${ARCH}.tar.gz.sha256"
 
-      - name: Make the package public
+      - name: Verify the release image
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          asset="release-container/farcaster-in-three-container-${version}-linux-${ARCH}.tar.gz"
+          docker load --input "$asset"
+          test "$(docker run --rm --platform "linux/${ARCH}" "puc/farcaster-in-three:${version}" --version)" = "${version}"
+          docker run --rm --platform "linux/${ARCH}" "puc/farcaster-in-three:${version}" doctor
+
+      - name: Publish the release image
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api \
-            --method PATCH \
-            /orgs/P-U-C/packages/container/farcaster-in-three \
-            -f visibility=public
-
-      - name: Verify an anonymous pull
-        env:
-          IMAGE: ghcr.io/p-u-c/farcaster-in-three
-          VERSION: ${{ github.ref_name }}
-        run: |
-          version="${VERSION#v}"
-          docker logout ghcr.io
-          docker pull "${IMAGE}:${version}"
-          test "$(docker run --rm "${IMAGE}:${version}" --version)" = "${version}"
-          docker run --rm "${IMAGE}:${version}" doctor
+        run: gh release upload "$GITHUB_REF_NAME" release-container/* --clobber

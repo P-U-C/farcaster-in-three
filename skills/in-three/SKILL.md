@@ -27,12 +27,12 @@ Prefer the pinned operator container:
 
 ~~~sh
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.2/in-three-container
 chmod +x in-three-container
 ./in-three-container --version
 ~~~
 
-Verify the tagged image provenance and digest before spending. Keep the same working directory because recovery state stays under its local <code>.state/</code> directory. The launcher runs as the host UID/GID, mounts only this directory, drops capabilities, uses a read-only root filesystem, and does not mount the Docker socket.
+Verify the tagged release archive and SHA-256 before spending. Keep the same working directory because recovery state stays under its local <code>.state/</code> directory. The launcher runs as the host UID/GID, mounts only this directory, drops capabilities, uses a read-only root filesystem, and does not mount the Docker socket.
 
 ## Deploy
 
