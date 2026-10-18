@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
@@ -101,7 +102,39 @@ jobs:
           test "$(docker run --rm --platform "linux/${ARCH}" "puc/farcaster-in-three:${version}" --version)" = "${version}"
           docker run --rm --platform "linux/${ARCH}" "puc/farcaster-in-three:${version}" doctor
 
-      - name: Publish the release image
+      - name: Push architecture image to GHCR
+        env:
+          ARCH: ${{ matrix.arch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          image="ghcr.io/p-u-c/farcaster-in-three"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+          docker tag "puc/farcaster-in-three:${version}" "${image}:${version}-${ARCH}"
+          docker push "${image}:${version}-${ARCH}"
+
+      - name: Publish release archives
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" release-container/* --clobber
+
+  container-manifest:
+    needs: container
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Publish multi-platform manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          image="ghcr.io/p-u-c/farcaster-in-three"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+          docker buildx imagetools create \
+            --tag "${image}:${version}" \
+            --tag "${image}:latest" \
+            "${image}:${version}-amd64" \
+            "${image}:${version}-arm64"

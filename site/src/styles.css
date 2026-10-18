@@ -2136,6 +2136,323 @@ code {
   font-size: 9px;
 }
 
+
+.prereq-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 26px;
+  border-top: 1px solid var(--ink);
+  border-left: 1px solid var(--ink);
+}
+
+.prerequisite {
+  display: grid;
+  min-height: 150px;
+  grid-template-rows: 30px auto 1fr;
+  align-content: start;
+  gap: 8px;
+  padding: 21px;
+  border-right: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  background: var(--white);
+}
+
+.prerequisite svg {
+  color: var(--purple);
+}
+
+.prerequisite strong {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 22px;
+  font-weight: 520;
+}
+
+.prerequisite span {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.install-block {
+  display: grid;
+  grid-template-columns: 155px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px 20px;
+  margin: 42px 0 26px;
+}
+
+.install-block > span {
+  padding-top: 17px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.install-block > p {
+  grid-column: 2;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.install-choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 44px;
+  border-top: 1px solid var(--ink);
+  border-left: 1px solid var(--ink);
+}
+
+.install-choices > div {
+  display: flex;
+  min-height: 178px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 21px;
+  border-right: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+
+.install-choices b {
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+}
+
+.install-choices strong {
+  margin-top: 30px;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 24px;
+  font-weight: 520;
+}
+
+.install-choices p {
+  margin: 7px 0 13px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.install-choices a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  border-bottom: 1px solid var(--ink);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.simple-system {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px minmax(0, 1fr) 58px minmax(0, 1fr) 58px minmax(0, 1fr);
+  align-items: stretch;
+  margin-top: 54px;
+}
+
+.simple-system > div {
+  position: relative;
+  display: flex;
+  min-height: 190px;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 20px;
+  border: 1px solid #625b67;
+  background: #211e25;
+}
+
+.simple-system > div > span {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  color: #89828e;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+}
+
+.simple-system > div > svg {
+  margin-bottom: 26px;
+  color: var(--cyan);
+}
+
+.simple-system > div:nth-of-type(3) > svg,
+.simple-system > div:nth-of-type(4) > svg {
+  color: var(--purple-light);
+}
+
+.simple-system strong {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 19px;
+  font-weight: 520;
+}
+
+.simple-system small {
+  margin-top: 5px;
+  color: #97909b;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.simple-system > svg {
+  align-self: center;
+  justify-self: center;
+  color: var(--orange);
+}
+
+.first-run-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.62fr) minmax(0, 1.38fr);
+  align-items: center;
+  gap: 54px;
+}
+
+.first-run-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--ink);
+}
+
+.first-run-steps li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.first-run-steps span {
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+}
+
+.first-run-steps p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.compact-preview {
+  margin: 0;
+}
+
+.agent-summary .section {
+  padding-top: 86px;
+  padding-bottom: 86px;
+}
+
+.agent-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.82fr);
+  align-items: end;
+  gap: 70px;
+}
+
+.agent-summary h2 {
+  margin: 0;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 56px;
+  font-weight: 430;
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.agent-summary-grid > div > p {
+  max-width: 590px;
+  margin: 18px 0 0;
+  color: #aaa4ae;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.agent-summary-facts {
+  border-top: 1px solid #625b67;
+}
+
+.agent-summary-facts > div {
+  display: grid;
+  min-height: 61px;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #625b67;
+}
+
+.agent-summary-facts svg {
+  color: var(--cyan);
+}
+
+.agent-summary-facts span,
+.agent-summary-facts b,
+.agent-summary-facts small {
+  display: block;
+}
+
+.agent-summary-facts b {
+  font-size: 10px;
+}
+
+.agent-summary-facts small {
+  margin-top: 3px;
+  color: #918a96;
+  font-size: 8px;
+}
+
+.agent-summary .agent-links {
+  margin-top: 38px;
+  color: white;
+}
+
+.docs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  margin-top: 54px;
+  border-top: 1px solid var(--ink);
+  border-left: 1px solid var(--ink);
+}
+
+.doc-link {
+  display: grid;
+  min-height: 112px;
+  grid-template-columns: 34px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+  border-right: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  background: var(--white);
+}
+
+.doc-link:hover {
+  background: var(--cyan);
+}
+
+.doc-link > svg:first-child {
+  color: var(--purple);
+}
+
+.doc-link span,
+.doc-link strong,
+.doc-link small {
+  display: block;
+}
+
+.doc-link strong {
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 20px;
+  font-weight: 520;
+}
+
+.doc-link small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 @media (max-width: 1050px) {
   .hero {
     grid-template-columns: 0.8fr 1.2fr;
@@ -2161,6 +2478,31 @@ code {
 }
 
 @media (max-width: 860px) {
+  .prereq-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .simple-system {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .simple-system > svg {
+    transform: rotate(90deg);
+  }
+
+  .first-run-grid,
+  .agent-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .first-run-grid {
+    gap: 36px;
+  }
+
+  .agent-summary-grid {
+    gap: 34px;
+  }
   .site-header {
     grid-template-columns: 1fr auto;
   }
@@ -2275,6 +2617,36 @@ code {
 }
 
 @media (max-width: 620px) {
+  .prereq-grid,
+  .install-choices,
+  .docs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prerequisite {
+    min-height: 126px;
+  }
+
+  .install-block {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .install-block > span {
+    padding-top: 0;
+  }
+
+  .install-block > p {
+    grid-column: 1;
+  }
+
+  .simple-system > div {
+    min-height: 145px;
+  }
+
+  .agent-summary h2 {
+    font-size: 42px;
+  }
   .site-header {
     height: 58px;
     padding: 0 16px;

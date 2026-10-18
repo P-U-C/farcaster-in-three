@@ -1,7 +1,15 @@
 {
   "name": "farcaster-in-three",
   "version": "0.1.2",
-  "description": "A three-command path from bare compute to a sovereign Farcaster client.",
+  "description": "Run a self-hosted Farcaster Snapchain node and client in three commands.",
+  "keywords": [
+    "farcaster",
+    "snapchain",
+    "self-hosted",
+    "client",
+    "node",
+    "x402"
+  ],
   "license": "MIT",
   "author": "Permanent Upper Class",
   "homepage": "https://farcaster.permanentupperclass.com/",
@@ -11,6 +19,10 @@
   },
   "bugs": {
     "url": "https://github.com/P-U-C/farcaster-in-three/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "type": "module",
   "bin": {
