@@ -13,9 +13,8 @@ test("login is cookie based and rate limited", async () => {
     PASSWORD_HASH: passwordHash,
     SESSION_SECRET: "session-secret-that-is-at-least-32-characters",
     READ_NODE_URL: "http://127.0.0.1:9",
-    VALIDATOR_URLS: "http://127.0.0.1:9",
+    WRITE_NODE_URL: "http://127.0.0.1:9",
     COOKIE_SECURE: "false",
-    validatorUrls: ["http://127.0.0.1:9"],
     cookieSecure: false,
   });
 

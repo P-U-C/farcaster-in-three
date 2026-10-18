@@ -84,7 +84,7 @@ pending_env="$(mktemp)"
 fixture_client_env="$(mktemp)"
 fixture_gateway_env="$(mktemp)"
 fixture_access_env="$(mktemp)"
-trap 'rm -f "$checksum_file" "$pending_env" "$fixture_client_env" "$fixture_gateway_env" "$fixture_access_env"; [[ -z "${deploy_fixture:-}" ]] || rm -rf "$deploy_fixture"' EXIT
+trap 'rm -f "$checksum_file" "$pending_env" "$fixture_client_env" "$fixture_gateway_env" "$fixture_access_env"; [[ -z "${deploy_fixture:-}" ]] || rm -rf "$deploy_fixture"; [[ -z "${container_fixture:-}" ]] || rm -rf "$container_fixture"' EXIT
 cat > "$pending_env" <<'EOF'
 FID=37
 SIGNER_PRIVATE_KEY=delegated-key
@@ -215,9 +215,86 @@ grep -F -- '--payment-network' "$ROOT/scripts/deploy.sh" >/dev/null ||
 grep -F 'scripts/pay-base.mjs' "$ROOT/scripts/deploy.sh" >/dev/null ||
   fail "one-purchase deployment does not route Base through the guarded buyer"
 
+grep -F 'makeKeyAdd(' "$ROOT/apps/client/src/setup.ts" >/dev/null ||
+  fail "setup does not create a gasless KEY_ADD message"
+grep -F 'SIGNER_REGISTRATION_MODE=gasless' "$ROOT/apps/client/src/setup.ts" >/dev/null ||
+  fail "setup does not persist the gasless signer mode"
+grep -F 'this.writeNodeUrl}/v1/submitMessage' "$ROOT/apps/client/src/protocol.ts" >/dev/null ||
+  fail "client writes do not enter through the owned read node"
+if grep -R -n 'VALIDATOR_URLS' "$ROOT/apps/client/src" "$ROOT/scripts/client.sh" >/dev/null; then
+  fail "runtime still exposes direct validator writes"
+fi
+
+container_fixture="$(mktemp -d)"
+mkdir -p "$container_fixture/bin" "$container_fixture/work"
+export DOCKER_CALL_LOG="$container_fixture/docker-call"
+cat > "$container_fixture/bin/docker" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "info" ]]; then
+  exit 0
+fi
+printf '<%s>\n' "$@" >> "$DOCKER_CALL_LOG"
+EOF
+chmod +x "$container_fixture/bin/docker"
+(
+  cd "$container_fixture/work"
+  PATH="$container_fixture/bin:$PATH" \
+  IN_THREE_IMAGE='in-three-operator:test' \
+  HCLOUD_TOKEN='must-not-appear-in-argv' \
+    "$ROOT/in-three-container" doctor
+)
+grep -Fx '<in-three-operator:test>' "$DOCKER_CALL_LOG" >/dev/null ||
+  fail "container launcher did not select the requested image"
+grep -Fx '<--read-only>' "$DOCKER_CALL_LOG" >/dev/null ||
+  fail "container launcher did not use a read-only root filesystem"
+if ! grep -Fx '<--cap-drop>' "$DOCKER_CALL_LOG" >/dev/null ||
+  ! grep -Fx '<ALL>' "$DOCKER_CALL_LOG" >/dev/null; then
+  fail "container launcher did not drop Linux capabilities"
+fi
+grep -Fx "<$(id -u):$(id -g)>" "$DOCKER_CALL_LOG" >/dev/null ||
+  fail "container launcher did not preserve the host UID and GID"
+grep -Fx "<$container_fixture/work:/work>" "$DOCKER_CALL_LOG" >/dev/null ||
+  fail "container launcher did not mount only the operator workspace"
+grep -Fx '<HCLOUD_TOKEN>' "$DOCKER_CALL_LOG" >/dev/null ||
+  fail "container launcher did not forward the named provider credential"
+if grep -F 'must-not-appear-in-argv' "$DOCKER_CALL_LOG" >/dev/null; then
+  fail "container launcher exposed a credential value in process arguments"
+fi
+if grep -F 'docker.sock' "$DOCKER_CALL_LOG" >/dev/null; then
+  fail "container launcher mounted the Docker socket"
+fi
+grep -F 'args+=(--entrypoint buy)' "$ROOT/in-three-container" >/dev/null ||
+  fail "container launcher cannot dispatch the bundled usebuy.ai CLI"
+
+cat > "$container_fixture/bin/in-three" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$container_fixture/bin/in-three"
+HOME="$container_fixture/home" \
+BUY_HOME="$container_fixture/buy-home" \
+IN_THREE_STATE_DIR="$container_fixture" \
+PATH="$container_fixture/bin:$PATH" \
+  "$ROOT/container-entrypoint" doctor
+[[ ! -e "$container_fixture/home" && ! -e "$container_fixture/buy-home" ]] ||
+  fail "side-effect-free container commands created state"
+HOME="$container_fixture/home" \
+BUY_HOME="$container_fixture/buy-home" \
+IN_THREE_STATE_DIR="$container_fixture" \
+PATH="$container_fixture/bin:$PATH" \
+  "$ROOT/container-entrypoint" node status
+[[ -d "$container_fixture/home" && -d "$container_fixture/buy-home" ]] ||
+  fail "stateful container command did not prepare private homes"
+for private_dir in "$container_fixture" "$container_fixture/home" "$container_fixture/buy-home"; do
+  [[ "$(node -e 'console.log((require("node:fs").statSync(process.argv[1]).mode & 0o777).toString(8))' "$private_dir")" == "700" ]] ||
+    fail "container state directory is not private: $private_dir"
+done
+rm -rf "$container_fixture"
+container_fixture=""
+
 package_fixture="$(mktemp -d)"
 package_version="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --version)"
-[[ "$package_version" == "0.1.0" ]] ||
+[[ "$package_version" == "0.1.1" ]] ||
   fail "prebuilt CLI does not report the package version"
 package_help="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --help)"
 printf '%s\n' "$package_help" | grep -F 'in-three provision' >/dev/null ||
@@ -241,4 +318,6 @@ printf 'ok - client create waits and continues after node bootstrap\n'
 printf 'ok - deployment separates client, payment, and local agent secrets\n'
 printf 'ok - paid deployment recovery never invokes buy twice\n'
 printf 'ok - Base buyer pins network, recipient, and spending ceiling\n'
+printf 'ok - gasless signer setup and read-node write relay are wired\n'
+printf 'ok - container launcher is isolated and credential values stay out of argv\n'
 printf 'ok - prebuilt CLI isolates state and skips compilation\n'

@@ -1,179 +1,191 @@
 # Independent Human Voucher
 
-The prize requires at least one other human to complete the tutorial, create a read node and client, and publicly endorse the work on Farcaster. This file is the test protocol. It is not complete until an independent tester signs it with a public cast.
+The prize requires another human to complete the public tutorial, create a read node and client, and endorse the result publicly on Farcaster. This protocol is incomplete until the evidence fields at the bottom contain real public URLs.
 
-## Tester rules
+The [tester bounty](TESTER-BOUNTY.md) pays for execution and evidence, not praise. Publish an endorsement only if the run warrants one.
 
-- Start from a machine that has not been used to develop this repository.
-- Follow the public microsite, not private instructions from the author.
-- Use your own existing Farcaster account, cloud account, OP ETH, Celo/Base native gas, Celo facilitator key, and Coinbase CDP key.
-- Never send the author your recovery phrase, cloud token, app key, facilitator credentials, agent write capability, or client password.
-- Record failures and confusing language. A voucher is evidence, not a favor.
-- The [tester bounty](TESTER-BOUNTY.md) compensates execution and evidence, never a positive opinion. Publish an endorsement only if the completed run warrants one.
+## Rules
 
-## Run
+- Start on a machine that was not used to develop this repository.
+- Follow the public tutorial without private help from the author.
+- Use your own cloud account and an otherwise disposable Farcaster test account.
+- Inspect the launcher, image provenance, and source before entering credentials.
+- Never send anyone your phrase, cloud token, app key, facilitator keys, write capability, browser password, or unredacted environment files.
+- Do not reuse a phrase that controls valuable assets.
+- Record every intervention, failure, and unclear instruction.
 
-Record:
+## Record
 
 | Item | Value |
 | --- | --- |
 | Tester Farcaster username | |
 | Operator OS and version | |
 | Start time, UTC | |
-| Release tag and package version | |
-| Package SHA-256 | |
-| Git commit behind release | |
+| Release tag | |
+| Git commit | |
+| OCI manifest digest | |
+| Platform image digest | |
 | Hetzner region and server type | |
 | Snapchain version | |
 | First synced time, UTC | |
 | Client URL | |
 | Test cast URL | |
-| Deployment path: paid or manual | |
-| Paid deployment chain + transaction, if used | |
+| Deployment path: manual or paid | |
+| Paid deployment chain and transaction, if used | |
 | Celo paid-read transaction | |
 | Base paid-read transaction | |
 | Revenue split address | |
 
-### 1. Clean install
+## 1. Clean container install
 
-Start in a new empty directory. Install the versioned release asset, verify its published SHA-256 file, and record the release tag and commit it points to.
+Start in a new empty directory:
 
 ```bash
-npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz
 mkdir in-three-voucher
 cd in-three-voucher
-in-three --version
-in-three doctor
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three-container
+chmod +x in-three-container
+./in-three-container --version
+./in-three-container doctor
 ```
 
-Expected: version `0.1.0`, all local prerequisite checks pass, and no `.state/` directory exists until a command needs it. The package path must not run a TypeScript or Vite build.
+Expected:
 
-### 2. Deploy
+- Version is `0.1.1`.
+- The image is pulled from the versioned GHCR tag.
+- The release digest matches the recorded image.
+- Doctor passes.
+- No source compile runs.
+- No `.state/` exists until a stateful command needs it.
 
-Test at least one documented path.
+Inspect the launcher invocation. It must run as the host UID/GID, mount only the current directory, use a read-only root, drop capabilities, set `no-new-privileges`, and omit the Docker socket.
 
-Paid path, when a public broker is available:
+## 2. Deploy
+
+Test one documented path.
+
+Manual three-command path:
 
 ```bash
-npm install -g @celo/buy@0.8.3
-buy setup --name in-three
-in-three deploy --service https://BROKER
+./in-three-container provision
+./in-three-container node up
+./in-three-container client create
 ```
 
-Record the free preflight, quoted 25 USDC ceiling, selected payment chain and settlement transaction, returned Hetzner resource IDs, and whether any rerun attempted another payment. The recurring provider bill is separate. Use a new Hetzner project token and rotate it after provisioning.
-
-Manual prize path:
+Paid path, when a public broker exists:
 
 ```bash
-in-three provision
-in-three node up
-in-three client create
+./in-three-container deploy \
+  --service https://BROKER \
+  --payment-network base
 ```
 
-Record each command's start/end time and any intervention not documented on the site.
+For the paid path, record the free preflight, exact quote, 25 USDC ceiling, settlement transaction, resource IDs, and whether any rerun attempted a second payment. Use a new Hetzner project token and rotate it after provisioning.
 
 Expected handoffs:
 
-- Paid deploy prints the fixed plan and quote before payment, persists the returned provider IDs, and continues into node/client setup without another setup payment.
-- Provision prints the server IP, future HTTPS URL, local state path, and `Next: in-three node up`.
-- Node up may print `Snapchain bootstrap is running on the server` and return while the API remains offline. This is expected; do not restart during extraction.
-- Client create waits, reports bootstrap progress, and continues automatically when the API is online. It must not request the phrase or register a signer while waiting.
-- A successful client deployment prints its URL, agent manifest, local agent-access file, and separate read/write paths.
+- Provision prints the server IP, future HTTPS URL, state path, and next command.
+- Node up may return while snapshot bootstrap continues. Do not restart during extraction.
+- Client create reports snapshot/database/disk progress and continues when the API is online.
+- No phrase is requested while Snapchain is bootstrapping.
+- Setup requires `TEST ACCOUNT` before the hidden phrase prompt.
+- Setup reports a gasless signer, scoped to casts/reactions/follows, with no OP transaction.
+- Success prints the browser URL, agent manifest, local agent file, and separate read/write descriptions.
 
-### 3. Verify the node
+## 3. Verify the node
 
 ```bash
-in-three node status
+./in-three-container node status
 ```
 
 Pass conditions:
 
-- During bootstrap, the container remains running and snapshot/database size advances between checks.
-- Once bootstrapped, the container is healthy.
-- Version is the tutorial's pinned version.
+- Snapshot or database size advances during bootstrap.
+- The final container is healthy.
+- Snapchain matches the pinned version and image digest.
 - All reported shard delays are below 30 seconds.
-- At least 1.5 TB was available before sync.
-- Port 3382/UDP is reachable; HTTP 3381 and gRPC 3383 are not public.
+- At least 1.5 TB was free before sync.
+- UDP 3382 is reachable.
+- HTTP 3381 and gRPC 3383 are not public.
 
-From the host, verify the client is reading its local container:
+Verify the deployed client points at the local node:
 
 ```bash
 ssh -i .state/id_ed25519 inthree@"$(. .state/config; printf '%s' "$SERVER_IP")" \
-  'cd /srv/in-three && sudo docker compose exec -T client printenv READ_NODE_URL'
+  'cd /srv/in-three && sudo docker compose exec -T client printenv READ_NODE_URL WRITE_NODE_URL'
 ```
 
-Expected: `http://snapchain:3381`.
+Expected twice: `http://snapchain:3381`.
 
-### 4. Verify the key boundary
+## 4. Verify the key boundary
 
-Do **not** paste the recovery phrase into any diagnostic command.
+Do not paste the phrase into a diagnostic command.
 
-Check that the custody phrase was not persisted:
+Confirm:
 
-- It is absent from shell history.
-- It is absent from `.state/`.
-- It is absent from `/srv/in-three/client.env`.
-- It is absent from client and Snapchain logs.
-- The registered signer public key is visible in the OP transaction receipt.
-- Celo and Base split-creation receipts target the documented 0xSplits factory with zero native value.
-- The deterministic split address and 95/5 recipients match on both chains.
-- The client environment contains an Ed25519 app key, not an Ethereum private key or mnemonic.
+- The phrase is absent from shell history, `.state/`, remote environment files, and logs.
+- `.state/client.env.pending` preserved the exact gasless message if setup was interrupted.
+- The app signer appears in the owned node's `/v1/signersByFid` response with gasless source, expected scopes, TTL, and public key.
+- No Optimism signer-registration transaction was sent.
+- Any Celo/Base split receipt targets the documented 0xSplits factory with zero native value.
+- Both chains resolve to the documented deterministic 95/5 split.
+- The deployed client has an Ed25519 app key, not a mnemonic or EVM private key.
 
-### 5. Exercise the client
-
-From the HTTPS client:
+## 5. Exercise the client
 
 - [ ] Sign in on desktop.
-- [ ] Sign in on mobile.
-- [ ] Load the home feed while the public validator read endpoint is unavailable or blocked.
+- [ ] Sign in on a mobile viewport.
+- [ ] Load the feed with no hosted Farcaster API configured.
 - [ ] Publish a cast and save its public URL.
-- [ ] Follow an FID from desktop.
-- [ ] Follow an FID from a viewport narrower than 1080px.
+- [ ] Read the cast back from the owned node; do not treat relay acceptance alone as confirmation.
+- [ ] Follow an FID on desktop.
+- [ ] Follow an FID below 1080 px.
 - [ ] Like a cast.
 - [ ] Recast a cast.
-- [ ] Confirm every discovered signer appears in source controls.
-- [ ] Toggle an attributed app group and confirm casts from all of its keys disappear.
-- [ ] Toggle an unattributed exact signer key and confirm only that source disappears.
-- [ ] Re-include both and confirm their casts return.
+- [ ] Confirm every discovered signer key appears in source controls.
+- [ ] Disable one attributed app group and confirm all its keys disappear.
+- [ ] Disable one unattributed key and confirm only that source disappears.
+- [ ] Re-enable both.
 
-Check the cast's signer key against the key registered in the OP receipt.
+Match the cast signer to the gasless signer record from the node.
 
-### 6. Exercise the paid agent path
+## 6. Exercise paid agent access
 
-Use a dedicated low-balance buy wallet. Do not expose <code>.state/agent.env</code>.
+Use dedicated low-balance payer wallets. Keep `.state/agent.env` private.
 
-- [ ] Fetch <code>/.well-known/agent.json</code> and <code>/agent/openapi.json</code> without payment.
-- [ ] Confirm an unpaid feed request returns one x402 v2 offer for Celo and one for Base at the same USDC price and split address.
-- [ ] Confirm a write without the bearer capability returns 401 before a payment challenge.
-- [ ] Quote and buy one feed request on Celo with an exact maximum.
-- [ ] Buy one feed request on Base with <code>node scripts/pay-base.mjs --url https://YOUR_CLIENT/agent/v1/feed --max 0.005</code>.
-- [ ] Record both settlement transactions and confirm both responses came from the owned node.
-- [ ] Confirm the split records 95% operator / 5% P-U-C and can be distributed permissionlessly.
-- [ ] Make one authorized paid write, then confirm its public Farcaster message hash.
-- [ ] Confirm <code>/srv/in-three/client.env</code> has no facilitator credential, revenue recovery state, or write capability.
-- [ ] Confirm <code>/srv/in-three/agent-gateway.env</code> has no Farcaster signer.
+- [ ] Fetch `/.well-known/agent.json` and `/agent/openapi.json` without payment.
+- [ ] Confirm an unpaid feed request offers equal-price Celo and Base USDC routes.
+- [ ] Confirm an unauthorized write returns 401 before a payment challenge.
+- [ ] Buy one Celo feed request with an exact maximum.
+- [ ] Buy one Base feed request with the repository's capped payer.
+- [ ] Record both receipts and confirm responses came from the owned node.
+- [ ] Confirm the same deterministic 95/5 split on both chains.
+- [ ] Make one authorized paid write.
+- [ ] Read its message hash back from the node after relay.
+- [ ] Confirm the client environment has no facilitator key or write capability.
+- [ ] Confirm the gateway environment has no Farcaster signer.
 
-Do not retry an ambiguous paid response. Preserve the receipt and run <code>buy --account in-three receipts --resolve</code>. For paid deployment, keep <code>.state/deployment-payment.pending</code> and rerun the wrapper; verify that it uses status/resume and does not invoke a second purchase.
+Do not blindly retry an ambiguous payment. Preserve the receipt. For an interrupted deployment, retain the payment marker and rerun the wrapper; verify that it uses status/resume without another purchase.
 
-### 7. Teardown test
+## 7. Teardown
 
-After preserving required evidence:
+After preserving evidence:
 
 ```bash
-in-three destroy
+./in-three-container destroy
 ```
 
-Expected: server, volume, firewall, and generated cloud SSH key are deleted. Confirm the Hetzner project has no `managed-by=in-three` resources left.
+Confirm that the server, volume, firewall, and generated provider SSH key are gone and that no `managed-by=in-three` resource remains.
 
 ## Public endorsement
 
-Publish a Farcaster cast in your own words. It should link to the tutorial, state that you personally completed it, and identify at least one concrete strength and any remaining friction.
+Write the cast in your own words. Link the tutorial, say that you personally completed the run, name one concrete strength, and disclose remaining friction.
 
-Suggested structure, not mandatory wording:
+A structure, not copy:
 
-> I independently followed In Three from a clean machine. I provisioned the host, synced a Snapchain read node, registered a delegated signer, and posted this cast from the included client. Reads came from my node; the custody phrase never reached the host. [One specific observation.] Tutorial: https://farcaster.permanentupperclass.com/
+> I completed In Three from a clean machine: provisioned the host, synced Snapchain, authorized a gasless test-account signer, and published this cast through my own read node. [Specific observation and friction.] https://farcaster.permanentupperclass.com/
 
-Add the endorsement URL below in the repository only after it is public:
+Add public evidence only after completion:
 
 ```text
 VOUCHER_CAST_URL=
@@ -181,4 +193,4 @@ TEST_CAST_URL=
 TESTED_COMMIT=
 ```
 
-Do not claim prize eligibility before these fields point to real public evidence.
+Do not claim prize qualification while these fields are blank.

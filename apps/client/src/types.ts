@@ -54,12 +54,17 @@ export interface Source {
   isThisClient: boolean;
 }
 
-export interface OnChainSignerEvent {
+export interface SignerInfo {
+  source?: string;
+  key?: string;
   fid?: number;
-  signerEventBody?: {
-    key?: string;
-    eventType?: string;
-    metadata?: string;
-    metadataType?: number;
+  requestFid?: number;
+  onChainEvent?: {
+    signerEventBody?: {
+      key?: string;
+      eventType?: string;
+      metadata?: string;
+      metadataType?: number;
+    };
   };
 }

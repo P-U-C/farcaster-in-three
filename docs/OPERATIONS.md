@@ -1,100 +1,178 @@
 # Operations
 
-## Installed CLI
+Examples below use the container launcher. For an npm install, replace `./in-three-container` with `in-three`. For a source checkout, use `./farcaster`.
 
-Install the pinned prebuilt release, create a dedicated working directory, and keep using that directory for the deployment's lifetime:
-
-```bash
-npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz
-mkdir in-three-node && cd in-three-node
-in-three doctor
-```
-
-The package ships compiled setup, browser, agent, and deployment-service assets. It stores operational state in the working directory's `.state/`, not under the global npm prefix. Compare the tarball with the SHA-256 file attached to the GitHub release before handling wallet or cloud credentials.
-
-## One-purchase deployment
+## Install
 
 ```bash
-in-three deploy --service https://YOUR_BROKER
-# Optional Base rail:
-in-three deploy --service https://YOUR_BROKER --payment-network base
+mkdir in-three-node
+cd in-three-node
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three-container
+chmod +x in-three-container
+./in-three-container doctor
 ```
 
-Use a dedicated, otherwise-empty Hetzner project and a read/write token. The command generates the SSH key locally, validates the fixed `ash` / `ccx33` / 2,048 GiB plan, proves cloud write access, prints the x402 quote, and requires `BUY DEPLOY`. Its default payment ceiling is 25 USDC.
+The launcher pulls `ghcr.io/p-u-c/farcaster-in-three:0.1.1`, runs it as your UID/GID, and mounts the current directory at `/work`. Keep using this directory. All local state is under `.state/`.
 
-The broker fee is paid once. Hetzner charges the buyer separately until teardown. After provisioning, the same command waits for cloud-init, runs node setup, waits through snapshot bootstrap, and opens the local client key ceremony. Pressing Ctrl-C during bootstrap is safe; rerun `in-three deploy` and it resumes from `.state/config` without another payment.
+Verify the image provenance and digest in the tagged GitHub release before handling wallet or cloud credentials.
 
-Before payment, the command writes a random deployment ID. Immediately before the selected buyer runs, it records the broker origin, SSH source CIDR, payment network, Celo buy account when applicable, and `.state/deployment-payment.pending`. On an interrupted response, rerunning checks the free status route. If the broker recorded the paid entitlement but provisioning did not finish, the command uses the free resume route. If neither exists, it stops for chain-specific receipt resolution; it never buys again automatically.
-
-Local deployment files:
-
-- `.state/deployment-id`: random idempotency key.
-- `.state/deployment-service`: exact broker origin used for the purchase.
-- `.state/deployment-source-cidr`: exact firewall input bound to the entitlement.
-- `.state/deployment-buy-account`: exact usebuy.ai account authorized for a Celo purchase.
-- `.state/deployment-payment-network`: exact Celo or Base rail selected for the attempt.
-- `.state/deployment-payment.pending`: blocks a second automatic purchase until recovery is resolved.
-- `.state/deploy-receipt.txt`: x402 response receipt when returned.
-- `.state/config`: Hetzner resource IDs and host connection state after success.
-
-None contains the Hetzner token. Rotate the project token after the host is available, and retain a separate token for teardown.
-
-## Sync
+## Manual deployment
 
 ```bash
-in-three node status
-in-three node logs
+./in-three-container provision
+./in-three-container node up
+./in-three-container client create
 ```
 
-The first start downloads a public snapshot, decompresses it to `/srv/in-three/data/rocks`, and catches up from peers. This commonly takes hours. `node up` waits long enough to detect an immediate container failure, then returns success when bootstrap is still running. It does not require the HTTP API to be ready. Avoid restarting during snapshot extraction.
+Expected handoffs:
 
-While the API is offline, `node status` reports the container state, snapshot/database sizes, disk use, and recent bootstrap log lines. Rerun it without restarting the node. Once the API responds, a healthy, current node reports shard block delays in single digits; the CLI marks all delays under 30 seconds as ready.
+```text
+provision      server IP, future HTTPS URL, state path, next command
+node up        either API-ready or "bootstrap is running" plus status commands
+client create  waits for API, runs local key ceremony, deploys client and gateway
+```
 
-Disk growth is protocol dependent. Alert before free space falls below 15%. The 2 TiB default is a starting point, not a perpetual capacity guarantee.
+The commands are resumable from the working directory. Do not delete `.state/` during a live or uncertain operation.
 
-## Client
+## One-payment deployment
+
+Inside the container, use a dedicated low-balance Base wallet:
 
 ```bash
-in-three client create
-in-three client status
-in-three client logs
+./in-three-container deploy \
+  --service https://YOUR_BROKER \
+  --payment-network base
 ```
 
-`client create` first checks the local Snapchain API. If bootstrap is incomplete, it remains attached, reports snapshot/database/disk progress every five minutes, and continues automatically when the API responds. It does not request the custody phrase or register a key while waiting. Pressing Ctrl-C only stops the local wait; the remote node keeps bootstrapping and rerunning command 2 is safe.
+The command:
 
-Before running command 2, create a facilitator key at [x402.celo.org](https://x402.celo.org/), confirm its settlement balance, and create a Coinbase CDP Secret API key for Base x402 settlement. Put a small native-gas balance in the custody address on Celo and Base for one-time split creation, in addition to the OP ETH needed for app-key registration. Both credentials are validated in hidden prompts before the custody phrase. On success, the command prints the browser and agent surfaces:
+1. Generates an SSH key and deployment ID locally.
+2. Proves that the dedicated Hetzner token can create resources.
+3. Displays the fixed `ash` / `ccx33` / 2,048 GiB plan.
+4. Fetches the exact x402 quote.
+5. Requires `BUY DEPLOY` before a payment with a default ceiling of 25 USDC.
+6. Persists the returned resource IDs and continues into node and client setup.
+
+Use a new, otherwise-empty Hetzner project. Rotate its token after provisioning and retain a separate token for teardown.
+
+A payment marker is written before purchase. If the response is interrupted, rerun the identical command. It uses free status/resume routes and will not buy again automatically. If no entitlement can be recovered, preserve the marker and receipt, inspect the Base wallet history, and contact the broker with the deployment ID. Do not remove the marker or pay again.
+
+Local paid-deployment files:
+
+- `.state/deployment-id`: idempotency key
+- `.state/deployment-service`: broker origin
+- `.state/deployment-source-cidr`: SSH firewall input
+- `.state/deployment-payment-network`: selected rail
+- `.state/deployment-payment.pending`: repurchase block
+- `.state/deploy-receipt.txt`: returned x402 receipt
+- `.state/config`: resource IDs after success
+
+For Celo, use the host-installed `@celo/buy@0.8.3` package and its OS keychain. The development-only file keystore refuses mainnet and is not enabled in this container.
+
+## Node bootstrap
+
+```bash
+./in-three-container node status
+./in-three-container node logs
+```
+
+The first start downloads and extracts a large public snapshot, then catches up from peers. This commonly takes hours. `node up` checks for immediate failure and returns while healthy bootstrap continues. Do not restart Snapchain during extraction.
+
+Before the API is available, status reports:
+
+- container state
+- snapshot size
+- database size
+- disk use
+- recent bootstrap log lines
+
+Once the API responds, status reports shard delay. All shard delays below 30 seconds are marked ready. Alert before free space falls below 15%; 2 TiB is a starting size, not a permanent capacity guarantee.
+
+## Client setup
+
+```bash
+./in-three-container client create
+./in-three-container client status
+./in-three-container client logs
+```
+
+`client create` opens a temporary SSH tunnel to the node's private HTTP port. If the API is not ready, it reports progress every five minutes and continues automatically. It does not ask for a phrase while waiting.
+
+Prepare:
+
+- an otherwise disposable Farcaster test account with storage
+- a Celo x402 facilitator key
+- a Coinbase CDP Secret API key
+- small native balances on Celo/Base only if their deterministic split contracts are absent
+
+No OP ETH is required for app-key registration.
+
+Setup validates the browser password and facilitator credentials first. It then prints the phrase safety warning and requires `TEST ACCOUNT`. After local signing it displays:
+
+```text
+signer cost    gasless
+signer scopes  casts, reactions, and follows only
+signer life    90-day sliding window
+write path     authorized client -> your read node -> validator gossip
+```
+
+The exact gasless `KEY_ADD` protobuf is stored before submission. Setup sends it through the local tunnel, waits for the signer in `/v1/signersByFid`, and uploads only the delegated key.
+
+Successful `POST /v1/submitMessage` means accepted for relay. It is not block inclusion. Confirm the resulting signer or social message by reading it back from the synced node.
+
+After deployment, the command prints:
 
 ```text
 URL           https://203-0-113-10.sslip.io
 agent API     https://203-0-113-10.sslip.io/.well-known/agent.json
 agent access  .state/agent.env
 read path     browser or paid agent -> client service -> your Snapchain node
-write path    authorized paid agent -> client service -> validator
+write path    authorized client -> your read node -> validator gossip
 ```
-
-The public health routes confirm that both browser and agent paths can query the configured read node. Browser routes use the signed session cookie. Agent routes advertise x402 v2 USDC on Celo and Base; writes additionally require the capability in `.state/agent.env`. The bundled buy CLI selects Celo. Follow is available in the desktop sidebar and from a dedicated narrow-screen control.
-
-See [AGENT-API.md](AGENT-API.md) for exact buy CLI and MCP requests.
 
 To use your own domain:
 
-1. Point an A record to the server IP.
+1. Point an A record to the server.
 2. Change `CLIENT_DOMAIN` in `/srv/in-three/.env`.
 3. Run `cd /srv/in-three && sudo docker compose up -d caddy`.
-4. Confirm the new certificate and then stop using the `sslip.io` hostname.
+4. Confirm the new certificate before retiring the `sslip.io` hostname.
+
+## Recovery files
+
+`.state/client.env.pending` is owner-only and may temporarily contain:
+
+- delegated app key
+- exact gasless `KEY_ADD` protobuf, message hash, and checksum
+- exact Celo/Base split transactions and local hashes
+- facilitator credentials
+- generated agent write capability
+- setup statuses
+
+It never contains the phrase or derived EVM private key.
+
+On an uncertain result, keep the file and rerun `client create`. Gasless recovery checks current signer state first, verifies the saved protobuf, and resubmits only those bytes. Split recovery checks receipts and rebroadcasts only the saved transactions. Payloads are removed as they confirm. The file is deleted after both public health checks pass.
+
+Version 0.1.1 can also recover a pending v0.1.0 Optimism registration transaction. This compatibility path is not used for new signers.
+
+Runtime separation:
+
+- `/srv/in-three/client.env`: app signer and browser secrets
+- `/srv/in-three/agent-gateway.env`: facilitator credentials, prices, split data, write capability
+- `/srv/in-three/data/deployer`: paid entitlement records
+- `.state/agent.env`: local public origin and owner capability
+
+Losing the app key does not affect custody. Authorize a replacement and revoke the old public key.
 
 ## Cost
 
-The default Ashburn deployment is approximately **$265/month before IPv4, traffic, or tax** at the rates checked on 2026-10-17:
+Rates checked on 2026-10-17 put the default Ashburn deployment near **$265/month before IPv4, traffic, and tax**:
 
 - CCX33: $165.99/month
 - 2,048 GiB volume at $0.0484/GiB-month: about $99.12/month
 
-The provider console is authoritative. Confirm the displayed total before typing `PROVISION` or `BUY DEPLOY`, and use `in-three destroy` when the node is no longer needed.
+The provider console is authoritative. Confirm its displayed total before `PROVISION` or `BUY DEPLOY`.
 
-The one-purchase path adds a default 25 USDC broker automation fee. That is a one-time x402 request, not infrastructure credit. The manual three-command path has no broker fee.
-
-Agent API defaults are 0.002 USDC for profile/source metadata, 0.005 USDC for a feed read, and 0.02 USDC for a write. Every route uses an immutable 95% operator / 5% P-U-C split on the selected chain. A 0.1% permissionless distribution incentive is applied when accumulated USDC is released. These receipts are not infrastructure discounts. Facilitators may charge their published fees separately. The 402 quote and facilitator dashboards are authoritative; bridging is optional after distribution and never occurs in checkout.
+The broker's default automation price is 25 USDC once. It is not infrastructure credit. Agent defaults are 0.002 USDC for metadata, 0.005 USDC for a feed, and 0.02 USDC for a write. Each payment uses the immutable 95% operator / 5% P-U-C split plus a 0.1% distribution incentive. No bridge runs during checkout.
 
 ## Agent gateway
 
@@ -104,94 +182,50 @@ buy quote https://YOUR_CLIENT/agent/v1/feed
 buy curl --max-amount 0.005 https://YOUR_CLIENT/agent/v1/feed
 ```
 
-Runtime files:
+Reads require payment. Writes require the capability in `.state/agent.env` before a payment challenge is returned.
 
-- `/srv/in-three/client.env`: Farcaster signer and browser secrets; no buy credentials.
-- `/srv/in-three/agent-gateway.env`: Celo/CDP facilitator credentials, split and operator addresses, prices, and write capability; no Farcaster signer.
-- `/srv/in-three/data/deployer`: mode-0700 paid entitlement records, writable only by the non-root deployer container UID.
-- `.state/agent.env`: local public origin and write capability for an authorized agent.
+To change prices, edit `BUY_AGENT_READ_PRICE`, `BUY_AGENT_METADATA_PRICE`, `BUY_AGENT_WRITE_PRICE`, or `BUY_DEPLOY_PRICE` in the remote gateway environment and restart `agent-gateway`.
 
-To change prices, edit `BUY_AGENT_READ_PRICE`, `BUY_AGENT_METADATA_PRICE`, `BUY_AGENT_WRITE_PRICE`, or `BUY_DEPLOY_PRICE` in the gateway environment and run `sudo docker compose up -d agent-gateway`. Keep the token symbol USDC.
+To rotate write access, replace `AGENT_WRITE_TOKEN` in the remote gateway environment and local `.state/agent.env`, then restart the gateway. Old callers stop at HTTP 401 before payment.
 
-USDC accumulates at the deterministic split address until a permissionless distribution transaction runs. Inspect and distribute the address on both chains through [Splits](https://app.splits.org/) or the 0xSplits SDK. The 0.1% keeper incentive is intentionally small; a low-volume operator may distribute its own balance. The allocation is immutable, so changing the operator payout address requires a new setup and split.
-
-To rotate write access, replace `AGENT_WRITE_TOKEN` with a new 32-byte base64url value in both the remote gateway environment and local `.state/agent.env`, then restart the gateway. Existing agents stop at 401 before payment.
+See [AGENT-API.md](AGENT-API.md) for request and receipt handling.
 
 ## Upgrades
 
-Never replace a digest with `latest`.
+Never replace an image digest with `latest`.
 
-1. Read the Snapchain release notes and migration guidance.
-2. Record the release tag, commit, platform image digest, and validator-manifest SHA-256.
-3. Update `deploy/docker-compose.yml`, `scripts/node.sh`, the tutorial, and source ledger together.
-4. Run the automated test and visual suites.
-5. Start a fresh node or snapshot/backup the existing volume.
-6. Verify block delays and API compatibility before declaring the version supported.
+1. Read Snapchain release notes and migrations.
+2. Record the tag, commit, image digest, and validator-manifest SHA-256.
+3. Update Compose, node script, tutorial, and source ledger together.
+4. Run code, package, container, shell, and visual tests.
+5. Back up or replace the node volume.
+6. Verify API compatibility and shard delay.
 
-Client upgrades rebuild from the local committed lockfile:
+`client create` registers a new app key when no pending setup exists. Do not use it as a casual UI-update command.
 
-```bash
-in-three client create
-```
+## Failure guide
 
-That command currently registers a new signer. For a UI-only upgrade, copy the source archive and run the remote Compose build manually rather than creating another key.
-
-## Backup and recovery
-
-Snapchain database:
-
-- Rebuildable from a verified public snapshot.
-- Large and write-heavy; crash-consistent volume snapshots are preferable to file copies.
-- Stop Snapchain before a manual filesystem snapshot when possible.
-
-App key:
-
-- Stored in `/srv/in-three/client.env` after a successful deployment.
-- Before broadcast, `.state/client.env.pending` stores the app key, Celo/Base split transactions, Optimism registration transaction, local hashes, statuses, facilitator credentials, and generated agent capability with mode 0600.
-- If any broadcast returns an error, keep the file: the RPC may have accepted the transaction. Rerun `in-three client create`; it validates every saved hash, rebroadcasts only the exact pending bytes, and checks receipts without asking for the phrase.
-- Each serialized transaction is removed as soon as its receipt confirms.
-- Recovery and payment metadata are stripped before `client.env` is uploaded to the host.
-- Both facilitator credentials and the write capability are isolated in `agent-gateway.env`; the gateway receives no Farcaster signer.
-- The local pending file is deleted only after both public HTTPS health checks pass, with a best-effort overwrite when `shred` is available.
-- Backing up the deployed app key preserves client identity but expands the compromise surface.
-- Losing it does not affect custody; register a new signer and revoke the old public key.
-
-Local state:
-
-- `.state/config` identifies cloud resources.
-- `.state/deployment-*` files bind an interrupted paid attempt to the original broker, deployment ID, and firewall CIDR; no cloud token is stored.
-- `.state/deploy-receipt.txt` stores the returned x402 receipt when available.
-- `.state/id_ed25519` operates the host.
-- `.state/client.env.pending` may temporarily hold the delegated key, facilitator credentials, agent capability, and fixed Celo/Base/Optimism transactions during recovery.
-- `.state/agent.env` holds the public API origin and owner write capability.
-- All are excluded from Git and should be backed up only to an encrypted operator vault.
-
-## Failure modes
-
-| Symptom | First check |
+| Symptom | First action |
 | --- | --- |
-| Node API unavailable during first start | `in-three node status`; wait while snapshot/database size changes |
-| Node container stopped | `in-three node logs` |
-| Block delay rising | UDP 3382 firewall, peer errors, disk saturation |
-| Snapshot loops | Free disk, volume mount, release notes |
-| Client 503 health | Snapchain container health and internal DNS |
-| Login fails | Correct deployment password; cookie domain/HTTPS |
-| Agent read returns 402 | Expected unpaid quote; use buy with an exact maximum |
-| Agent write returns 401 | Supply the current owner capability; no payment occurred |
-| Facilitator returns 401/402 | Identify the selected chain, then rotate/fund its Celo or CDP credential |
-| Paid agent request is ambiguous | Do not retry; preserve output and run `buy --account in-three receipts --resolve` |
-| Paid deployment interrupted | Keep `.state/deployment-payment.pending`; rerun `in-three deploy` to recover or resume without buying again |
-| Paid deployment has no entitlement | Do not remove the marker or repay; resolve the receipt and contact the broker with deployment ID and transaction only |
-| Hetzner rejects after payment | Correct project quota/token issues, then rerun the free entitled resume path |
-| Validator rejects write | FID storage, signer onchain state, clock, text limits |
-| TLS pending | A/AAAA resolution, ports 80/443, Caddy logs; keep `.state/client.env.pending` and rerun create |
-| Setup interrupted during split or signer broadcast | Keep `.state/client.env.pending`; rerun `in-three client create` |
-| SSH fails after IP change | Update Hetzner firewall source CIDR in console |
+| API unavailable during first start | Run `node status`; wait while snapshot/database size changes |
+| Node stopped | Read `node logs` |
+| Shard delay rises | Check UDP 3382, peer errors, and disk saturation |
+| Snapshot loops | Check free disk, volume mount, and release notes |
+| Client health is 503 | Check Snapchain health and internal DNS |
+| Login fails | Verify password, hostname, and HTTPS cookie scope |
+| Agent read is 402 | Expected quote; pay once with an exact maximum |
+| Agent write is 401 | Supply the current owner capability; no payment occurred |
+| Paid response is ambiguous | Preserve receipt and do not retry blindly |
+| Paid deployment was interrupted | Keep payment marker; rerun the same deploy command |
+| Read node rejects a message | Check FID storage, signer state/scopes/TTL, clock, and field limits |
+| Message was accepted but absent | Wait for sync, then resubmit the same signed bytes if still absent |
+| TLS remains pending | Check DNS, ports 80/443, and Caddy logs |
+| Setup stopped mid-broadcast | Keep the pending file and rerun `client create` |
 
 ## Teardown
 
 ```bash
-in-three destroy
+./in-three-container destroy
 ```
 
-The command deletes the server, data volume, firewall, and generated provider SSH key. Check the provider console for resources labeled `managed-by=in-three`.
+Confirm in Hetzner that no resources labeled `managed-by=in-three` remain.

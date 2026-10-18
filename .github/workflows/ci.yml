@@ -11,7 +11,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -37,7 +37,7 @@ jobs:
           tar -tzf "$package_tarball" | grep -q 'package/apps/client/dist/web/index.html'
           npm install --global --prefix /tmp/in-three-prefix "$package_tarball"
           cd /tmp/in-three-workspace
-          test "$(/tmp/in-three-prefix/bin/in-three --version)" = "0.1.0"
+          test "$(/tmp/in-three-prefix/bin/in-three --version)" = "0.1.1"
           /tmp/in-three-prefix/bin/in-three --help | grep -q 'in-three provision'
           test ! -e .state
 
@@ -45,11 +45,18 @@ jobs:
         run: npm audit --audit-level=moderate
 
       - name: Parse shell entrypoints
-        run: bash -n farcaster scripts/*.sh scripts/lib/common.sh deploy/snapchain-entrypoint.sh
+        run: bash -n farcaster container-entrypoint in-three-container scripts/*.sh scripts/lib/common.sh deploy/snapchain-entrypoint.sh
 
-      - name: Validate Compose model
+      - name: Validate Compose models
         run: |
           mkdir -p deploy/source
           touch deploy/client.env deploy/validators.toml
           printf 'CLIENT_DOMAIN=example.invalid\n' > deploy/.env
           docker compose -f deploy/docker-compose.yml config --quiet
+          docker compose -f in-three.compose.yml config --quiet
+
+      - name: Build and exercise the operator image
+        run: |
+          docker build --file Dockerfile.operator --tag in-three-operator:test .
+          test "$(docker run --rm in-three-operator:test --version)" = "0.1.1"
+          docker run --rm in-three-operator:test doctor

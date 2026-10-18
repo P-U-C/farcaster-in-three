@@ -1,0 +1,27 @@
+name: in-three-operator
+
+services:
+  in-three:
+    image: ghcr.io/p-u-c/farcaster-in-three:0.1.1
+    pull_policy: missing
+    init: true
+    user: "${IN_THREE_UID:-1000}:${IN_THREE_GID:-1000}"
+    working_dir: /work
+    environment:
+      HOME: /work/.state/container-home
+      BUY_HOME: /work/.state/buy
+      TERM: "${TERM:-xterm-256color}"
+    volumes:
+      - type: bind
+        source: .
+        target: /work
+    stdin_open: true
+    tty: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256

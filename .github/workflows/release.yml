@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
@@ -46,4 +47,65 @@ jobs:
           gh release create "$GITHUB_REF_NAME" release/* \
             --verify-tag \
             --title "In Three ${GITHUB_REF_NAME}" \
-            --notes "Prebuilt npm CLI for macOS and Linux. Install from the attached .tgz; verify it with the attached SHA-256 file. The package stores operational state in the directory where in-three is run."
+            --notes "Prebuilt npm CLI plus a multi-architecture OCI operator image for macOS and Linux. Verify the attached npm tarball with its SHA-256 file, or pull ghcr.io/p-u-c/farcaster-in-three:${GITHUB_REF_NAME#v}. Operational state stays in the mounted working directory."
+
+  container:
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and publish the operator image
+        env:
+          IMAGE: ghcr.io/p-u-c/farcaster-in-three
+          VERSION: ${{ github.ref_name }}
+        run: |
+          version="${VERSION#v}"
+          docker buildx build \
+            --file Dockerfile.operator \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg "VERSION=${version}" \
+            --build-arg "REVISION=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag "${IMAGE}:${version}" \
+            --tag "${IMAGE}:${VERSION}" \
+            --tag "${IMAGE}:latest" \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --provenance=mode=max \
+            --sbom=true \
+            --push \
+            .
+
+      - name: Make the package public
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method PATCH \
+            /orgs/P-U-C/packages/container/farcaster-in-three \
+            -f visibility=public
+
+      - name: Verify an anonymous pull
+        env:
+          IMAGE: ghcr.io/p-u-c/farcaster-in-three
+          VERSION: ${{ github.ref_name }}
+        run: |
+          version="${VERSION#v}"
+          docker logout ghcr.io
+          docker pull "${IMAGE}:${version}"
+          test "$(docker run --rm "${IMAGE}:${version}" --version)" = "${version}"
+          docker run --rm "${IMAGE}:${version}" doctor

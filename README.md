@@ -2,30 +2,64 @@
 
 **A three-command path from bare compute to a sovereign Farcaster client.**
 
-[Microsite and tutorial](https://farcaster.permanentupperclass.com/) | [Tester bounties](TESTER-BOUNTY.md) | [Paid agent API](docs/AGENT-API.md) | [Architecture](docs/ARCHITECTURE.md) | [Security model](SECURITY.md) | [Human voucher](VOUCHER.md)
+[Live tutorial](https://farcaster.permanentupperclass.com/) | [Tester bounties](TESTER-BOUNTY.md) | [Agent API](docs/AGENT-API.md) | [Architecture](docs/ARCHITECTURE.md) | [Security](SECURITY.md) | [Voucher runbook](VOUCHER.md)
 
-In Three provisions compute, starts a Snapchain read node, registers a delegated Farcaster app key, and deploys a responsive client. Reads come from the node you operate. Signed writes go directly to a validator. The custody phrase is used only in the local setup process and is never installed on the host.
+In Three provisions a persistent host, starts a Snapchain read node, and deploys a small Farcaster client. The client reads from that node and submits signed messages back to it. The read node validates each message and gossips it to validators for inclusion. No hosted Farcaster data API or write API is involved.
 
-A running In Three instance can also sell the complete provisioning step through x402 v2. The same URL quotes chain-local USDC on Celo and Base; the buyer chooses either rail. One paid request creates the fixed Hetzner server, volume, firewall, and SSH key, then starts Snapchain. The buyer still owns the cloud account and completes the custody ceremony locally. The deployed client publishes the same paid API for agents: public paid reads and capability-gated paid writes.
+The setup flow creates a scoped, gasless Farcaster app key. It does not send an Optimism transaction. The delegated key can publish casts, reactions, and follows; it cannot transfer custody of the account.
+
+> **Developer flow, test accounts only.** A recovery phrase is full account control. Read and trust the source before entering one, use an otherwise disposable test account, and never send a phrase through chat or to a remote host. Production clients should use delegated signer authorization through a trusted wallet instead of asking users for raw phrases.
+
+A running instance can also sell agent access over x402 v2 on Celo and Base. Paid reads are public. Paid writes also require an owner-issued capability. Revenue settles to an immutable 0xSplits contract: 95% to the operator and 5% to P-U-C.
 
 ![Illustrative In Three client preview using synthetic accounts and casts](site/public/client-preview.webp)
 
-*Illustrative preview. The generated image uses synthetic accounts and casts; a deployed client reads live protocol data from its own node.*
+*Illustrative preview. The accounts and casts are synthetic; the deployed client displays data from its own node.*
 
-## Install the prebuilt CLI
+## Container quickstart
 
-The versioned npm tarball contains the compiled setup utility, browser client, agent gateway, and deployment service. It does not compile TypeScript or Vite assets on the operator machine.
+The supported operator image is multi-architecture and versioned. The host needs Docker, Bash, and the small launcher below. The application itself runs inside the image.
 
 ```bash
-npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz
 mkdir in-three-node
 cd in-three-node
-in-three --version
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three-container
+chmod +x in-three-container
+./in-three-container doctor
 ```
 
-The CLI stores keys, receipts, and deployment state in `.state/` under the current directory, never in the global npm installation. Keep using the same directory for status, recovery, and teardown commands.
+The launcher is short enough to inspect. It runs the image as your UID/GID, mounts only the current directory, uses a read-only root filesystem, drops Linux capabilities, and never mounts the Docker socket. Keys, receipts, and deployment state stay in `.state/` in the current directory.
 
-A source checkout remains supported for auditing and development:
+Then run the three commands:
+
+```bash
+./in-three-container provision
+./in-three-container node up
+./in-three-container client create
+```
+
+`node up` returns once the node is safely bootstrapping. `client create` waits for the local Snapchain API, reports snapshot and disk progress, and continues when the node is ready.
+
+Direct Compose usage is also available:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three.compose.yml
+IN_THREE_UID="$(id -u)" IN_THREE_GID="$(id -g)" \
+  docker compose -f in-three.compose.yml run --rm in-three doctor
+```
+
+## Prebuilt host package
+
+The versioned npm tarball contains compiled server and browser assets. It does not build TypeScript or Vite on the operator machine.
+
+```bash
+npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.1/farcaster-in-three-0.1.1.tgz
+mkdir in-three-node
+cd in-three-node
+in-three doctor
+```
+
+A source checkout remains available for review and development:
 
 ```bash
 git clone https://github.com/P-U-C/farcaster-in-three.git
@@ -33,77 +67,83 @@ cd farcaster-in-three
 ./farcaster doctor
 ```
 
-The source path builds from the exact lockfile. The packaged `in-three` path uses the release's prebuilt artifacts.
+## What the commands do
 
-## One-purchase deployment
+- `provision` shows the Hetzner plan, asks for `PROVISION`, and creates the server, 2 TiB volume, firewall, and dedicated SSH key.
+- `node up` verifies the pinned release and validator manifest, then starts Snapchain snapshot bootstrap.
+- `client create` validates the browser password and payment credentials, opens an SSH tunnel to your node, and only then begins the local test-account key ceremony.
+- `destroy` names the resources it will delete and requires `DESTROY`.
 
-Install and fund usebuy.ai's pinned buyer, then point the repository at a running In Three broker:
+During `client create`, setup:
+
+1. Requires the exact acknowledgement `TEST ACCOUNT` before it asks for a phrase.
+2. Resolves the account's FID and storage through your read node.
+3. Creates an Ed25519 signer limited to casts, reactions, and follows.
+4. Signs a gasless `KEY_ADD` with a 90-day sliding TTL and the FID's next nonce.
+5. Saves the exact protobuf, its hash, checksum, and app key before submission.
+6. Submits that message to your read node through the local SSH tunnel.
+7. Waits until the signer appears in the node's unified signer API.
+8. Uploads only the revocable app key to the server and discards the phrase with process exit.
+
+A read node has no mempool. HTTP success means the message was accepted for relay, not that a validator included it in a block. Treat a later read from the node as confirmation.
+
+## One-payment deployment
+
+A deployed In Three broker can sell the fixed provisioning step for one x402 payment. The buyer still owns the Hetzner project and performs the test-account ceremony locally.
+
+The container route uses a dedicated, low-balance Base buyer key:
+
+```bash
+./in-three-container deploy \
+  --service https://YOUR_BROKER \
+  --payment-network base
+```
+
+The command first performs a free cloud-token and plan preflight, displays the exact x402 quote, and requires `BUY DEPLOY`. Its default ceiling is 25 USDC. Hetzner separately bills the server, IPv4 address, traffic, tax, and volume until `destroy` succeeds.
+
+For Celo, install `@celo/buy@0.8.3` on the host and use its operating-system keychain:
 
 ```bash
 npm install -g @celo/buy@0.8.3
 buy setup --name in-three
-in-three deploy --service https://YOUR_BROKER
-# Or pay the same quote from a dedicated Base wallet:
-in-three deploy --service https://YOUR_BROKER --payment-network base
+in-three deploy --service https://YOUR_BROKER --payment-network celo
 ```
 
-The command performs a free cloud-token and plan preflight, shows the x402 quote, and asks for `BUY DEPLOY` before spending. The default ceiling is **25 USDC once** for automation. Hetzner bills the buyer separately for the server, IPv4 address, traffic, tax, and 2 TiB volume until `in-three destroy` succeeds.
+The usebuy.ai file keystore is development-only and refuses mainnet. The container does not weaken that safeguard. Use the host package for the Celo rail, or use the container's in-memory Base payer.
 
-The command generates the SSH key locally, saves a client-generated deployment ID, buys once, starts Snapchain, waits through snapshot bootstrap, and then opens the same local password, facilitator-key, and custody prompts used by command 2. If the paid response is interrupted, rerun the command: it checks the saved deployment and durable entitlement before it can consider another payment.
+Paid-deployment state is resumable. If a paid response is interrupted, rerun the same command from the same directory. A payment-pending marker blocks a second purchase until the saved entitlement or receipt is resolved.
 
-Use a new, otherwise-empty Hetzner project with a read/write token, and rotate that token after deployment. The chosen broker receives it over HTTPS for provisioning and keeps only a SHA-256 entitlement binding, not the token. The SSH private key and custody phrase never leave the operator machine.
+Use a new, otherwise-empty Hetzner project and rotate its token after provisioning. The broker receives the token over HTTPS for the bounded provisioning request and retains only a SHA-256 binding. It never receives the SSH private key, Farcaster phrase, browser password, or app signer.
 
-Every paid route settles to an immutable 0xSplits contract created during seller setup: **95% to the node operator and 5% to P-U-C**. Distribution carries a 0.1% keeper incentive, so either recipient or an independent keeper can release accumulated USDC without controlling the split. There is no referral tree and no bridge in the request path. Operators may consolidate treasury balances later, after settlement.
+## Components
 
-The bundled `buy` wrapper selects Celo because `@celo/buy` 0.8.3 manages a Celo wallet. The included `scripts/pay-base.mjs` provides a quote-first, capped Base read path; autonomous agents can use the same official x402 v2 client packages. Both offers are published in one `PAYMENT-REQUIRED` response.
-
-## Three commands
-
-The manual path does not send the Hetzner token to a broker. From the working directory created above:
-
-```bash
-in-three provision
-in-three node up
-in-three client create
-```
-
-The commands are interactive at the boundaries that cost money or grant authority:
-
-- `provision` shows the billable infrastructure plan and requires `PROVISION`.
-- `client create` prepares the Celo/Base revenue routes plus `KeyGateway.add` and requires `ENABLE AND REGISTER` before any broadcast.
-- `destroy` names the data being deleted and requires `DESTROY`.
-
-## What gets built
-
-| Layer | Implementation | Trust boundary |
+| Layer | Implementation | Boundary |
 | --- | --- | --- |
-| Compute | Hetzner CCX host, 2 TiB volume, dedicated SSH key | Manual path keeps the token local; paid path sends it to the selected broker over HTTPS |
-| Deployment broker | Fixed-plan Hetzner provisioner behind one 25 USDC x402 request | Persists a token hash and request binding, never the cloud token or SSH private key |
-| Read node | Snapchain 0.14.3, image pinned by digest | HTTP/gRPC private; QUIC gossip public |
-| Signer | Fresh Ed25519 key registered on OP Mainnet | Custody mnemonic exists only in local process memory |
-| Client | React UI + Node service + official Farcaster builders | Stores only the revocable app key |
-| Edge | Caddy 2.10.2 with automatic TLS | Password protected, signed HttpOnly session cookie |
-| Agent gateway | x402 v2, Celo + Base USDC | Both facilitator credentials are isolated from the Farcaster signer |
-| Writes | Binary protobuf to a live validator endpoint | No hosted Farcaster API key |
+| Compute | Hetzner CCX host and 2 TiB volume | Dedicated project and SSH key |
+| Node | Snapchain 0.14.3 pinned by image digest | HTTP/gRPC private; QUIC gossip public |
+| Signer | Gasless scoped Farcaster `KEY_ADD` | Phrase local; app key revocable |
+| Client | React UI, Node service, official message builders | Reads and writes through owned node |
+| Edge | Caddy 2.10.2 with automatic TLS | Password and signed HttpOnly session |
+| Agent gateway | x402 v2, Celo and Base USDC | Payment credentials isolated from signer |
+| Revenue | Immutable 0xSplits V2 95/5 split | No bridge in the purchase path |
 
-The reference client reads a chronological feed from follows and casts, publishes casts, follows FIDs, likes, and recasts. It exposes every discovered signer source, groups keys with the same decoded SignedKeyRequest requester, and retains exact-key controls when attribution is unavailable.
+The client displays a chronological feed, posts and deletes casts, follows and unfollows FIDs, and likes, recasts, and removes reactions. Source controls expose every signer key. Keys with the same available app attribution are grouped, while unattributed keys remain individually selectable.
 
 ## Requirements
 
-Operator machine:
+Container operator:
 
-- Linux or macOS
-- Bash, curl, jq, SSH, tar, OpenSSL, Node.js 22+, npm
-- `sha256sum` on Linux or `shasum` on macOS
-- `@celo/buy` 0.8.3 and a funded Celo USDC buyer wallet for the one-purchase path
-- A Hetzner Cloud API token with resource creation permissions
-- Seller setup: a Celo x402 facilitator key, a Coinbase CDP key for Base, and a small native-gas balance on Celo and Base for one-time split creation
+- Docker 24 or newer on Linux or macOS
+- Bash and curl for the launcher
+- Hetzner Cloud API token with resource creation permission
+- Celo x402 facilitator key and Coinbase CDP Secret API key for a deployed agent gateway
+- Small CELO and ETH balances only if the deterministic Celo/Base revenue split contracts do not yet exist
 
-Farcaster account:
+Farcaster test account:
 
-- Existing FID and custody recovery phrase
-- At least one storage unit
-- Enough ETH on Optimism for one signer-registration transaction
+- Existing FID and at least one storage unit
+- Recovery phrase for that test account
+- No Optimism ETH is required for app-key registration
 
 Node:
 
@@ -112,75 +152,57 @@ Node:
 - 16 GiB or more RAM
 - At least 1.5 TB free storage
 
-Run `in-three doctor` before provisioning.
+The initial snapshot is several hundred gigabytes and commonly takes hours to download, extract, and catch up.
 
 ## Operations
 
 ```bash
-in-three node status
-in-three node logs
-in-three client status
-in-three client logs
-in-three destroy
+./in-three-container node status
+./in-three-container node logs
+./in-three-container client status
+./in-three-container client logs
+./in-three-container destroy
 ```
 
-The initial verified snapshot is several hundred gigabytes and commonly takes hours to download, decompress, and catch up. `node up` treats a running bootstrap as success and returns progress commands instead of timing out. `node status` reports snapshot/database growth until the API is online, then each available shard delay; under 30 seconds is treated as ready. `client create` waits with periodic snapshot and disk progress, then continues automatically. It does not request a phrase or register a signer while waiting.
+For package or source installs, replace `./in-three-container` with `in-three` or `./farcaster`.
 
-Before broadcast, setup stores the app key, each serialized Celo/Base split transaction, the serialized Optimism registration transaction, locally calculated hashes, facilitator credentials, and generated agent capability in owner-only `.state/client.env.pending`. If an RPC response is lost or a later step fails, rerun `in-three client create`; it rebroadcasts the exact saved bytes and checks each receipt without another custody signature. Serialized transactions are removed as they confirm. The pending file is deleted after both browser and agent health checks pass, with a best-effort overwrite when `shred` is available.
+The owner-only `.state/client.env.pending` file makes setup recoverable. It may contain the app key, exact gasless `KEY_ADD` protobuf, message hash and checksum, payment credentials, agent capability, and exact serialized Celo/Base split transactions. On an ambiguous response, rerun `client create`; it checks node state first and resubmits only the saved message. It removes signed payloads as each action confirms and deletes the pending file after both public health checks pass.
 
-The paid path stores `.state/deployment-id`, `.state/deployment-service`, `.state/deployment-source-cidr`, `.state/deployment-payment-network`, and the Celo buy account when applicable, so a rerun uses the identical request and rail. A payment-pending marker blocks automatic repurchase until the saved deployment or entitlement is recovered. It never stores the Hetzner token.
-
-Command 2 also writes owner-only `.state/agent.env`. Its public origin and bearer capability let an authorized agent buy write actions; paid reads need no bearer capability. See [docs/AGENT-API.md](docs/AGENT-API.md) for deployment, prices, buy CLI/MCP usage, receipts, and listing steps.
-
-See [docs/OPERATIONS.md](docs/OPERATIONS.md) for exact output, costs, upgrades, recovery, domain changes, and key incidents.
+See [docs/OPERATIONS.md](docs/OPERATIONS.md) for expected output, costs, upgrades, recovery, and domain changes.
 
 ## Verification
 
 ```bash
 npm ci
 npm run check
+npm run build
 npm audit --audit-level=moderate
-bash -n farcaster scripts/*.sh scripts/lib/*.sh scripts/test/*.sh deploy/snapchain-entrypoint.sh
-docker run --rm -v "$PWD:/mnt:ro" -w /mnt koalaman/shellcheck:stable farcaster scripts/*.sh scripts/lib/*.sh scripts/test/*.sh deploy/snapchain-entrypoint.sh
+docker build -f Dockerfile.operator -t in-three-operator:test .
+docker run --rm in-three-operator:test doctor
 node scripts/visual-check.mjs
 ```
 
-The automated suite covers:
+The test suite covers password and session handling, gasless `KEY_ADD` recovery, read-node write submission, x402 pricing and payment bounds, provisioning idempotency, secret separation, feed construction, complete source filtering, mobile Follow access, production builds, dependency audit, and desktop/mobile rendering.
 
-- scrypt password verification and signed-session expiry
-- Farcaster SignedKeyRequest ABI encoding
-- x402 v2 Celo/Base pricing, discovery, pre-payment write authorization, and the 25 USDC deployment route
-- idempotent Hetzner resource creation, write-token preflight, durable entitlement recovery, and no-second-payment shell behavior
-- strict separation of client, payment, and local agent secrets
-- protobuf cast construction and binary validator submission
-- feed assembly and signer attribution through a mock Snapchain HTTP API
-- production builds and TypeScript checks
-- desktop and mobile browser rendering, narrow-screen Follow access, complete source controls, overflow, and console-error checks
-- dependency audit
-
-A local test cannot substitute for a full 1.5 TB mainnet sync. Prize qualification therefore has a separate, non-negotiable [human voucher runbook](VOUCHER.md).
+Automated tests do not establish that a multi-terabyte mainnet sync and public post work end to end. Prize qualification still requires the independent [voucher run](VOUCHER.md).
 
 ## Repository map
 
 ```text
-farcaster                 three-command operator entrypoint
-scripts/                  provisioning, deployment, status, teardown
-deploy/                   pinned Snapchain/Caddy Compose definition
-apps/client/src/           auth, node reader, message writer, key ceremony
-apps/client/web/           responsive reference client
-site/                      public tutorial microsite
-skills/in-three/           installable paid-agent operating skill
-docs/                      architecture, agent API, operations, source ledger
+Dockerfile.operator         versioned OCI operator image
+in-three-container          isolated Docker launcher
+farcaster                   source-checkout entrypoint
+scripts/                    provisioning, deployment, recovery, teardown
+deploy/                     pinned Snapchain and Caddy deployment
+apps/client/src/            node reader, writer, auth, and setup
+apps/client/web/            responsive reference client
+site/                       public tutorial
+skills/in-three/            paid-agent operating skill
+docs/                       architecture, operations, API, and sources
 ```
 
-## Security
+## Security and licensing
 
-This is security-conscious reference software, not audited wallet software. Read [SECURITY.md](SECURITY.md) before entering a custody phrase.
+This is reference software, not audited wallet software. Review [SECURITY.md](SECURITY.md) before entering a test-account phrase.
 
-The strongest guarantee is architectural: the custody phrase never reaches the provisioned machine. A compromised client host can post as the FID until its app key is revoked, but it cannot sign Ethereum transactions or transfer custody.
-
-## Licensing
-
-All original code and documentation in this repository are MIT licensed.
-
-The deployment runs the official `farcasterxyz/snapchain` image, which is GPL-3.0 licensed. The image is referenced by immutable digest and is not copied into or relicensed by this repository. Caddy and all npm dependencies retain their own licenses.
+Original code and documentation are MIT licensed. The deployment runs the official GPL-3.0 `farcasterxyz/snapchain` image by immutable digest; it is not copied into or relicensed by this repository. Other dependencies retain their own licenses.

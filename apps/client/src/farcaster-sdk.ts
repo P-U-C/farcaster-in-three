@@ -25,14 +25,19 @@ const sdk = await import("@farcaster/hub-nodejs");
 export const {
   CastType,
   FarcasterNetwork,
+  getFarcasterTime,
   makeCastAdd,
+  makeKeyAdd,
+  makeKeyAddBody,
   makeLinkAdd,
   makeLinkRemove,
   makeReactionAdd,
   makeReactionRemove,
   Message,
+  MessageType,
   NobleEd25519Signer,
   ReactionType,
+  ViemLocalEip712Signer,
 } = sdk;
 
 export type {

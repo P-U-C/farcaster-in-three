@@ -23,28 +23,30 @@ An In Three deployment exposes a machine-readable API protected by x402 v2 payme
 
 ## Install
 
-Use the pinned prebuilt npm release, not an unversioned branch:
+Prefer the pinned operator container:
 
 ~~~sh
-npm install --global https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz
 mkdir in-three-node && cd in-three-node
-in-three --version
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three-container
+chmod +x in-three-container
+./in-three-container --version
 ~~~
 
-Verify the release's attached SHA-256 file before spending. Keep the same working directory for every later command because the CLI stores recovery state under its local <code>.state/</code> directory.
+Verify the tagged image provenance and digest before spending. Keep the same working directory because recovery state stays under its local <code>.state/</code> directory. The launcher runs as the host UID/GID, mounts only this directory, drops capabilities, uses a read-only root filesystem, and does not mount the Docker socket.
 
 ## Deploy
 
 Prefer the installed wrapper because it owns idempotency, local SSH-key generation, exact-request quoting, and payment recovery:
 
 ~~~sh
-in-three deploy --service https://USER_SELECTED_BROKER
-# Add --payment-network base only when the user selected Base.
+./in-three-container deploy \
+  --service https://USER_SELECTED_BROKER \
+  --payment-network base
 ~~~
 
 The command performs a free preflight and displays the plan before payment. Stop at the confirmation unless the user explicitly authorized the displayed 25 USDC ceiling and acknowledged the separate recurring Hetzner cost. Use <code>--yes</code> only when that exact authorization is already present.
 
-The wrapper may remain attached for hours while Snapchain loads its initial snapshot. Report progress from <code>in-three node status</code>; do not restart the node during extraction. The final client password, Celo and Coinbase CDP facilitator credentials, custody phrase, and combined Celo/Base/Optimism confirmation require a human at the local terminal. Never ask the user to send those values through chat.
+The wrapper may remain attached for hours while Snapchain loads its initial snapshot. Report progress from <code>./in-three-container node status</code>; do not restart the node during extraction. Browser and facilitator credentials plus the developer-only test-account ceremony require a human at the local terminal. Never request or accept a recovery phrase through chat. New app keys use a scoped gasless <code>KEY_ADD</code>; no Optimism transaction is sent.
 
 If the command stops after payment, rerun the same command. The saved marker makes it query free status/resume endpoints and prevents automatic repurchase. If it reports no matching entitlement, run <code>buy --account in-three receipts --resolve</code>, preserve the deployment ID and settlement transaction, and stop. Do not pay again.
 
@@ -91,7 +93,7 @@ buy curl --max-amount '<quoted USDC amount>' \
 
 For MCP, pass the quote's atomic <code>price.atomic</code> unchanged as <code>buy_curl.maxAmount</code>.
 
-Preserve the response and receipt. Report the operation, amount, token, settlement transaction, Farcaster message hash, and validator when successful.
+Preserve the response and receipt. Report the operation, amount, token, settlement transaction, Farcaster message hash, and submitting read node. Treat submission as accepted for relay until the message appears in synced node state.
 
 ## Fail safely
 

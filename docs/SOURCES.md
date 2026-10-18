@@ -1,6 +1,6 @@
 # Source Ledger
 
-Verified on 2026-10-17 UTC.
+Verified on 2026-10-18 UTC. Dates and versions are recorded because the protocol documentation changed shortly before this release.
 
 ## Prize
 
@@ -8,109 +8,141 @@ Verified on 2026-10-17 UTC.
 - Author FID: 37
 - Cast hash: `0x50184b62b4c52fd76628713562e1eda3dccaf63d`
 - Posted: 2026-10-17 14:47:30 UTC
-- Exact seven-day deadline: 2026-10-24 14:47:30 UTC
+- Deadline: 2026-10-24 14:47:30 UTC
 
-The cast text refers to tutorials `[1,2,3,4]`, but its public cast payload contains no URL or image embeds. This project therefore treats current official Farcaster and Snapchain materials as primary references.
+The cast referred to tutorials `[1,2,3,4]`, but its public payload had no URL or image embeds. This project uses current official Farcaster and Snapchain material as primary evidence.
 
-## Snapchain
+## Snapchain release
 
 - Repository: https://github.com/farcasterxyz/snapchain
 - Release: `v0.14.3`
-- Release commit: `fc87f2686472598143062a00e1c2b2633b2d87ab`
+- Commit: `fc87f2686472598143062a00e1c2b2633b2d87ab`
 - Release date: 2026-10-15
 - x86-64 image manifest: `sha256:fa9c9de2fb5205680ef8dbfd29e42dd60c889bcaff57589c9bb7a66d59fb9694`
 - `validators.toml` SHA-256: `ca9912d2c3fae0ceeea8f921d878f9d844343241679af6f7127bfd84b809aaab`
 - License: GPL-3.0
-- Node guide: https://snapchain.farcaster.xyz/getting-started
+- Getting started: https://snapchain.farcaster.xyz/getting-started
 - Node roles: https://snapchain.farcaster.xyz/node-types
 - HTTP API: https://snapchain.farcaster.xyz/reference/httpapi/httpapi
-- Message submission: https://snapchain.farcaster.xyz/reference/httpapi/message
+- Submit endpoint: https://snapchain.farcaster.xyz/reference/httpapi/message
 
-The exact pinned image was inspected on 2026-10-17: it includes `/usr/bin/bash` and does not include `curl` or `wget`. The Compose health check therefore uses Bash's `/dev/tcp` support and does not depend on a removed HTTP utility.
+The pinned image was inspected on 2026-10-17. It has `/usr/bin/bash` and lacks `curl` and `wget`; the health check therefore uses Bash `/dev/tcp`.
 
-Resource guidance from the release documentation:
+Published resource guidance:
 
 - 4 CPU cores
 - 16 GB RAM
 - 1.5 TB free storage
 - public IP
-- HTTP 3381, QUIC gossip 3382, gRPC 3383
+- HTTP 3381
+- QUIC gossip 3382
+- gRPC 3383
 
-This deployment keeps HTTP/gRPC private and publishes gossip. The client runs on the same Docker network, and Snapchain retains outbound peer access.
+The deployment keeps HTTP/gRPC private and exposes gossip.
 
-## Infrastructure pricing
+## Read-node write behavior
 
-Checked on 2026-10-17:
+The official node-types documentation was corrected in commit `cd3805...` on 2026-10-09:
 
-- Hetzner 2026 price adjustment: https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/
-- Hetzner Cloud volume pricing: https://www.hetzner.com/cloud/
-- Hetzner Cloud API reference: https://docs.hetzner.cloud/reference/cloud
-- Ashburn CCX33: $165.99/month before tax
-- Volumes: $0.0484/GiB-month; 2,048 GiB is approximately $99.12/month
-- Default recurring estimate: approximately $265/month before IPv4, traffic, or tax
+- Both validators and read nodes expose `POST /v1/submitMessage`.
+- A read node validates an incoming message and gossips it to validators.
+- A read node does not maintain a mempool or propose blocks.
+- A successful response means accepted for relay, not included in consensus.
 
-The provider console is authoritative because region, tax, and future pricing can differ. The paid deployment preflight reads the live `ccx33` catalog for `ash` and performs a create/delete SSH-key probe so a read-only project token fails before x402 payment. Server, volume, firewall, and SSH-key resources use a shared random deployment label for idempotent lookup and recovery.
+In Three therefore uses the owned read node for reads and writes. It does not carry a list of public validator HTTP endpoints. Confirmation requires observing the resulting message in synced node state.
 
-## Agent payments
+## Gasless app signers
 
-Verified on 2026-10-17:
+- Official writing guide: https://snapchain.farcaster.xyz/guides/writing-messages
+- SDK helper implementation: https://github.com/farcasterxyz/hub-monorepo/pull/2738
+- Writing-guide update commit: `fa4ce09...` on 2026-07-30
+- `@farcaster/hub-nodejs`: 0.17.0
+- `@farcaster/core`: 0.20.0
 
-- usebuy.ai buyer release: <code>@celo/buy@0.8.3</code>
-- x402 server/buyer packages: <code>@x402/core@2.28.0</code>, <code>@x402/evm@2.28.0</code>, <code>@x402/hono@2.28.0</code>, <code>@x402/fetch@2.28.0</code>
-- Coinbase authentication: <code>@coinbase/cdp-sdk@1.59.0</code>
-- x402 protocol and v2 specification: https://github.com/x402-foundation/x402
-- usebuy.ai source/support: https://github.com/celo-org/buy-skill
-- Buyer documentation: https://usebuy.ai/docs
-- Celo x402 facilitator guide: https://docs.celo.org/build/agents/x402
-- Celo discovery guide: https://docs.celo.org/build/agents/x402-get-discovered
-- Celo facilitator API/dashboard: https://api.x402.celo.org and https://x402.celo.org
-- Coinbase x402 facilitator: https://docs.cdp.coinbase.com/x402/welcome
-- Celo network: <code>eip155:42220</code>; USDC <code>0xcebA9300f2b948710d2653dD7B07f33A8B32118C</code>
-- Base network: <code>eip155:8453</code>; USDC <code>0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913</code>
+Current app-key registration uses a gasless `KEY_ADD` Snapchain message:
 
-The x402 v2 response can advertise multiple payment requirements for one resource. In Three returns equal Celo and Base USDC offers. Buy 0.8.3 supports quote-before-pay CLI/MCP flows, local signing, and receipt resolution, but its managed wallet selects Celo. The deployment route is priced at 25 USDC by default; the recurring Hetzner bill remains outside x402. Settlement happens before the upstream operation, so a paid request can still receive an upstream error and must not be blindly retried.
+- the custody account gives EIP-712 authorization;
+- the fresh Ed25519 key signs the protocol message;
+- scopes constrain allowed message classes;
+- TTL uses a sliding window capped at 90 days;
+- nonce is per FID;
+- `GET /v1/signersByFid` returns unified onchain and gasless signer records.
 
-The public usebuy.ai CPU service currently sells one-hour Google Cloud leases and caps renewal at 24 hours from creation. That cannot host a long-lived multi-terabyte Snapchain database. In Three uses buy for discovery, Celo payment, access control, and agent automation while retaining its persistent node host.
+No Optimism transaction or OP ETH is required. This release scopes the signer to cast add/remove, reaction add/remove, and link add/remove.
 
-## Revenue split
-
-Verified on 2026-10-17:
-
-- SDK: <code>@0xsplits/splits-sdk@6.7.0</code>
-- Split V2 SDK: https://splits.org/protocol/docs/sdk/splits-v2/
-- Split V2 contracts: https://splits.org/protocol/docs/core/split-v2/
-- Supported chains: https://splits.org/protocol/help/chains/
-- Split Factory V2.2 on Celo and Base: <code>0x6B9118074aB15142d7524E8c4ea8f62A3Bdb98f1</code>
-
-Setup uses the same recipients, immutable owner, Push split type, version, and salt on each chain, producing one deterministic address. The split allocates 95% to the operator and 5% to P-U-C with a 0.1% distributor incentive. Distribution is permissionless. No bridge runs in the paid request.
-
-## Protocol and contracts
+Onchain registries remain relevant for FID ownership and storage:
 
 - Protocol: https://github.com/farcasterxyz/protocol
 - Contracts: https://github.com/farcasterxyz/contracts
 - IdRegistry: `0x00000000fc6c5f01fc30151999387bb99a9f489b`
 - StorageRegistry: `0x00000000fcce7f938e7ae6d3c335bd6a1a7c593d`
-- KeyRegistry: `0x00000000fc1237824fb747abde0ff18990e59b7e`
-- KeyGateway: `0x00000000fc56947c7e7183f8ca4b62398caadf0b`
-- SignedKeyRequestValidator: `0x00000000fc700472606ed4fa22623acf62c60553`
 - Chain: OP Mainnet, chain ID 10
-- Key type: 1, Ed25519
-- Metadata type: 1, SignedKeyRequest
-- Default BIP-44 path: `m/44'/60'/0'/0/0`
+- Default BIP-44 path used by this developer tutorial: `m/44'/60'/0'/0/0`
 
-## SDK
+Version 0.1.1 retains recovery code only for a v0.1.0 pending KeyGateway transaction. New setup does not construct one.
 
-- `@farcaster/hub-nodejs`: 0.17.0, MIT
-- `@farcaster/core`: 0.20.0, MIT
-- Message builders automatically populate `dataBytes`, which Snapchain requires.
-- Official writing guide: https://snapchain.farcaster.xyz/guides/writing-messages
+## Developer custody guidance
 
-## Validator write endpoints
+A recovery phrase gives full account control. This tutorial uses phrase input only to expose the protocol's low-level developer flow and restricts instructions to disposable test accounts. Testers should enter a phrase only into code they have inspected and trust. Production client onboarding should use delegated signer authorization through a trusted wallet and should not collect raw phrases.
 
-The mainnet bootstrap validators were probed on 2026-10-17. Three served Snapchain HTTP `/v1/info` without an API key and reported version 0.14.2:
+## Operator image
 
-- `http://54.157.62.17:3381`
-- `http://107.20.169.236:3381`
-- `http://108.132.114.186:3381`
+- Registry: `ghcr.io/p-u-c/farcaster-in-three`
+- Node base: `node:22.22.0-bookworm-slim`
+- Base manifest: `sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94`
+- Platforms: linux/amd64 and linux/arm64
+- Build definition: `Dockerfile.operator`
+- Runtime entrypoint: prebuilt `in-three` package
 
-These are configurable defaults, not permanent guarantees. The writer retries transport and 5xx failures and surfaces semantic 4xx rejection immediately.
+Tagged builds publish OCI provenance and an SBOM. The launcher uses a read-only root, host UID/GID, dropped capabilities, `no-new-privileges`, and no Docker socket.
+
+## Infrastructure and price
+
+Checked on 2026-10-17:
+
+- Hetzner price adjustment: https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/
+- Hetzner Cloud: https://www.hetzner.com/cloud/
+- API: https://docs.hetzner.cloud/reference/cloud
+- Ashburn CCX33: $165.99/month before tax
+- Volume: $0.0484/GiB-month
+- 2,048 GiB volume: approximately $99.12/month
+- Default estimate: approximately $265/month before IPv4, traffic, and tax
+
+The provider console is authoritative. Paid-deployment preflight reads the live plan and performs a temporary SSH-key create/delete probe before payment.
+
+## Agent payments
+
+Versions verified on 2026-10-18:
+
+- `@celo/buy@0.8.3`
+- `@x402/core@2.28.0`
+- `@x402/evm@2.28.0`
+- `@x402/hono@2.28.0`
+- `@x402/fetch@2.28.0`
+- `@coinbase/cdp-sdk@1.59.0`
+- x402 specification: https://github.com/x402-foundation/x402
+- usebuy.ai source: https://github.com/celo-org/buy-skill
+- Buyer docs: https://usebuy.ai/docs
+- Celo x402: https://docs.celo.org/build/agents/x402
+- Discovery: https://docs.celo.org/build/agents/x402-get-discovered
+- Coinbase facilitator: https://docs.cdp.coinbase.com/x402/welcome
+- Celo: `eip155:42220`; USDC `0xcebA9300f2b948710d2653dD7B07f33A8B32118C`
+- Base: `eip155:8453`; USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+
+One x402 v2 response can advertise both payment requirements. In Three returns equal Celo and Base offers. The pinned usebuy.ai wallet selects Celo and uses the OS keychain for mainnet. Its file keystore is explicitly development-only and refuses mainnet; the container does not override that rule. The container's one-payment path uses the separate quote-first, capped Base buyer.
+
+Settlement happens before the upstream action, so a paid request may still fail or remain unconfirmed. Receipts must be resolved before retry.
+
+usebuy.ai's hosted CPU product offers short jobs, not a durable multi-terabyte volume. In Three uses x402 for discovery, payment, and access while Snapchain remains on persistent buyer-owned compute.
+
+## Revenue split
+
+Verified on 2026-10-17:
+
+- `@0xsplits/splits-sdk@6.7.0`
+- SDK: https://splits.org/protocol/docs/sdk/splits-v2/
+- Contracts: https://splits.org/protocol/docs/core/split-v2/
+- Chains: https://splits.org/protocol/help/chains/
+- Split Factory V2.2 on Celo/Base: `0x6B9118074aB15142d7524E8c4ea8f62A3Bdb98f1`
+
+The same recipient set, immutable owner, Push type, version, and salt produce one deterministic address on both chains. Allocation is 95% operator and 5% P-U-C with a 0.1% permissionless distribution incentive. No bridge runs during purchase.

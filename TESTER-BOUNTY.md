@@ -27,9 +27,9 @@ The reward includes the tester's cloud, gas, x402, and other execution costs. Te
 
 Use a clean machine and follow the public tutorial without private coaching.
 
-1. Install the versioned npm release in a new empty working directory. Record its version, published SHA-256, release tag, and underlying commit.
-2. Run `in-three doctor` and confirm the package does not compile source locally.
-3. Run the three manual commands: `in-three provision`, `in-three node up`, and `in-three client create`.
+1. Pull the versioned OCI release from a new empty working directory. Record its version, manifest/platform digests, release tag, provenance, and underlying commit.
+2. Run `./in-three-container doctor` and inspect the launcher's mount, user, capability, and Docker-socket boundaries.
+3. Run the three manual commands: `./in-three-container provision`, `./in-three-container node up`, and `./in-three-container client create`.
 4. Let Snapchain complete its initial sync. Record elapsed time, storage use, and any undocumented intervention.
 5. Use the deployed browser client on desktop and mobile to read the feed, publish a cast, follow an FID, like, recast, and exercise app-level and exact-key source controls.
 6. Complete every applicable security and teardown check in [VOUCHER.md](VOUCHER.md).
@@ -40,7 +40,7 @@ A positive endorsement counts as the prize voucher only if the tester genuinely 
 
 ## Agent track: 200 USDC
 
-The agent must lead the run from public instructions. Its human operator may provide credentials through documented secret prompts and approve actions that spend money, create cloud resources, register keys, or publish publicly. The human must not paste a recovery phrase or private key into an agent chat.
+The agent must lead the run from public instructions. Its human operator may provide credentials only through documented local secret prompts and may approve spending, cloud creation, gasless signer authorization, or publication. The human must not paste a recovery phrase or private key into agent chat. Use an otherwise disposable test account; production clients should use delegated wallet authorization instead of raw phrase entry.
 
 1. Start the agent in a clean workspace with the repository URL and [`skills/in-three/SKILL.md`](skills/in-three/SKILL.md).
 2. Preserve the initial task prompt, agent/model identity, exact commit, command transcript, and every point where the agent requests human authority.
@@ -48,7 +48,7 @@ The agent must lead the run from public instructions. Its human operator may pro
 4. After the client is live, have the agent discover `/.well-known/agent.json` and `/agent/openapi.json` without payment.
 5. Confirm the unpaid response advertises equal x402 v2 offers on Celo and Base to the same split address.
 6. Using dedicated low-balance wallets, buy one Celo read and one Base read with explicit ceilings. Preserve both settlement receipts.
-7. With the owner-supplied write capability, have the agent buy and publish one cast. Verify its public message hash and signer.
+7. With the owner-supplied write capability, have the agent buy and publish one cast. Verify its message hash and signer by reading it back from the owned node after relay.
 8. Confirm reads came from the owned Snapchain node and that the 95/5 split is deployed as documented.
 9. Publish a redacted execution report and link the public cast created through the agent path.
 

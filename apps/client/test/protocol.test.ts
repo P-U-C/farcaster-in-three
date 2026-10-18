@@ -4,7 +4,7 @@ import test from "node:test";
 import type { AddressInfo } from "node:net";
 import { FarcasterWriter } from "../src/protocol.js";
 
-test("cast messages are protobuf encoded and submitted to a validator", async (context) => {
+test("cast messages are protobuf encoded and relayed through the owned read node", async (context) => {
   let received = Buffer.alloc(0);
   let contentType = "";
   const server = createServer((request, response) => {
@@ -28,15 +28,15 @@ test("cast messages are protobuf encoded and submitted to a validator", async (c
     SIGNER_PUBLIC_KEY: `0x${"22".repeat(32)}`,
     PASSWORD_HASH: "x".repeat(32),
     SESSION_SECRET: "y".repeat(32),
-    READ_NODE_URL: "http://127.0.0.1:3381",
-    VALIDATOR_URLS: `http://127.0.0.1:${port}`,
+    READ_NODE_URL: `http://127.0.0.1:${port}`,
+    WRITE_NODE_URL: `http://127.0.0.1:${port}`,
     COOKIE_SECURE: "false",
-    validatorUrls: [`http://127.0.0.1:${port}`],
     cookieSecure: false,
   });
 
   const result = await writer.cast({ text: "A cast from my own node." });
-  assert.equal(result.validator, `http://127.0.0.1:${port}`);
+  assert.equal(result.node, `http://127.0.0.1:${port}`);
+  assert.equal(result.relay, "accepted");
   assert.match(result.hash, /^0x[0-9a-f]{40}$/);
   assert.equal(contentType, "application/octet-stream");
   assert.ok(received.length > 80);

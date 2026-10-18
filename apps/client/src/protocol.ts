@@ -31,7 +31,7 @@ interface ReactionInput {
 export class FarcasterWriter {
   private readonly signer: HubSigner;
   private readonly dataOptions;
-  private readonly validators: string[];
+  private readonly writeNodeUrl: string;
 
   constructor(config: AppConfig) {
     this.signer = new NobleEd25519Signer(new Uint8Array(Buffer.from(config.SIGNER_PRIVATE_KEY, "hex")));
@@ -39,7 +39,7 @@ export class FarcasterWriter {
       fid: config.FID,
       network: FarcasterNetwork.MAINNET,
     };
-    this.validators = config.validatorUrls;
+    this.writeNodeUrl = config.WRITE_NODE_URL;
   }
 
   async cast(input: CastInput) {
@@ -102,42 +102,35 @@ export class FarcasterWriter {
 
   private async submit(message: HubMessage) {
     const payload = Message.encode(message).finish();
-    const errors: string[] = [];
-
-    for (const validator of this.validators) {
-      try {
-        const response = await fetch(`${validator}/v1/submitMessage`, {
-          method: "POST",
-          headers: {
-            accept: "application/json",
-            "content-type": "application/octet-stream",
-          },
-          body: Buffer.from(payload),
-          signal: AbortSignal.timeout(10_000),
-        });
-
-        const text = await response.text();
-        if (response.ok) {
-          return {
-            validator,
-            hash: `0x${Buffer.from(message.hash).toString("hex")}`,
-            response: text ? JSON.parse(text) : null,
-          };
-        }
-
-        // A semantic rejection will be identical at every validator.
-        if (response.status >= 400 && response.status < 500) {
-          throw new Error(`Validator rejected the message (HTTP ${response.status}): ${text}`);
-        }
-        errors.push(`${validator}: HTTP ${response.status}`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message.startsWith("Validator rejected")) throw error;
-        errors.push(`${validator}: ${message}`);
-      }
+    let response: Response;
+    try {
+      response = await fetch(`${this.writeNodeUrl}/v1/submitMessage`, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/octet-stream",
+        },
+        body: Buffer.from(payload),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`The read node could not relay the message: ${detail}`);
     }
 
-    throw new Error(`No validator accepted the message. ${errors.join("; ")}`);
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(
+        `The read node rejected the message (HTTP ${response.status}): ${text}`,
+      );
+    }
+
+    return {
+      node: this.writeNodeUrl,
+      relay: "accepted" as const,
+      hash: `0x${Buffer.from(message.hash).toString("hex")}`,
+      response: text ? JSON.parse(text) : null,
+    };
   }
 }
 

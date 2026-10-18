@@ -3,8 +3,8 @@ import { FARCASTER_EPOCH_MS } from "./constants.js";
 import type {
   FeedCast,
   MessagePage,
-  OnChainSignerEvent,
   Profile,
+  SignerInfo,
   SnapchainMessage,
 } from "./types.js";
 
@@ -32,9 +32,9 @@ function encodeQuery(params: Record<string, string | number | undefined>): strin
 export class SnapchainReader {
   readonly baseUrl: string;
   private readonly profileCache = new Map<number, { value: Profile; expiresAt: number }>();
-  private readonly signerEventCache = new Map<
+  private readonly signerCache = new Map<
     number,
-    { value: Promise<{ events: OnChainSignerEvent[] }>; expiresAt: number }
+    { value: Promise<{ signers: SignerInfo[] }>; expiresAt: number }
   >();
 
   constructor(baseUrl: string) {
@@ -67,18 +67,18 @@ export class SnapchainReader {
     return requestJson(this.baseUrl, `/v1/userDataByFid?fid=${fid}`);
   }
 
-  signerEvents(fid: number): Promise<{ events: OnChainSignerEvent[] }> {
-    const cached = this.signerEventCache.get(fid);
+  signers(fid: number): Promise<{ signers: SignerInfo[] }> {
+    const cached = this.signerCache.get(fid);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
 
-    const value = requestJson<{ events: OnChainSignerEvent[] }>(
+    const value = requestJson<{ signers: SignerInfo[] }>(
       this.baseUrl,
-      `/v1/onChainSignersByFid?fid=${fid}`,
+      `/v1/signersByFid?fid=${fid}`,
     ).catch((error) => {
-      this.signerEventCache.delete(fid);
+      this.signerCache.delete(fid);
       throw error;
     });
-    this.signerEventCache.set(fid, { value, expiresAt: Date.now() + 60_000 });
+    this.signerCache.set(fid, { value, expiresAt: Date.now() + 60_000 });
     return value;
   }
 
@@ -156,23 +156,34 @@ export class SnapchainReader {
   }
 
   async requestFidForSigner(fid: number, signer: string): Promise<number | null> {
-    const { events } = await this.signerEvents(fid);
+    const { signers } = await this.signers(fid);
     const normalized = signer.toLowerCase();
-    const event = [...events]
-      .reverse()
-      .find(
-        (candidate) =>
-          candidate.signerEventBody?.key?.toLowerCase() === normalized &&
-          candidate.signerEventBody.eventType === "SIGNER_EVENT_TYPE_ADD" &&
-          candidate.signerEventBody.metadataType === 1,
-      );
-    const metadata = event?.signerEventBody?.metadata;
-    if (!metadata) return null;
+    const signerInfo = signers.find(
+      (candidate) => candidate.key?.toLowerCase() === normalized,
+    );
+    if (!signerInfo) return null;
+
+    if (
+      signerInfo.source === "SIGNER_SOURCE_GASLESS" &&
+      signerInfo.requestFid &&
+      signerInfo.requestFid > 0
+    ) {
+      return signerInfo.requestFid;
+    }
+
+    const event = signerInfo.onChainEvent?.signerEventBody;
+    if (
+      event?.eventType !== "SIGNER_EVENT_TYPE_ADD" ||
+      event.metadataType !== 1 ||
+      !event.metadata
+    ) {
+      return null;
+    }
 
     try {
-      const bytes = metadata.startsWith("0x")
-        ? metadata
-        : (`0x${Buffer.from(metadata, "base64").toString("hex")}` as Hex);
+      const bytes = event.metadata.startsWith("0x")
+        ? event.metadata
+        : (`0x${Buffer.from(event.metadata, "base64").toString("hex")}` as Hex);
       const [decoded] = decodeAbiParameters(
         [
           {

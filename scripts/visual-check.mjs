@@ -61,7 +61,7 @@ const mock = createServer((request, response) => {
     const texts = new Map([
       [ownerFid, ["Node sync finished at 14:32 UTC. Both shard delays are under five seconds.", "Testing the first cast from the delegated app key."]],
       [followedFids[0], ["The setup log now reports snapshot size while the HTTP API is unavailable."]],
-      [followedFids[1], ["Documented the exact recovery command after an interrupted signer transaction."]],
+      [followedFids[1], ["Documented exact recovery after an uncertain gasless signer submission."]],
       [followedFids[2], ["The mobile client can follow an FID without opening a desktop sidebar."]],
     ]);
     return json(response, {
@@ -80,8 +80,19 @@ const mock = createServer((request, response) => {
       })),
     });
   }
-  if (url.pathname === "/v1/onChainSignersByFid") {
-    return json(response, { events: [] });
+  if (url.pathname === "/v1/signersByFid") {
+    return json(response, {
+      signers: [
+        {
+          source: "SIGNER_SOURCE_GASLESS",
+          key: fid === ownerFid ? signer : `0x${fid.toString(16).padStart(64, "0")}`,
+          requestFid: fid,
+        },
+      ],
+      currentUserNonce: 1,
+      gaslessSignerCount: 1,
+      gaslessSignerLimit: 10,
+    });
   }
   response.statusCode = 404;
   return json(response, { error: "not found" });
@@ -105,7 +116,7 @@ const client = spawn("node", ["dist/server/server.js"], {
     PASSWORD_HASH: passwordHash,
     SESSION_SECRET: "visual-session-secret-that-is-long-enough",
     READ_NODE_URL: "http://127.0.0.1:4381",
-    VALIDATOR_URLS: "http://127.0.0.1:4381",
+    WRITE_NODE_URL: "http://127.0.0.1:4381",
     COOKIE_SECURE: "false",
   },
 });

@@ -1,21 +1,91 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
-import { decodeAbiParameters, keccak256 } from "viem";
+import { keccak256 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import {
-  encodeSignedKeyRequestMetadata,
   normalizeCdpApiKeySecret,
   readHidden,
   readVisible,
+  submitSavedGaslessRegistration,
   submitSavedRevenueSplit,
   submitSignedRegistration,
   validateCdpApiKeyId,
   validateFacilitatorApiKey,
 } from "../src/setup.js";
+import {
+  FarcasterNetwork,
+  getFarcasterTime,
+  makeKeyAdd,
+  makeKeyAddBody,
+  Message,
+  MessageType,
+  NobleEd25519Signer,
+  ViemLocalEip712Signer,
+} from "../src/farcaster-sdk.js";
+
+function unwrap<T>(result: { _unsafeUnwrap(): T }): T {
+  return result._unsafeUnwrap();
+}
+
+async function writeGaslessFixture(output: string) {
+  const fid = 37;
+  const signer = new NobleEd25519Signer(new Uint8Array(32).fill(7));
+  const publicKey = unwrap(await signer.getSignerKey());
+  const custody = privateKeyToAccount(`0x${"11".repeat(32)}`);
+  const body = unwrap(
+    await makeKeyAddBody(
+      {
+        fid: BigInt(fid),
+        key: publicKey,
+        scopes: [
+          MessageType.CAST_ADD,
+          MessageType.CAST_REMOVE,
+          MessageType.REACTION_ADD,
+          MessageType.REACTION_REMOVE,
+          MessageType.LINK_ADD,
+          MessageType.LINK_REMOVE,
+        ],
+        ttl: 90 * 24 * 60 * 60,
+        nonce: 1,
+        deadline: unwrap(getFarcasterTime()) + 3_600,
+      },
+      new ViemLocalEip712Signer(custody),
+    ),
+  );
+  const message = unwrap(
+    await makeKeyAdd(
+      body,
+      { fid, network: FarcasterNetwork.MAINNET },
+      signer,
+    ),
+  );
+  const payload = Message.encode(message).finish();
+  const publicKeyHex = `0x${Buffer.from(publicKey).toString("hex")}`;
+  const messageHash = `0x${Buffer.from(message.hash).toString("hex")}`;
+
+  await writeFile(
+    output,
+    [
+      `FID=${fid}`,
+      `SIGNER_PRIVATE_KEY=${"07".repeat(32)}`,
+      `SIGNER_PUBLIC_KEY=${publicKeyHex}`,
+      "SIGNER_REGISTRATION_MODE=gasless",
+      "SIGNER_REGISTRATION_STATUS=signed",
+      `SIGNER_REGISTRATION_MESSAGE_HASH=${messageHash}`,
+      `SIGNER_REGISTRATION_PAYLOAD_SHA256=${createHash("sha256").update(payload).digest("hex")}`,
+      `SIGNER_REGISTRATION_MESSAGE_B64=${Buffer.from(payload).toString("base64")}`,
+      "",
+    ].join("\n"),
+    { mode: 0o600 },
+  );
+  return { publicKeyHex, messageHash, payload };
+}
 
 test("facilitator keys are validated before the custody phrase is requested", () => {
   assert.equal(
@@ -42,35 +112,6 @@ test("CDP credentials accept resource IDs and escaped PEM newlines", () => {
     "-----BEGIN PRIVATE KEY-----\nlong-enough-test-material\n-----END PRIVATE KEY-----",
   );
   assert.throws(() => validateCdpApiKeyId("short"), /not in a recognized format/);
-});
-
-test("signed key request metadata matches the Farcaster contract tuple", () => {
-  const encoded = encodeSignedKeyRequestMetadata({
-    requestFid: 37n,
-    requestSigner: "0x1111111111111111111111111111111111111111",
-    signature: `0x${"ab".repeat(65)}`,
-    deadline: 2_000_000_000n,
-  });
-
-  const [decoded] = decodeAbiParameters(
-    [
-      {
-        type: "tuple",
-        components: [
-          { name: "requestFid", type: "uint256" },
-          { name: "requestSigner", type: "address" },
-          { name: "signature", type: "bytes" },
-          { name: "deadline", type: "uint256" },
-        ],
-      },
-    ],
-    encoded,
-  );
-
-  assert.equal(decoded.requestFid, 37n);
-  assert.equal(decoded.requestSigner, "0x1111111111111111111111111111111111111111");
-  assert.equal(decoded.signature, `0x${"ab".repeat(65)}`);
-  assert.equal(decoded.deadline, 2_000_000_000n);
 });
 
 test("terminal input helpers pause stdin after each answer", async () => {
@@ -121,6 +162,90 @@ test("visible input allows a setup subprocess to exit", () => {
 
   assert.notEqual((result.error as NodeJS.ErrnoException | undefined)?.code, "ETIMEDOUT");
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("an uncertain gasless submission confirms from the owned read node", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "in-three-gasless-"));
+  const output = join(directory, "client.env.pending");
+
+  try {
+    const fixture = await writeGaslessFixture(output);
+    let signerVisible = false;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/v1/signersByFid")) {
+        return Response.json({
+          signers: signerVisible
+            ? [{ source: "SIGNER_SOURCE_GASLESS", key: fixture.publicKeyHex }]
+            : [],
+          gaslessSignerCount: signerVisible ? 1 : 0,
+          gaslessSignerLimit: 1000,
+          currentUserNonce: signerVisible ? 1 : 0,
+        });
+      }
+      if (url.endsWith("/v1/submitMessage") && init?.method === "POST") {
+        assert.deepEqual(Buffer.from(init.body as Uint8Array), Buffer.from(fixture.payload));
+        signerVisible = true;
+        throw new Error("response lost after relay");
+      }
+      return new Response("not found", { status: 404 });
+    }) as typeof fetch;
+
+    const messageHash = await submitSavedGaslessRegistration({
+      output,
+      nodeUrl: "http://127.0.0.1:3381",
+      fetchImpl,
+      pollAttempts: 1,
+      pollDelayMs: 0,
+    });
+    assert.equal(messageHash, fixture.messageHash);
+
+    const saved = await readFile(output, "utf8");
+    assert.match(saved, /SIGNER_REGISTRATION_STATUS=confirmed/);
+    assert.doesNotMatch(saved, /SIGNER_REGISTRATION_MESSAGE_B64=/);
+    assert.doesNotMatch(saved, /SIGNER_REGISTRATION_PAYLOAD_SHA256=/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("unconfirmed gasless submissions preserve the exact signed message", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "in-three-gasless-"));
+  const output = join(directory, "client.env.pending");
+
+  try {
+    await writeGaslessFixture(output);
+    const fetchImpl = (async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/v1/signersByFid")) {
+        return Response.json({
+          signers: [],
+          gaslessSignerCount: 0,
+          gaslessSignerLimit: 1000,
+          currentUserNonce: 0,
+        });
+      }
+      throw new Error("read node disconnected");
+    }) as typeof fetch;
+
+    await assert.rejects(
+      submitSavedGaslessRegistration({
+        output,
+        nodeUrl: "http://127.0.0.1:3381",
+        fetchImpl,
+        pollAttempts: 1,
+        pollDelayMs: 0,
+      }),
+      /Keep the recovery file/,
+    );
+
+    const saved = await readFile(output, "utf8");
+    assert.match(saved, /SIGNER_REGISTRATION_STATUS=signed/);
+    assert.match(saved, /SIGNER_REGISTRATION_MESSAGE_B64=/);
+    assert.match(saved, /SIGNER_PRIVATE_KEY=/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("ambiguous revenue broadcasts preserve the exact signed transaction", async () => {

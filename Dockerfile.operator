@@ -1,0 +1,53 @@
+# syntax=docker/dockerfile:1.7
+
+ARG NODE_IMAGE=node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94
+
+FROM ${NODE_IMAGE} AS build
+WORKDIR /src
+COPY . .
+RUN npm ci \
+    && npm run build \
+    && node scripts/verify-package.mjs \
+    && mkdir -p /tmp/release \
+    && package_name="$(npm pack --ignore-scripts --pack-destination /tmp/release)" \
+    && mv "/tmp/release/${package_name}" /tmp/release/in-three.tgz
+
+FROM ${NODE_IMAGE} AS runtime
+ARG VERSION=0.1.1
+ARG REVISION=unknown
+LABEL org.opencontainers.image.title="In Three Operator" \
+      org.opencontainers.image.description="Containerized operator CLI for a sovereign Farcaster read node and client" \
+      org.opencontainers.image.source="https://github.com/P-U-C/farcaster-in-three" \
+      org.opencontainers.image.url="https://farcaster.permanentupperclass.com/" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      bash \
+      ca-certificates \
+      coreutils \
+      curl \
+      jq \
+      openssh-client \
+      openssl \
+      tar \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /tmp/release/in-three.tgz /tmp/in-three.tgz
+COPY --chmod=0755 container-entrypoint /usr/local/bin/in-three-container-entrypoint
+RUN npm install --global --ignore-scripts /tmp/in-three.tgz \
+    && ln -s /usr/local/lib/node_modules/farcaster-in-three/node_modules/.bin/buy /usr/local/bin/buy \
+    && rm -f /tmp/in-three.tgz \
+    && in-three --version \
+    && buy --version \
+    && mkdir -p /work \
+    && chown node:node /work
+
+ENV HOME=/work/.state/container-home \
+    BUY_HOME=/work/.state/buy
+WORKDIR /work
+USER node
+ENTRYPOINT ["in-three-container-entrypoint"]
+CMD ["--help"]

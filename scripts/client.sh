@@ -53,6 +53,36 @@ node_api_ready() {
   remote "curl -fsS --max-time 8 http://127.0.0.1:3381/v1/info" >/dev/null 2>&1
 }
 
+start_setup_tunnel() {
+  local local_port
+  local_port="$(node -e 'const net=require("node:net"); const server=net.createServer(); server.listen(0,"127.0.0.1",()=>{console.log(server.address().port);server.close()})')"
+  SETUP_NODE_URL="http://127.0.0.1:$local_port"
+
+  ssh \
+    -N \
+    -L "127.0.0.1:$local_port:127.0.0.1:3381" \
+    -i "$SSH_KEY" \
+    -o IdentitiesOnly=yes \
+    -o StrictHostKeyChecking=accept-new \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=15 \
+    -o ServerAliveCountMax=3 \
+    "$SSH_USER@$SERVER_IP" &
+  SETUP_TUNNEL_PID=$!
+
+  local attempt
+  for ((attempt = 1; attempt <= 20; attempt++)); do
+    if curl -fsS --max-time 2 "$SETUP_NODE_URL/v1/info" >/dev/null 2>&1; then
+      success "Private setup tunnel to your Snapchain node is ready"
+      return
+    fi
+    kill -0 "$SETUP_TUNNEL_PID" 2>/dev/null ||
+      die "SSH setup tunnel exited before Snapchain became reachable"
+    sleep 1
+  done
+  die "could not reach Snapchain through the private setup tunnel"
+}
+
 node_bootstrap_progress() {
   remote "printf '  snapshot  '; du -sh /srv/in-three/data/snapshot 2>/dev/null | awk '{print \$1}' || printf 'not created'; printf '\n  database  '; du -sh /srv/in-three/data/rocks 2>/dev/null | awk '{print \$1}' || printf 'not created'; printf '\n  disk      '; df -h /srv/in-three | tail -1 | awk '{print \$3 " used / " \$2 " total"}'; printf '\n'"
 }
@@ -131,12 +161,20 @@ create_client() {
   archive="$(mktemp)"
   client_deploy_env="$(mktemp)"
   agent_gateway_env="$(mktemp)"
+  SETUP_TUNNEL_PID=""
+  SETUP_NODE_URL=""
   cleanup() {
+    if [[ -n "$SETUP_TUNNEL_PID" ]]; then
+      kill "$SETUP_TUNNEL_PID" 2>/dev/null || true
+      wait "$SETUP_TUNNEL_PID" 2>/dev/null || true
+    fi
     rm -f "$archive"
     secure_delete "$client_deploy_env"
     secure_delete "$agent_gateway_env"
   }
   trap cleanup EXIT
+
+  start_setup_tunnel
 
   if [[ -f "$PENDING_CLIENT_ENV" ]]; then
     chmod 600 "$PENDING_CLIENT_ENV"
@@ -146,10 +184,11 @@ create_client() {
         note "Resuming deployment with the confirmed app key in .state/client.env.pending"
         ;;
       signed|submitted)
-        note "Rebroadcasting and checking the saved signer-registration transaction"
+        note "Checking and resubmitting the saved app-key authorization"
         node "$IN_THREE_ROOT/apps/client/dist/server/setup.js" \
           --recover \
-          --output "$PENDING_CLIENT_ENV"
+          --output "$PENDING_CLIENT_ENV" \
+          --setup-node-url "$SETUP_NODE_URL"
         ;;
       *)
         die "unrecognized setup state at $PENDING_CLIENT_ENV; keep the file until signer state is verified"
@@ -159,6 +198,7 @@ create_client() {
     node "$IN_THREE_ROOT/apps/client/dist/server/setup.js" \
       --output "$PENDING_CLIENT_ENV" \
       --read-node-url "http://snapchain:3381" \
+      --setup-node-url "$SETUP_NODE_URL" \
       --public-origin "https://$CLIENT_DOMAIN" \
       --cookie-secure
   fi
@@ -205,7 +245,7 @@ create_client() {
       printf '  payment rails Celo USDC + Base USDC\n'
       printf '  settlement    95%% operator + 5%% P-U-C at %s\n' "$(pending_value BUY_PAY_TO)"
       printf '  read path     browser or paid agent -> client service -> your Snapchain node\n'
-      printf '  write path    authorized paid agent -> client service -> validator\n'
+      printf '  write path    authorized client -> your read node -> validator gossip\n'
       printf '  custody key   not stored\n'
       secure_delete "$PENDING_CLIENT_ENV"
       return

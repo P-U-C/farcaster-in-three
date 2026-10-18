@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE="${IN_THREE_IMAGE:-ghcr.io/p-u-c/farcaster-in-three:0.1.1}"
+
+command -v docker >/dev/null 2>&1 || {
+  printf 'error: Docker is required\n' >&2
+  exit 1
+}
+docker info >/dev/null 2>&1 || {
+  printf 'error: Docker is installed but the daemon is unavailable\n' >&2
+  exit 1
+}
+
+workspace="$(pwd -P)"
+args=(
+  run
+  --rm
+  --init
+  --pull=missing
+  --interactive
+  --read-only
+  --tmpfs "/tmp:rw,noexec,nosuid,size=64m"
+  --cap-drop ALL
+  --security-opt no-new-privileges
+  --pids-limit 256
+  --user "$(id -u):$(id -g)"
+  --workdir /work
+  --env HOME=/work/.state/container-home
+  --env BUY_HOME=/work/.state/buy
+  --volume "$workspace:/work"
+)
+
+if [[ -t 0 && -t 1 ]]; then
+  args+=(--tty)
+fi
+if [[ -n "${TERM:-}" ]]; then
+  args+=(--env TERM)
+fi
+for name in HCLOUD_TOKEN X402_BASE_PRIVATE_KEY; do
+  if [[ -n "${!name:-}" ]]; then
+    args+=(--env "$name")
+  fi
+done
+
+if [[ "${1:-}" == "buy" ]]; then
+  shift
+  args+=(--entrypoint buy)
+fi
+
+exec docker "${args[@]}" "$IMAGE" "$@"

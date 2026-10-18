@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  ""|-h|--help|--version|doctor)
+    ;;
+  *)
+    state_dir="${IN_THREE_STATE_DIR:-/work/.state}"
+    install -d -m 700 "$state_dir" "$HOME" "$BUY_HOME"
+    ;;
+esac
+
+exec in-three "$@"

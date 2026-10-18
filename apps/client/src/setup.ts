@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { chmod, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { generateJwt } from "@coinbase/cdp-sdk/auth";
 import { parseArgs } from "node:util";
@@ -6,10 +6,7 @@ import * as ed from "@noble/ed25519";
 import {
   createPublicClient,
   createWalletClient,
-  encodeAbiParameters,
-  encodeFunctionData,
   fallback,
-  formatEther,
   http,
   keccak256,
   type Hex,
@@ -17,13 +14,17 @@ import {
 import { mnemonicToAccount } from "viem/accounts";
 import { base, celo, optimism } from "viem/chains";
 import { hashPassword } from "./auth.js";
+import { CONTRACTS, PUBLIC_OP_RPC_URLS } from "./constants.js";
 import {
-  CONTRACTS,
-  DEFAULT_VALIDATORS,
-  KEY_TYPE_ED25519,
-  METADATA_TYPE_SIGNED_KEY_REQUEST,
-  PUBLIC_OP_RPC_URLS,
-} from "./constants.js";
+  FarcasterNetwork,
+  getFarcasterTime,
+  makeKeyAdd,
+  makeKeyAddBody,
+  Message,
+  MessageType,
+  NobleEd25519Signer,
+  ViemLocalEip712Signer,
+} from "./farcaster-sdk.js";
 import {
   PAYMENT_CHAINS,
   PUC_ROYALTY_ADDRESS,
@@ -47,56 +48,29 @@ const idRegistryAbi = [
   },
 ] as const;
 
-const keyGatewayAbi = [
-  {
-    type: "function",
-    name: "add",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "keyType", type: "uint32" },
-      { name: "key", type: "bytes" },
-      { name: "metadataType", type: "uint8" },
-      { name: "metadata", type: "bytes" },
-    ],
-    outputs: [],
-  },
-] as const;
+const GASLESS_SIGNER_TTL_SECONDS = 90 * 24 * 60 * 60;
+const GASLESS_SIGNER_SCOPES = [
+  MessageType.CAST_ADD,
+  MessageType.CAST_REMOVE,
+  MessageType.REACTION_ADD,
+  MessageType.REACTION_REMOVE,
+  MessageType.LINK_ADD,
+  MessageType.LINK_REMOVE,
+];
 
-const signedKeyRequestDomain = {
-  name: "Farcaster SignedKeyRequestValidator",
-  version: "1",
-  chainId: 10,
-  verifyingContract: CONTRACTS.signedKeyRequestValidator,
-} as const;
-
-const signedKeyRequestTypes = {
-  SignedKeyRequest: [
-    { name: "requestFid", type: "uint256" },
-    { name: "key", type: "bytes" },
-    { name: "deadline", type: "uint256" },
-  ],
-} as const;
-
-export function encodeSignedKeyRequestMetadata(input: {
-  requestFid: bigint;
-  requestSigner: Hex;
-  signature: Hex;
-  deadline: bigint;
-}): Hex {
-  return encodeAbiParameters(
-    [
-      {
-        type: "tuple",
-        components: [
-          { name: "requestFid", type: "uint256" },
-          { name: "requestSigner", type: "address" },
-          { name: "signature", type: "bytes" },
-          { name: "deadline", type: "uint256" },
-        ],
-      },
-    ],
-    [input],
-  );
+function unwrapHub<T>(result: {
+  isErr(): boolean;
+  _unsafeUnwrap(): T;
+  error?: { message?: string } | Error;
+}): T {
+  if (result.isErr()) {
+    const message =
+      result.error instanceof Error
+        ? result.error.message
+        : result.error?.message ?? "Farcaster SDK operation failed";
+    throw new Error(message);
+  }
+  return result._unsafeUnwrap();
 }
 
 async function main() {
@@ -104,7 +78,7 @@ async function main() {
     options: {
       output: { type: "string", short: "o" },
       "read-node-url": { type: "string" },
-      "validator-urls": { type: "string" },
+      "setup-node-url": { type: "string" },
       "rpc-url": { type: "string" },
       "celo-rpc-url": { type: "string" },
       "base-rpc-url": { type: "string" },
@@ -115,11 +89,15 @@ async function main() {
   });
   if (!values.output) throw new Error("--output is required");
   if (values.recover) {
-    await recoverSetup(values.output, {
-      optimism: values["rpc-url"],
-      celo: values["celo-rpc-url"],
-      base: values["base-rpc-url"],
-    });
+    await recoverSetup(
+      values.output,
+      {
+        optimism: values["rpc-url"],
+        celo: values["celo-rpc-url"],
+        base: values["base-rpc-url"],
+      },
+      values["setup-node-url"],
+    );
     return;
   }
 
@@ -148,9 +126,23 @@ async function main() {
   if (!publicOrigin?.match(/^https:\/\/[^/]+\/?$/)) {
     throw new Error("--public-origin must be the public HTTPS origin");
   }
+  const setupNodeUrl = values["setup-node-url"];
+  if (!setupNodeUrl?.match(/^http:\/\/127\.0\.0\.1:[0-9]{1,5}\/?$/)) {
+    throw new Error("--setup-node-url must be the local SSH tunnel to your read node");
+  }
+
+  console.log("\nUse a test Farcaster account only.");
+  console.log("A recovery phrase controls the account. Read and trust this source before entering it.");
+  console.log("Production clients should request delegated authorization from a wallet instead.");
+  const testAccountConfirmation = await readVisible(
+    "Type TEST ACCOUNT to acknowledge this developer-only setup: ",
+  );
+  if (testAccountConfirmation !== "TEST ACCOUNT") {
+    throw new Error("Setup cancelled before the custody phrase was requested");
+  }
 
   let mnemonic = await readHidden(
-    "\nCustody recovery phrase (used in memory for this transaction only): ",
+    "\nTest-account recovery phrase (used in memory for signing only): ",
   );
   let account;
   try {
@@ -174,11 +166,6 @@ async function main() {
     chain: optimism,
     transport: optimismTransport,
   });
-  const walletClient = createWalletClient({
-    account,
-    chain: optimism,
-    transport: optimismTransport,
-  });
   const paymentPublicClients = {
     celo: createPublicClient({ chain: celo, transport: celoTransport }),
     base: createPublicClient({ chain: base, transport: baseTransport }),
@@ -188,17 +175,12 @@ async function main() {
     base: createWalletClient({ account, chain: base, transport: baseTransport }),
   };
 
-  const [fid, balance, celoBalance, baseBalance] = await Promise.all([
-    publicClient.readContract({
-      address: CONTRACTS.idRegistry,
-      abi: idRegistryAbi,
-      functionName: "idOf",
-      args: [account.address],
-    }),
-    publicClient.getBalance({ address: account.address }),
-    paymentPublicClients.celo.getBalance({ address: account.address }),
-    paymentPublicClients.base.getBalance({ address: account.address }),
-  ]);
+  const fid = await publicClient.readContract({
+    address: CONTRACTS.idRegistry,
+    abi: idRegistryAbi,
+    functionName: "idOf",
+    args: [account.address],
+  });
 
   if (fid === 0n) {
     throw new Error(
@@ -208,11 +190,9 @@ async function main() {
 
   console.log(`\nCustody address  ${account.address}`);
   console.log(`Farcaster FID    ${fid}`);
-  console.log(`OP balance       ${formatEther(balance)} ETH`);
-  console.log(`Celo balance     ${formatEther(celoBalance)} CELO`);
-  console.log(`Base balance     ${formatEther(baseBalance)} ETH`);
+  console.log("Signer cost      gasless");
 
-  await assertStorage(Number(fid), values["validator-urls"]);
+  await assertStorage(Number(fid), setupNodeUrl);
 
   const revenuePlan = createRevenueSplitPlan(account.address);
   const revenueInspection = await inspectRevenueSplits({
@@ -245,45 +225,41 @@ async function main() {
   const signerPrivateKey = ed.utils.randomPrivateKey();
   const signerPublicKey = await ed.getPublicKeyAsync(signerPrivateKey);
   const key = `0x${Buffer.from(signerPublicKey).toString("hex")}` as Hex;
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 86_400);
+  const signerState = await readSignerState(setupNodeUrl, Number(fid));
+  if (signerState.gaslessSignerCount >= signerState.gaslessSignerLimit) {
+    throw new Error(
+      `FID ${fid} already has the maximum ${signerState.gaslessSignerLimit} gasless signers`,
+    );
+  }
 
-  // A self-requested signer is still fully attributable: its metadata points to
-  // the owning FID, while the exact public key identifies this client instance.
-  const requestSignature = await account.signTypedData({
-    domain: signedKeyRequestDomain,
-    types: signedKeyRequestTypes,
-    primaryType: "SignedKeyRequest",
-    message: {
-      requestFid: fid,
-      key,
-      deadline,
-    },
-  });
-  const metadata = encodeSignedKeyRequestMetadata({
-    requestFid: fid,
-    requestSigner: account.address,
-    signature: requestSignature,
-    deadline,
-  });
-
-  const registrationArgs = [
-    KEY_TYPE_ED25519,
-    key,
-    METADATA_TYPE_SIGNED_KEY_REQUEST,
-    metadata,
-  ] as const;
-  await publicClient.simulateContract({
-    account,
-    address: CONTRACTS.keyGateway,
-    abi: keyGatewayAbi,
-    functionName: "add",
-    args: registrationArgs,
-  });
-  const registrationData = encodeFunctionData({
-    abi: keyGatewayAbi,
-    functionName: "add",
-    args: registrationArgs,
-  });
+  const farcasterTime = unwrapHub(getFarcasterTime());
+  const signer = new NobleEd25519Signer(signerPrivateKey);
+  const signerBody = unwrapHub(
+    await makeKeyAddBody(
+      {
+        fid,
+        key: signerPublicKey,
+        scopes: GASLESS_SIGNER_SCOPES,
+        ttl: GASLESS_SIGNER_TTL_SECONDS,
+        nonce: signerState.currentUserNonce + 1,
+        deadline: farcasterTime + 60 * 60,
+      },
+      new ViemLocalEip712Signer(account),
+    ),
+  );
+  const signerMessage = unwrapHub(
+    await makeKeyAdd(
+      signerBody,
+      { fid: Number(fid), network: FarcasterNetwork.MAINNET },
+      signer,
+    ),
+  );
+  const registrationPayload = Message.encode(signerMessage).finish();
+  const registrationHash =
+    `0x${Buffer.from(signerMessage.hash).toString("hex")}` as Hex;
+  const registrationPayloadSha256 = createHash("sha256")
+    .update(registrationPayload)
+    .digest("hex");
 
   const signerSecretHex = Buffer.from(signerPrivateKey).toString("hex");
   signerPrivateKey.fill(0);
@@ -296,7 +272,7 @@ async function main() {
     `PASSWORD_HASH=${passwordHash}`,
     `SESSION_SECRET=${sessionSecret}`,
     `READ_NODE_URL=${values["read-node-url"] ?? "http://snapchain:3381"}`,
-    `VALIDATOR_URLS=${values["validator-urls"] ?? DEFAULT_VALIDATORS.join(",")}`,
+    `WRITE_NODE_URL=${values["read-node-url"] ?? "http://snapchain:3381"}`,
     `COOKIE_SECURE=${values["cookie-secure"] ? "true" : "false"}`,
     "AGENT_GATEWAY_PORT=3334",
     "AGENT_CLIENT_UPSTREAM=http://client:3333",
@@ -317,33 +293,27 @@ async function main() {
     "BUY_DEPLOY_PRICE=25 USDC",
   ];
 
-  const registrationRequest = await walletClient.prepareTransactionRequest({
-    account,
-    chain: optimism,
-    to: CONTRACTS.keyGateway,
-    data: registrationData,
-  });
-  const serializedRegistration =
-    await walletClient.signTransaction(registrationRequest);
-  const registrationHash = keccak256(serializedRegistration);
-  const initialSetup = setupEnv(
+  const initialSetup = gaslessSetupEnv(
     revenueSetupEnv(baseEnv, preparedRevenue),
     "signed",
     registrationHash,
-    serializedRegistration,
+    registrationPayloadSha256,
+    Buffer.from(registrationPayload).toString("base64"),
   );
 
-  const transactionCount =
-    Object.values(preparedRevenue).filter((item) => !item.alreadyDeployed).length +
-    1;
+  const transactionCount = Object.values(preparedRevenue).filter(
+    (item) => !item.alreadyDeployed,
+  ).length;
   console.log(
-    `\n${transactionCount} transaction${transactionCount === 1 ? "" : "s"} will enable Celo/Base revenue routing and register the revocable app key.`,
+    `\n${transactionCount} Celo/Base transaction${transactionCount === 1 ? "" : "s"} and one gasless Snapchain message will enable revenue routing and the revocable app key.`,
   );
-  console.log("Settlement         95% operator / 5% P-U-C");
-  console.log(`Payment address    ${revenueInspection.payTo}`);
+  console.log("Signer scopes       casts, reactions, and follows only");
+  console.log("Signer lifetime     90-day sliding window, refreshed by use");
+  console.log("Settlement          95% operator / 5% P-U-C");
+  console.log(`Payment address     ${revenueInspection.payTo}`);
   const answer = await readVisible("Type ENABLE AND REGISTER to continue: ");
   if (answer !== "ENABLE AND REGISTER") {
-    throw new Error("Setup cancelled; no transaction was sent");
+    throw new Error("Setup cancelled; nothing was broadcast");
   }
 
   await writeSetupFile(values.output, initialSetup, true);
@@ -356,17 +326,13 @@ async function main() {
     });
   }
 
-  const currentSetup = await readFile(values.output, "utf8");
-  const transactionHash = await submitSignedRegistration({
+  await submitSavedGaslessRegistration({
     output: values.output,
-    baseEnv: registrationBaseEnv(currentSetup),
-    serializedTransaction: serializedRegistration,
-    expectedHash: registrationHash,
-    client: publicClient,
+    nodeUrl: setupNodeUrl,
   });
 
-  console.log("\nRevenue routes and app key confirmed; deployment can continue.");
-  console.log(`App-key receipt     https://optimistic.etherscan.io/tx/${transactionHash}`);
+  console.log("\nRevenue routes and gasless app key confirmed; deployment can continue.");
+  console.log(`App-key message     ${registrationHash}`);
   console.log("Payment rails       Celo USDC + Base USDC");
   console.log("Custody phrase      discarded; it is not present in the output file");
   console.log("Next                deployment continues automatically");
@@ -386,6 +352,202 @@ export interface RegistrationClient {
     confirmations: number;
     timeout: number;
   }): Promise<{ status: "success" | "reverted" }>;
+}
+
+interface SignerState {
+  signers: Array<{ source?: string; key?: string }>;
+  gaslessSignerCount: number;
+  gaslessSignerLimit: number;
+  currentUserNonce: number;
+}
+
+export async function readSignerState(
+  nodeUrl: string,
+  fid: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SignerState> {
+  const response = await fetchImpl(
+    `${nodeUrl.replace(/\/$/, "")}/v1/signersByFid?fid=${fid}`,
+    {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(8_000),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Snapchain signer query returned HTTP ${response.status}`);
+  }
+  const value = (await response.json()) as Partial<SignerState>;
+  if (
+    !Array.isArray(value.signers) ||
+    !Number.isInteger(value.currentUserNonce) ||
+    !Number.isInteger(value.gaslessSignerCount) ||
+    !Number.isInteger(value.gaslessSignerLimit)
+  ) {
+    throw new Error("Snapchain returned an incomplete signer response");
+  }
+  return value as SignerState;
+}
+
+function gaslessSetupEnv(
+  baseEnv: string[],
+  status: RegistrationStatus,
+  messageHash: Hex,
+  payloadSha256?: string,
+  payloadBase64?: string,
+): string {
+  return [
+    ...baseEnv,
+    "SIGNER_REGISTRATION_MODE=gasless",
+    `SIGNER_REGISTRATION_STATUS=${status}`,
+    `SIGNER_REGISTRATION_MESSAGE_HASH=${messageHash}`,
+    ...(payloadSha256
+      ? [`SIGNER_REGISTRATION_PAYLOAD_SHA256=${payloadSha256}`]
+      : []),
+    ...(payloadBase64
+      ? [`SIGNER_REGISTRATION_MESSAGE_B64=${payloadBase64}`]
+      : []),
+    "",
+  ].join("\n");
+}
+
+export async function submitSavedGaslessRegistration({
+  output,
+  nodeUrl,
+  fetchImpl = fetch,
+  pollAttempts = 30,
+  pollDelayMs = 2_000,
+  sleepImpl = (milliseconds: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, milliseconds)),
+}: {
+  output: string;
+  nodeUrl: string;
+  fetchImpl?: typeof fetch;
+  pollAttempts?: number;
+  pollDelayMs?: number;
+  sleepImpl?: (milliseconds: number) => Promise<void>;
+}): Promise<Hex> {
+  let content = await readFile(output, "utf8");
+  const status = envValue(content, "SIGNER_REGISTRATION_STATUS");
+  const fid = Number(envValue(content, "FID"));
+  const publicKey = envValue(content, "SIGNER_PUBLIC_KEY")?.toLowerCase();
+  const messageHash = envValue(content, "SIGNER_REGISTRATION_MESSAGE_HASH") as
+    | Hex
+    | undefined;
+
+  if (
+    !Number.isSafeInteger(fid) ||
+    fid < 1 ||
+    !publicKey?.match(/^0x[0-9a-f]{64}$/) ||
+    !messageHash?.match(/^0x[0-9a-fA-F]{40}$/)
+  ) {
+    throw new Error(`Gasless signer recovery data is incomplete at ${output}`);
+  }
+  if (status === "confirmed") return messageHash;
+
+  const signerIsActive = async () => {
+    const state = await readSignerState(nodeUrl, fid, fetchImpl);
+    return state.signers.some(
+      (signer) =>
+        signer.source === "SIGNER_SOURCE_GASLESS" &&
+        signer.key?.toLowerCase() === publicKey,
+    );
+  };
+
+  if (await signerIsActive()) {
+    await writeSetupFile(
+      output,
+      patchEnv(content, {
+        SIGNER_REGISTRATION_STATUS: "confirmed",
+        SIGNER_REGISTRATION_PAYLOAD_SHA256: undefined,
+        SIGNER_REGISTRATION_MESSAGE_B64: undefined,
+      }),
+    );
+    return messageHash;
+  }
+
+  const payloadBase64 = envValue(content, "SIGNER_REGISTRATION_MESSAGE_B64");
+  const savedPayloadSha256 = envValue(
+    content,
+    "SIGNER_REGISTRATION_PAYLOAD_SHA256",
+  );
+  if (
+    !["signed", "submitted"].includes(status ?? "") ||
+    !payloadBase64 ||
+    !savedPayloadSha256?.match(/^[0-9a-f]{64}$/)
+  ) {
+    throw new Error(
+      `The exact gasless signer message is missing; keep ${output} for diagnosis`,
+    );
+  }
+
+  const payload = Buffer.from(payloadBase64, "base64");
+  const payloadSha256 = createHash("sha256").update(payload).digest("hex");
+  if (payloadSha256 !== savedPayloadSha256) {
+    throw new Error("Saved gasless signer message does not match its checksum");
+  }
+  const message = Message.decode(payload);
+  const decodedHash = `0x${Buffer.from(message.hash).toString("hex")}`;
+  const decodedSigner = `0x${Buffer.from(message.signer).toString("hex")}`;
+  if (
+    decodedHash.toLowerCase() !== messageHash.toLowerCase() ||
+    decodedSigner.toLowerCase() !== publicKey
+  ) {
+    throw new Error("Saved gasless signer message does not match its app key");
+  }
+
+  let rejection = "";
+  try {
+    const response = await fetchImpl(
+      `${nodeUrl.replace(/\/$/, "")}/v1/submitMessage`,
+      {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/octet-stream",
+        },
+        body: payload,
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    const responseText = await response.text();
+    if (response.ok) {
+      content = patchEnv(content, {
+        SIGNER_REGISTRATION_STATUS: "submitted",
+      });
+      await writeSetupFile(output, content);
+      console.log(`Gasless KEY_ADD accepted for relay  ${messageHash}`);
+    } else {
+      rejection = `HTTP ${response.status}: ${responseText}`;
+    }
+  } catch (error) {
+    rejection = error instanceof Error ? error.message : String(error);
+  }
+
+  for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
+    try {
+      if (await signerIsActive()) {
+        await writeSetupFile(
+          output,
+          patchEnv(await readFile(output, "utf8"), {
+            SIGNER_REGISTRATION_STATUS: "confirmed",
+            SIGNER_REGISTRATION_PAYLOAD_SHA256: undefined,
+            SIGNER_REGISTRATION_MESSAGE_B64: undefined,
+          }),
+        );
+        return messageHash;
+      }
+    } catch {
+      // The signed payload remains durable; a later rerun can check again.
+    }
+    if (attempt < pollAttempts) await sleepImpl(pollDelayMs);
+  }
+
+  console.error("\nThe gasless signer is not yet visible on the read node.");
+  console.error(`The exact signed message remains in ${output}.`);
+  if (rejection) console.error(`Last submission result: ${rejection}`);
+  throw new Error(
+    `Keep the recovery file and rerun ${operatorCommand} client create before authorizing another key`,
+  );
 }
 
 function revenueSetupEnv(
@@ -651,6 +813,7 @@ async function recoverSetup(
     celo?: string;
     base?: string;
   },
+  setupNodeUrl?: string,
 ) {
   const content = await readFile(output, "utf8");
   if (envValue(content, "REVENUE_CELO_STATUS")) {
@@ -673,10 +836,21 @@ async function recoverSetup(
       });
     }
   }
-  await recoverRegistration(output, rpcUrls.optimism);
+
+  const refreshed = await readFile(output, "utf8");
+  if (envValue(refreshed, "SIGNER_REGISTRATION_MODE") === "gasless") {
+    if (!setupNodeUrl) {
+      throw new Error("--setup-node-url is required to recover a gasless signer");
+    }
+    await submitSavedGaslessRegistration({ output, nodeUrl: setupNodeUrl });
+    console.log("Saved gasless app key is confirmed; resuming deployment.");
+    return;
+  }
+
+  await recoverLegacyRegistration(output, rpcUrls.optimism);
 }
 
-async function recoverRegistration(output: string, rpcUrl?: string) {
+async function recoverLegacyRegistration(output: string, rpcUrl?: string) {
   const content = await readFile(output, "utf8");
   const status = envValue(content, "SIGNER_REGISTRATION_STATUS");
   const transactionHash = envValue(content, "SIGNER_REGISTRATION_TX");
@@ -736,38 +910,30 @@ async function recoverRegistration(output: string, rpcUrl?: string) {
   console.log("Saved app-key registration is confirmed; resuming deployment.");
 }
 
-async function assertStorage(fid: number, configuredValidators?: string) {
-  const urls = configuredValidators
-    ? configuredValidators.split(",").map((url) => url.trim())
-    : [...DEFAULT_VALIDATORS];
-
-  for (const base of urls) {
-    try {
-      const response = await fetch(
-        `${base.replace(/\/$/, "")}/v1/storageLimitsByFid?fid=${fid}`,
-        { signal: AbortSignal.timeout(8_000) },
-      );
-      if (!response.ok) continue;
-      const data = (await response.json()) as { units?: number };
-      if (!data.units || data.units < 1) {
-        throw new Error(
-          `FID ${fid} has no active Farcaster storage. Rent storage before creating a client.`,
-        );
-      }
-      console.log(`Storage units     ${data.units}`);
-      return;
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("no active")) throw error;
-    }
+async function assertStorage(fid: number, nodeUrl: string) {
+  const response = await fetch(
+    `${nodeUrl.replace(/\/$/, "")}/v1/storageLimitsByFid?fid=${fid}`,
+    { signal: AbortSignal.timeout(8_000) },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Could not verify storage through your read node (HTTP ${response.status})`,
+    );
   }
-
-  throw new Error("Could not verify storage against any validator endpoint");
+  const data = (await response.json()) as { units?: number };
+  if (!data.units || data.units < 1) {
+    throw new Error(
+      `FID ${fid} has no active Farcaster storage. Rent storage before creating a client.`,
+    );
+  }
+  console.log(`Storage units     ${data.units}`);
 }
 
 function printHeader() {
   console.log("\nIN THREE / APP KEY CEREMONY");
+  console.log("Developer build: use a test Farcaster account, never a primary wallet.");
   console.log("The phrase stays in this process and is never sent to the server.");
-  console.log("Only a revocable Ed25519 app key will be stored after setup.");
+  console.log("A scoped, gasless Ed25519 app key is stored after setup.");
   console.log("Celo and Base facilitator credentials stay in the payment gateway.\n");
 }
 

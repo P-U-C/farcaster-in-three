@@ -7,6 +7,10 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const required = [
   "bin/in-three.mjs",
   "farcaster",
+  "Dockerfile.operator",
+  "container-entrypoint",
+  "in-three-container",
+  "in-three.compose.yml",
   "npm-shrinkwrap.json",
   "apps/client/Dockerfile",
   "apps/client/dist/server/setup.js",
@@ -35,6 +39,9 @@ const packageJson = JSON.parse(await readFile(resolve(root, "package.json"), "ut
 if (packageJson.private === true) throw new Error("package must not be private");
 if (packageJson.bin?.["in-three"] !== "bin/in-three.mjs") {
   throw new Error("package must expose the in-three executable");
+}
+if (packageJson.dependencies?.["@celo/buy"] !== "0.8.3") {
+  throw new Error("package must pin the reviewed usebuy.ai CLI release");
 }
 
 const dockerfile = await readFile(resolve(root, "apps/client/Dockerfile"), "utf8");

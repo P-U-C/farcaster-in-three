@@ -1,6 +1,6 @@
 {
   "name": "farcaster-in-three",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A three-command path from bare compute to a sovereign Farcaster client.",
   "license": "MIT",
   "author": "Permanent Upper Class",
@@ -19,6 +19,10 @@
   },
   "files": [
     ".dockerignore",
+    "Dockerfile.operator",
+    "container-entrypoint",
+    "in-three-container",
+    "in-three.compose.yml",
     "npm-shrinkwrap.json",
     "bin",
     "deploy",
@@ -58,6 +62,7 @@
   ],
   "dependencies": {
     "@0xsplits/splits-sdk": "6.7.0",
+    "@celo/buy": "0.8.3",
     "@coinbase/cdp-sdk": "1.59.0",
     "@faker-js/faker": "10.6.0",
     "@farcaster/hub-nodejs": "0.17.0",

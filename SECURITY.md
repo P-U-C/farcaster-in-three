@@ -1,29 +1,70 @@
 # Security Model
 
-In Three handles a Farcaster custody mnemonic to prepare one app-key transaction and, when needed, two zero-value revenue-split creation calls. Treat that boundary as wallet software even though the deployed service retains only a delegated app key.
+In Three performs a developer-only Farcaster key ceremony and may sign Celo/Base revenue-split transactions. Treat the local setup process as wallet software.
 
 This project has not received an independent security audit.
 
-## Key hierarchy
+## Non-negotiable phrase rules
 
-| Secret | Location | Authority | Lifetime |
+- Use an otherwise disposable Farcaster test account.
+- Inspect and trust the exact source or signed release before entering a phrase.
+- Never paste a phrase into agent chat, a support message, an environment variable, a command argument, a file, or a remote shell.
+- Do not reuse a test phrase that controls valuable assets elsewhere.
+- Prefer delegated signer authorization through a trusted wallet for any production client.
+
+The setup utility enforces a visible `TEST ACCOUNT` acknowledgement before its hidden phrase prompt. This does not make phrase entry safe; it prevents the tutorial from presenting a powerful primitive as normal consumer onboarding.
+
+JavaScript strings cannot be guaranteed to be zeroized. Process exit is the final memory boundary.
+
+## Secret inventory
+
+| Secret or signed object | Location | Authority | Lifetime |
 | --- | --- | --- | --- |
-| Hetzner token | Manual path: operator process. Paid path: operator process and selected broker process over HTTPS | Create/delete resources in one Hetzner project | Provision/destroy command only; never persisted by In Three |
-| Deployment entitlement | Broker data volume | SHA-256 token binding, deployment ID, SSH public key, source CIDR; authorizes free resume | Broker lifetime |
-| Custody mnemonic | Operator process memory | Full EVM account authority; owns the FID and can register/revoke app keys | Setup ceremony only |
-| Ed25519 app key | Local `.state/client.env.pending` during setup; then `/srv/in-three/client.env` | Sign Farcaster messages for one FID | Until revoked |
-| Serialized setup transactions | Local `.state/client.env.pending` until each confirmation | Rebroadcast fixed Celo/Base SplitFactory and OP KeyGateway calls | Setup only |
-| Client password | Human memory | Open the web client | User controlled |
-| Password hash | Client environment | Verify login | Deployment lifetime |
-| Session secret | Client environment | Sign HttpOnly cookies | Deployment lifetime |
-| Celo facilitator API key | Local `.state/client.env.pending` during setup; then `/srv/in-three/agent-gateway.env` | Ask Celo's facilitator to settle x402 payments | Deployment lifetime |
-| Coinbase CDP Secret API key | Local `.state/client.env.pending` during setup; then `/srv/in-three/agent-gateway.env` | Authenticate Base x402 facilitator requests | Deployment lifetime |
-| Agent write capability | Local `.state/client.env.pending` during setup; then `.state/agent.env` and the agent gateway environment | Reach paid Farcaster write routes | Until rotated |
+| Hetzner token | Manual path: local process. Paid path: local and selected broker process over HTTPS | Resources in one Hetzner project | Command lifetime; not persisted by In Three |
+| Deployment entitlement | Broker data volume | Resume one bound paid deployment | Broker lifetime |
+| Test-account phrase | Local setup process memory | Full custody account authority | Key ceremony and optional split signing only |
+| Ed25519 app key | Local pending file, then deployed client environment | Scoped casts, reactions, and follows for one FID | Revocable; 90-day sliding TTL |
+| Gasless `KEY_ADD` protobuf | Local pending file until confirmation | Authorize that exact app key, scope set, TTL, and nonce | Setup recovery only |
+| Celo/Base split transactions | Local pending file until confirmation | Create fixed zero-value 95/5 split contracts | Setup recovery only |
+| Browser password | Human memory | Open the web client | User controlled |
+| Password hash and session secret | Deployed client environment | Verify login and sign cookies | Deployment lifetime |
+| Celo facilitator key | Pending file, then gateway environment | Settle Celo x402 payments | Deployment lifetime |
+| Coinbase CDP key | Pending file, then gateway environment | Authenticate Base facilitator requests | Deployment lifetime |
+| Agent write capability | Pending file, local `.state/agent.env`, gateway environment | Reach paid Farcaster write routes | Until rotated |
 | SSH private key | Local `.state/` | Operate the host | Host lifetime |
 
-The setup utility validates the client password and both facilitator credentials before asking for the mnemonic. It reads the mnemonic from a TTY with echo disabled and does not accept it through command arguments, environment variables, files, or HTTP. The utility derives the custody account and prepares fixed, zero-value SplitFactory calls on Celo/Base when their deterministic contracts do not exist, plus one KeyGateway call on Optimism. It prints the transaction count and requires `ENABLE AND REGISTER` before broadcast. JavaScript strings cannot be guaranteed to be zeroized; process exit is the final memory boundary.
+## Key ceremony and recovery
 
-Before the first `eth_sendRawTransaction`, the utility signs every required setup transaction locally, calculates each hash, and writes all serialized transactions, hashes, and the delegated app key to an owner-only pending file. It never stores the mnemonic or Ethereum private key. If an RPC accepts a transaction but drops its response, rerunning setup checks receipts and rebroadcasts only the exact pending bytes; it cannot silently construct a replacement. Each serialized transaction is removed after confirmation, and the pending file is removed only after the deployed HTTPS health checks succeed.
+Before requesting a phrase, setup:
+
+1. Confirms the browser password twice.
+2. Validates both facilitator credentials.
+3. Establishes a local SSH tunnel to the operator's read node.
+4. Requires the exact `TEST ACCOUNT` acknowledgement.
+
+It derives the custody address locally, resolves the FID, checks storage through the owned node, and creates a fresh Ed25519 key. The custody account signs EIP-712 authorization for a scoped gasless signer. The app key signs the `KEY_ADD` Snapchain message. No Optimism transaction or OP balance is required.
+
+Before submitting the message, setup writes its exact protobuf, protocol hash, SHA-256 checksum, and app key to owner-only `.state/client.env.pending`. If the HTTP result is ambiguous, a rerun checks the node's signer state, verifies the saved bytes, and resubmits only that message. It does not discard the key or create another authorization whose status is unknown.
+
+Celo/Base split creation is separate. When a deterministic split is absent, setup signs the fixed zero-value transaction, computes its hash, and stores the serialized bytes before broadcast. Reruns check receipts and rebroadcast only the saved transaction. The phrase and derived EVM key are never written to disk.
+
+Signed payloads are removed as they confirm. The pending file is removed after browser and agent health checks succeed, with best-effort overwrite where `shred` exists.
+
+## Operator container
+
+The published operator image runs as the invoking UID/GID. The launcher supplies:
+
+- read-only container root
+- no Linux capabilities
+- `no-new-privileges`
+- a no-exec temporary filesystem
+- a process limit
+- one bind mount: the current working directory at `/work`
+- no Docker socket
+
+The image is an isolation and distribution boundary, not a guarantee against a malicious image. Verify the version and provenance, inspect the Dockerfile and launcher, and keep custody tests on a dedicated account.
+
+The container's Base payer key is read through a hidden prompt or a named environment variable and deleted from the Node process environment before payment handling. Use a dedicated, low-balance wallet. Celo usebuy.ai mainnet operation should use the host package and operating-system keychain; this project does not enable its development-only plaintext keystore for mainnet.
 
 ## Network exposure
 
@@ -33,96 +74,89 @@ Public:
 - 3382/UDP: Snapchain QUIC gossip
 - 22/TCP: restricted to the operator's detected CIDR
 
-Private to the host/container network:
+Private:
 
 - 3381/TCP: Snapchain HTTP
 - 3383/TCP: Snapchain gRPC
-- 3333/TCP: client application
-- 3334/TCP: x402 agent gateway
-- 3335/TCP: fixed-plan deployment service
+- 3333/TCP: client
+- 3334/TCP: x402 gateway
+- 3335/TCP: deployment service
 
-The client has no route to arbitrary Docker services. Its read network is internal; the Snapchain container has a separate egress network for peers. The deployment service is isolated on an internal control-plane network shared only with the agent gateway and uses a separate network for Hetzner API egress. The client and Caddy cannot bypass the gateway to reach it. The gateway cannot reach Snapchain directly. The client environment excludes facilitator credentials, split recovery state, and the agent capability; the gateway environment excludes the Farcaster signer, password hash, and session secret. The deployer has no environment secret: it receives a buyer token only in a bounded request body, calls Hetzner, and persists only a SHA-256 binding.
+The client reaches Snapchain over an internal network. The gateway cannot reach Snapchain. The deployer cannot reach the client. Facilitator credentials never enter the client environment, and the Farcaster key never enters the gateway or deployer environments.
 
-## Web controls
+## Web and API controls
 
-- scrypt password hash with random 128-bit salt
+- scrypt password hash with a random 128-bit salt
 - HMAC-SHA256, 30-day HttpOnly, SameSite=Strict session cookie
-- Secure cookie in deployed HTTPS mode
-- CSP, HSTS, frame denial, MIME sniffing denial, and restrictive permissions policy
-- read-only client container with `no-new-privileges`
-- no custody key in the container
-- Zod validation for all write actions
-- x402 v2 payment challenges offering Celo and Base USDC for every paid agent operation
-- owner bearer capability checked before any write payment challenge
-- per-IP, per-payer, and service-level rate limits
-- exact HTTP method, body size, JSON, and top-level field restrictions before payment
-- semantic 4xx validator failures are not retried against every validator
+- Secure cookies under deployed HTTPS
+- CSP, HSTS, frame denial, MIME-sniffing denial, and restrictive permissions policy
+- read-only deployed client container with `no-new-privileges`
+- Zod validation for writes
+- x402 v2 Celo/Base offers for paid agent routes
+- owner capability checked before a write payment challenge
+- per-IP, per-payer, and service rate limits
+- method, body-size, JSON, and top-level-field checks before payment
 
 ## Threats and limits
 
 ### Compromised client host
 
-An attacker can read the delegated key and publish Farcaster messages until it is revoked. They cannot derive the custody key or sign Ethereum transactions. Revoke the signer immediately, destroy the host, and rebuild with a fresh app key and password.
+An attacker can take the delegated app key and exercise its allowed Farcaster scopes until expiry or revocation. The deployed host does not have the custody phrase or EVM private key. Revoke the signer, rotate the agent capability and browser secret, destroy the host, and rebuild.
 
-### Compromised operator machine during setup
+### Compromised operator machine
 
-An attacker with process-memory, terminal, or keyboard access can steal the mnemonic. This architecture cannot protect a compromised operator. Use a clean, patched machine and close screen-sharing/recording tools before setup.
+A process, terminal, clipboard, or keyboard compromise during setup can steal the phrase and payment keys. This design cannot protect a compromised operator machine. Use a clean, patched system and close screen-sharing or recording tools.
 
 ### Cloud provider
 
-The cloud provider can observe metadata and disk contents, including the delegated app key. It cannot see the mnemonic because registration occurs before upload. For a stronger deployment, replace the environment file with an external HSM/secret manager under your control.
+The provider can observe metadata and disk contents, including the delegated key. It cannot obtain the phrase from this application because the phrase is never uploaded. Stronger deployments should move the app signer into operator-controlled key management.
 
 ### Paid deployment broker
 
-The one-purchase path deliberately sends a Hetzner token to the selected broker. HTTPS protects it in transit, but the broker can use that token while handling the request. A malicious or compromised broker could create, inspect, or delete resources within the token's project permissions. Use a new, otherwise-empty Hetzner project, create a read/write token only for this deployment, verify the returned resource IDs in the provider console, and rotate the token after provisioning. The manual three-command path keeps the token on the operator machine.
+The one-payment path sends a dedicated Hetzner token to the chosen broker over HTTPS. A malicious or compromised broker can use that token while handling the request. Use a new empty project, confirm returned resource IDs in Hetzner, and rotate the token immediately after provisioning.
 
-The broker receives only the SSH public key. The private key is generated under local `.state/`; the Farcaster phrase, client password, seller facilitator credentials, and app signer are not part of the deployment request.
+The broker persists only a token hash and request binding. A hash is still sensitive metadata. The SSH private key, phrase, browser password, app key, and facilitator credentials are not part of the request.
 
-Preflight creates and deletes an unbillable temporary SSH key to prove write permission before payment. The paid route persists an entitlement before cloud creation, and `status`/`resume` can continue the same request without another payment. The entitlement stores the SHA-256 token hash, SSH public key, source CIDR, and deployment ID, not the token. Treat the hash as sensitive metadata and protect the broker data volume.
-
-x402 settlement on the buyer-selected chain occurs before the deployer runs. A facilitator or gateway failure can therefore settle payment without producing an entitlement. The local payment marker blocks automatic repurchase. Resolve the buyer receipt and ask the broker to investigate or refund using the deployment ID and settlement transaction; never send the cloud token in support messages.
+x402 settles before provisioning. Payment can therefore succeed while cloud work fails. The durable entitlement and local payment marker provide resume behavior, but they do not remove broker or facilitator risk. Resolve the receipt before paying again.
 
 ### Agent gateway and payments
 
-Paid reads are intentionally available to any buyer. Paid writes require the owner-issued bearer capability before the gateway returns a 402, so an unauthorized caller is not charged and cannot reach the signer. Exposure of that capability lets a funded caller buy Farcaster actions until it is rotated.
+Paid reads are intentionally public to any payer. Paid writes require the owner capability. Exposure of that capability lets a funded caller buy scoped Farcaster actions until rotation.
 
-x402 settles before the paid request reaches the client. A valid payment can therefore be followed by a client or validator rejection. The gateway rejects wrong methods, malformed JSON, oversized bodies, unexpected fields, and rate-limit excesses before payment, but agents must still validate semantic input and must not blindly retry ambiguous paid responses.
+Payment settles before the client handles the operation. A valid payment can be followed by schema rejection, protocol rejection, or a message that is accepted for relay but never included. Clients must retain the receipt and message hash, check node state, and avoid blind retries after ambiguous responses.
 
-The Celo facilitator API key can spend the operator's Celo facilitator balance. The Coinbase CDP key authenticates Base facilitator requests and may carry broader permissions according to its CDP configuration. Neither can sign Farcaster messages; both are isolated in the agent gateway container. Use least-privilege keys and rotate either credential immediately if exposed.
+The Celo facilitator key can spend the configured facilitator balance. The CDP key may have broader permissions depending on its account configuration. Use least-privilege, low-balance credentials and rotate them after exposure.
 
-Paid USDC lands at an immutable 0xSplits contract, not directly in either recipient wallet. Distribution is permissionless and charges the configured 0.1% incentive. Until distribution runs, contract risk and chain availability can delay access to proceeds. The gateway recomputes the intended 95/5 address and confirms deployment on both chains before listening, but this project has not independently audited 0xSplits.
+USDC accrues in an immutable 0xSplits contract until permissionless distribution. Contract or chain failure can delay proceeds. The gateway checks the intended address and bytecode before listening, but this project has not independently audited 0xSplits, usebuy.ai, or its own settlement integration.
 
-The bundled usebuy.ai buyer is pre-1.0 beta software, and this project's x402/CDP/Splits integration has not received an independent security audit. Keep exact lockfile versions, use dedicated low-balance buyer and facilitator accounts, inspect release notes before upgrading, and treat automated tests as evidence of behavior rather than a guarantee of mainnet settlement safety. This release advertises Celo and Base mainnet; neither rail has completed the required live voucher run.
+### Protocol relay
 
-### Public validator
+The operator's read node receives every write. It validates and gossips accepted messages to validators. It has no mempool, so an HTTP success is not block finality. A later read from synced state is the confirmation signal.
 
-A validator sees signed write messages and the submitter IP. Messages are public protocol data. Reads never use that validator.
+Messages and signer records are public protocol data. Peers can observe the node's network address and gossip traffic.
 
-### Public DNS
+### Source attribution
 
-The default HTTPS hostname uses `sslip.io` to resolve the server IP without manual DNS. DNS controls availability, not TLS private keys or Farcaster keys. Use your own domain for long-running operation.
+A cast exposes its exact signer key. App attribution can be absent or self-asserted. The UI groups keys only when the unified signer record supplies shared attribution and otherwise presents signer fingerprints.
 
-### Source-filter attribution
-
-A cast always exposes an exact signer key. Human client names are inferred from SignedKeyRequest metadata's `requestFid` and can be absent or self-attributed. The UI keeps unknown sources as signer fingerprints rather than inventing attribution.
-
-## Dependency policy
+## Dependency and release policy
 
 - Snapchain and Caddy images are pinned to platform-specific OCI digests.
 - The validator manifest is pinned to a release commit and SHA-256.
-- npm uses matching committed `package-lock.json` and publishable `npm-shrinkwrap.json` files.
-- Each tagged GitHub release runs the full checks, packages compiled client assets, and publishes the npm tarball with a SHA-256 file. The package path does not compile source on the operator machine.
+- npm uses committed matching lock and shrinkwrap files.
+- The operator image pins its Node base image by manifest digest and is published for amd64 and arm64 with provenance and an SBOM.
+- Tagged releases run checks, package prebuilt assets, publish a SHA-256 file, and exercise an anonymous image pull.
 - `npm audit --audit-level=moderate` must pass.
-- The official Farcaster core bundle expects removed Faker 7 APIs. A narrow compatibility module supplies those names on patched Faker 10; no Faker template evaluator is exposed to requests.
+- The Farcaster core bundle expects removed Faker 7 APIs; a narrow compatibility module supplies those names on pinned Faker 10 without exposing a template evaluator.
 
 ## Incident response
 
-1. Take the client offline: `in-three client status`, then stop Caddy/client remotely.
-2. Revoke the affected signer from the Farcaster account's connected-app management.
-3. Rotate the agent write capability plus the Celo and Coinbase CDP facilitator credentials.
-4. Preserve container logs, x402 receipts, split-creation receipts, and OP registration/revocation receipts.
+1. Stop public access to the client.
+2. Revoke the affected app signer.
+3. Rotate the agent capability and Celo/CDP facilitator credentials.
+4. Preserve node logs, message hashes, x402 receipts, and split receipts.
 5. Destroy the host if compromise is suspected.
-6. Provision clean infrastructure and register a new signer.
-7. Change the client password and any reused cloud credentials.
+6. Rebuild with a fresh app key and password.
+7. Rotate any cloud credential used during the incident.
 
-Report vulnerabilities privately to the repository owner through GitHub's security advisory feature. Do not include mnemonics, private keys, tokens, or full environment files.
+Report vulnerabilities through GitHub's private security advisory feature. Never include phrases, private keys, tokens, capabilities, or full environment files.

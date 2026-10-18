@@ -376,7 +376,7 @@ function CastRow({
           remove: false,
         }),
       });
-      onNotice(type === "like" ? "Liked through your app key" : "Recast submitted");
+      onNotice(type === "like" ? "Like accepted for relay" : "Recast accepted for relay");
     } catch (error) {
       onNotice(errorMessage(error));
     } finally {
@@ -411,9 +411,6 @@ function CastRow({
           <button type="button" title="Recast" onClick={() => void react("recast")} disabled={busy !== null}>
             {busy === "recast" ? <LoaderCircle className="spin" size={17} /> : <Repeat2 size={17} />}
           </button>
-          <button type="button" title="Reply" onClick={() => onNotice("Reply composer is next in the queue")}>
-            <PenLine size={17} />
-          </button>
           <code>{cast.hash.slice(0, 8)}</code>
         </footer>
       </div>
@@ -445,7 +442,7 @@ function Composer({
           ...(embedUrl ? { embedUrl } : {}),
         }),
       });
-      onPublished(`Cast submitted · ${result.hash.slice(0, 10)}`);
+      onPublished(`Cast accepted for relay · ${result.hash.slice(0, 10)}`);
     } catch (error) {
       onPublished(errorMessage(error));
     } finally {
@@ -566,7 +563,7 @@ function FollowPanel({ inputId, onDone }: { inputId: string; onDone: (message: s
       });
       const followedFid = fid;
       setFid("");
-      onDone(`Following FID ${followedFid}`);
+      onDone(`Follow accepted for relay · FID ${followedFid}`);
     } catch (error) {
       onDone(errorMessage(error));
     } finally {
@@ -592,7 +589,7 @@ function ProtocolPanel() {
       <span className="status-dot" />
       <div>
         <strong>Read</strong><small>Client service → own node</small>
-        <strong>Write</strong><small>Client service → validator</small>
+        <strong>Write</strong><small>Client → your node → validator gossip</small>
       </div>
     </section>
   );

@@ -75,16 +75,25 @@ test("feed data and client attribution come only from the configured read node",
         ],
       });
     }
-    if (url.pathname === "/v1/onChainSignersByFid") {
+    if (url.pathname === "/v1/signersByFid") {
       return json(response, {
-        events: [
+        signers: [
           {
-            signerEventBody: {
-              key: `0x${"22".repeat(32)}`,
-              eventType: "SIGNER_EVENT_TYPE_ADD",
-              metadataType: 1,
-              metadata: metadataBase64,
+            source: "SIGNER_SOURCE_ONCHAIN",
+            key: `0x${"22".repeat(32)}`,
+            onChainEvent: {
+              signerEventBody: {
+                key: `0x${"22".repeat(32)}`,
+                eventType: "SIGNER_EVENT_TYPE_ADD",
+                metadataType: 1,
+                metadata: metadataBase64,
+              },
             },
+          },
+          {
+            source: "SIGNER_SOURCE_GASLESS",
+            key: `0x${"33".repeat(32)}`,
+            requestFid: 77,
           },
         ],
       });
@@ -106,5 +115,10 @@ test("feed data and client attribution come only from the configured read node",
 
   const requestFid = await reader.requestFidForSigner(2, `0x${"22".repeat(32)}`);
   assert.equal(requestFid, 99);
+  const gaslessRequestFid = await reader.requestFidForSigner(
+    2,
+    `0x${"33".repeat(32)}`,
+  );
+  assert.equal(gaslessRequestFid, 77);
   assert.ok(requested.every((path) => path.startsWith("/v1/")));
 });

@@ -30,9 +30,9 @@ const DEADLINE = new Date("2026-10-24T14:47:30Z");
 const REPO = "https://github.com/P-U-C/farcaster-in-three";
 
 const commands = [
-  { number: "0", label: "COMPUTE", command: "in-three provision" },
-  { number: "1", label: "SNAPCHAIN", command: "in-three node up" },
-  { number: "2", label: "CLIENT", command: "in-three client create" },
+  { number: "0", label: "COMPUTE", command: "./in-three-container provision" },
+  { number: "1", label: "SNAPCHAIN", command: "./in-three-container node up" },
+  { number: "2", label: "CLIENT", command: "./in-three-container client create" },
 ];
 
 export function App() {
@@ -99,7 +99,7 @@ export function App() {
             {commands.map((item) => <Command key={item.number} {...item} />)}
             <footer>
               <span><i /> READS LOCAL</span>
-              <span>WRITES VALIDATOR</span>
+              <span>WRITES LOCAL</span>
               <span>CUSTODY ABSENT</span>
             </footer>
           </div>
@@ -108,7 +108,7 @@ export function App() {
         <section className="proof-strip" aria-label="System guarantees">
           <div><HardDrive size={19} /><strong>2 TiB</strong><span>data volume</span></div>
           <div><Network size={19} /><strong>0</strong><span>data API keys</span></div>
-          <div><KeyRound size={19} /><strong>1</strong><span>OP transaction</span></div>
+          <div><KeyRound size={19} /><strong>0</strong><span>OP transactions</span></div>
           <div><ShieldCheck size={19} /><strong>MIT</strong><span>client code</span></div>
         </section>
 
@@ -116,12 +116,12 @@ export function App() {
           <SectionLabel number="00" text="QUICKSTART" />
           <div className="section-heading">
             <h2>Run these three<br />commands.</h2>
-            <p>Install the versioned npm release on macOS or Linux; it ships the compiled setup utility and client assets. Run one paid wrapper or the three commands below from an empty working directory.</p>
+            <p>Pull the versioned operator image on macOS or Linux. The launcher mounts only this directory, runs as your user, drops capabilities, and never mounts the Docker socket.</p>
           </div>
 
           <div className="clone-line">
-            <span>INSTALL PREBUILT CLI</span>
-            <CodeBlock code={"npm install -g https://github.com/P-U-C/farcaster-in-three/releases/download/v0.1.0/farcaster-in-three-0.1.0.tgz\nmkdir in-three-node && cd in-three-node"} />
+            <span>GET THE CONTAINER LAUNCHER</span>
+            <CodeBlock code={"mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.1/in-three-container\nchmod +x in-three-container"} />
           </div>
 
           <div className="paid-quickstart">
@@ -131,8 +131,8 @@ export function App() {
               <p>A free preflight checks the fixed Hetzner plan and token permissions. One 25 USDC x402 request creates the server, volume, firewall, and SSH key, then starts Snapchain. Hetzner bills the infrastructure separately.</p>
             </div>
             <div>
-              <CodeBlock code="in-three deploy --service https://YOUR_BROKER" label="FULL DEPLOY" />
-              <small>Celo is the default rail; add <code>--payment-network base</code> for Base. Keys stay local, and interrupted payments resume without buying again.</small>
+              <CodeBlock code="./in-three-container deploy --service https://YOUR_BROKER --payment-network base" label="FULL DEPLOY" />
+              <small>The container uses a dedicated Base payer. Celo usebuy.ai stays on the host OS keychain. Interrupted payments resume without buying again.</small>
             </div>
           </div>
 
@@ -147,7 +147,7 @@ export function App() {
                 <p>{[
                   "Creates a hardened Hetzner host, a 2 TiB volume, an isolated SSH key, and narrow firewall rules.",
                   "Starts Snapchain v0.14.3 from an immutable image digest and verifies the validator-set checksum.",
-                  "Creates immutable Celo/Base revenue routes, registers a revocable signer, then launches the browser and agent clients.",
+                  "Creates the revenue routes, authorizes a scoped gasless signer through your node, then launches the browser and agent clients.",
                 ][index]}</p>
               </article>
             ))}
@@ -163,7 +163,7 @@ export function App() {
             <SectionLabel number="01" text="SYSTEM MAP" light />
             <div className="section-heading light">
               <h2>Two paths,<br />one client service.</h2>
-              <p>Human sessions and paid agents terminate at your host. The client reads local Snapchain state and sends signed writes to a validator; the validator is never a read dependency.</p>
+              <p>Human sessions and paid agents terminate at your host. The client sends both reads and signed writes to your Snapchain node. The node relays valid writes to validators over gossip.</p>
             </div>
             <div className="system-map">
               <div className="map-ingress">
@@ -188,11 +188,11 @@ export function App() {
                 <div className="route-origin"><strong>Client service</strong><small>binary protobuf</small></div>
                 <div className="map-arrow write"><ArrowRight /></div>
                 <div className="map-node validator">
-                  <span>NETWORK</span><Network size={27} /><strong>Farcaster validator</strong><small>mempool · consensus</small>
+                  <span>YOURS</span><Server size={27} /><strong>Snapchain read node</strong><small>validate · gossip to validators</small>
                 </div>
               </div>
             </div>
-            <p className="architecture-note"><b>Why not submit to the read node?</b> It can gossip a write, but it has no mempool. Direct validator submission survives a gossip miss and still keeps reads on infrastructure you operate.</p>
+            <p className="architecture-note"><b>What success means:</b> the read node validates the message and gossips it to validators. Because it has no mempool, acceptance means relayed, not included. Confirm the message when it appears in synced node state.</p>
           </div>
         </section>
 
@@ -217,22 +217,25 @@ export function App() {
 
             <div className="chapters">
               <Chapter id="before" number="A" title="Before you begin">
-                <p>You need an existing Farcaster account with storage, its custody recovery phrase, a Hetzner Cloud API token, a Celo x402 facilitator key from <a href="https://x402.celo.org/" target="_blank" rel="noreferrer">x402.celo.org</a>, and a Coinbase CDP key for Base settlement.</p>
+                <p>You need Docker, a Hetzner Cloud token, an otherwise disposable Farcaster test account with storage, a Celo x402 facilitator key from <a href="https://x402.celo.org/" target="_blank" rel="noreferrer">x402.celo.org</a>, and a Coinbase CDP key for Base settlement.</p>
                 <Checklist items={[
-                  "Linux or macOS operator machine with Bash, Node.js 22+, npm, curl, jq, SSH, and tar",
-                  "Custody phrase for the address that owns your FID",
+                  "Linux or macOS operator machine with Docker, Bash, and curl",
+                  "Recovery phrase for a disposable test account that owns an FID",
                   "At least one active Farcaster storage unit",
-                  "Enough OP ETH for one KeyGateway.add transaction",
-                  "Small CELO and Base ETH balances for one-time split creation",
+                  "No OP ETH: app-key authorization is gasless",
+                  "Small CELO and Base ETH balances only if split creation is needed",
                   "Celo facilitator API key plus Coinbase CDP Secret API key",
                 ]} />
-                <CodeBlock code="in-three doctor" label="CHECK FIRST" />
+                <Callout tone="orange" icon={<KeyRound size={21} />} title="Developer flow: test accounts only">
+                  A recovery phrase is full account control. Enter one only into source you have inspected and trust; never send it through chat or reuse an account that holds value. Production clients should use delegated authorization from a trusted wallet.
+                </Callout>
+                <CodeBlock code="./in-three-container doctor" label="CHECK FIRST" />
                 <p className="fine-print">The default cloud path is Hetzner. Snapchain itself needs no provider token or hosted RPC key. The infrastructure token creates compute only.</p>
               </Chapter>
 
               <Chapter id="compute" number="0" title="Furnish the compute">
                 <p>Run the provisioner. It shows the selected region, machine class, volume size, and inbound rules before it creates anything billable.</p>
-                <CodeBlock code="in-three provision" label="COMMAND 0" />
+                <CodeBlock code="./in-three-container provision" label="COMMAND 0" />
                 <div className="fact-grid">
                   <Fact label="DEFAULT" value="ccx33" detail="validated against the live provider catalog" />
                   <Fact label="DATA" value="2 TiB" detail="mounted at /srv/in-three" />
@@ -244,24 +247,24 @@ export function App() {
                   "Compute is ready at 203.0.113.10",
                   "client URL   https://203-0-113-10.sslip.io (activated by command 2)",
                   "local state  .state/config",
-                  "Next: in-three node up",
+                  "Next: ./in-three-container node up",
                 ]} />
                 <Callout tone="orange" icon={<Cloud size={21} />} title="Approximate recurring cost">
-                  At Hetzner&apos;s current Ashburn list rates, the default CCX33 is $165.99/month and 2,048 GiB of volume storage is about $99.12/month: roughly $265/month before IPv4, traffic, or tax. Check the <a href="https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/" target="_blank" rel="noreferrer">server rate</a> and <a href="https://www.hetzner.com/cloud/" target="_blank" rel="noreferrer">volume rate</a> in your console before typing <code>PROVISION</code>. Run <code>in-three destroy</code> when finished.
+                  At Hetzner&apos;s current Ashburn list rates, the default CCX33 is $165.99/month and 2,048 GiB of volume storage is about $99.12/month: roughly $265/month before IPv4, traffic, or tax. Check the <a href="https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/" target="_blank" rel="noreferrer">server rate</a> and <a href="https://www.hetzner.com/cloud/" target="_blank" rel="noreferrer">volume rate</a> in your console before typing <code>PROVISION</code>. Run <code>./in-three-container destroy</code> when finished.
                 </Callout>
               </Chapter>
 
               <Chapter id="node" number="1" title="Start the read node">
                 <p>The second command checks for at least 1.5 TB free, verifies the vendored validator set against the pinned Snapchain release checksum, pulls the x86-64 image by digest, and starts snapshot sync.</p>
-                <CodeBlock code="in-three node up" label="COMMAND 1" />
+                <CodeBlock code="./in-three-container node up" label="COMMAND 1" />
                 <p>The initial snapshot is several hundred gigabytes. Downloading, decompressing, and replaying newer blocks commonly takes hours. Node up returns after confirming that the container is running; closing your terminal does not stop bootstrap.</p>
                 <OutputBlock lines={[
                   "Snapchain bootstrap is running on the server",
                   "HTTP API      waiting for snapshot bootstrap",
-                  "Check progress: in-three node status",
-                  "Next: in-three client create (waits, then continues)",
+                  "Check progress: ./in-three-container node status",
+                  "Next: ./in-three-container client create (waits, then continues)",
                 ]} />
-                <CodeBlock code="in-three node status" label="WATCH SYNC" />
+                <CodeBlock code="./in-three-container node status" label="WATCH SYNC" />
                 <p><b>Ready means every reported shard delay is under 30 seconds.</b> Start command 2 immediately: it reports bootstrap progress every five minutes and continues automatically when the local HTTP API appears. It does not request the phrase or register an app key while waiting.</p>
                 <div className="source-note">
                   <FileCheck2 size={20} />
@@ -270,13 +273,13 @@ export function App() {
               </Chapter>
 
               <Chapter id="client" number="2" title="Issue a client key">
-                <p>The final command first validates the client password and both facilitator credentials in hidden prompts. Only then does it request the custody recovery phrase. It derives account zero at <code>m/44&apos;/60&apos;/0&apos;/0/0</code>, checks the FID and storage, prepares the Celo/Base revenue routes, and creates a fresh Ed25519 key.</p>
-                <CodeBlock code="in-three client create" label="COMMAND 2" />
+                <p>The final command validates the client password and facilitator credentials, opens a local tunnel to your node, and requires <code>TEST ACCOUNT</code> before the hidden phrase prompt. It resolves the FID and storage, prepares Celo/Base revenue routes, and creates a fresh Ed25519 key.</p>
+                <CodeBlock code="./in-three-container client create" label="COMMAND 2" />
                 <div className="key-ceremony">
                   <div><span>1</span><strong>Secrets are separated</strong><small>password and both facilitator credentials are validated before custody is requested</small></div>
-                  <div><span>2</span><strong>Phrase enters local memory</strong><small>never an argument, environment variable, file, log, or network request</small></div>
-                  <div><span>3</span><strong>Transactions are recoverable</strong><small>all signed bytes, local hashes, and the app key are saved before the first RPC broadcast</small></div>
-                  <div><span>4</span><strong>Every receipt is checked</strong><small>pending bytes can be rebroadcast exactly; no custody secret is deployed</small></div>
+                  <div><span>2</span><strong>Phrase stays in local memory</strong><small>test account only; never an argument, file, environment variable, log, or network request</small></div>
+                  <div><span>3</span><strong>Gasless message is recoverable</strong><small>exact KEY_ADD protobuf, hash, checksum, and app key are saved before submission</small></div>
+                  <div><span>4</span><strong>Node state is checked</strong><small>a rerun checks the signer first and resubmits only the saved bytes</small></div>
                 </div>
                 <OutputBlock lines={[
                   "Client is live",
@@ -284,13 +287,13 @@ export function App() {
                   "agent API     https://203-0-113-10.sslip.io/.well-known/agent.json",
                   "agent access  .state/agent.env",
                   "read path     browser or paid agent -> client service -> your node",
-                  "write path    authorized paid agent -> client service -> validator",
+                  "write path    authorized client -> your node -> validator gossip",
                   "custody key   not stored",
                 ]} />
                 <p>The password is scrypt-hashed. The Farcaster signer and payment credentials are installed in separate read-only containers. Caddy obtains TLS for the printed <code>sslip.io</code> hostname, and <code>.state/agent.env</code> stores the owner&apos;s write capability with mode 0600.</p>
                 <div className="source-note">
                   <FileCheck2 size={20} />
-                  <p><b>If a broadcast fails:</b> do not start over. The exact Celo, Base, and Optimism signed bytes, local hashes, and app key were saved before the first broadcast in <code>.state/client.env.pending</code>. Rerun <code>in-three client create</code>; it checks confirmed receipts and rebroadcasts only the exact pending bytes. Each raw transaction is removed after confirmation.</p>
+                  <p><b>If submission is uncertain:</b> keep <code>.state/client.env.pending</code>. It contains the exact gasless message, hash, checksum, app key, and any Celo/Base split transactions. Rerun <code>./in-three-container client create</code>; it checks signer state and receipts before resubmitting only the saved bytes.</p>
                 </div>
               </Chapter>
 
@@ -298,27 +301,27 @@ export function App() {
                 <ol className="walkthrough">
                   <li><span>1</span><p>Open the HTTPS URL printed by command 2 and sign in with the client password you just set.</p></li>
                   <li><span>2</span><p>Select <b>New cast</b>, enter plain text, and optionally add one HTTPS embed URL.</p></li>
-                  <li><span>3</span><p>Select <b>Publish</b>. The client signs a Snapchain message with the delegated app key and submits its binary protobuf to a validator.</p></li>
-                  <li><span>4</span><p>Confirm the success notice, copy the returned cast hash, and refresh the feed after your read node observes the message.</p></li>
+                  <li><span>3</span><p>Select <b>Publish</b>. The client signs a Snapchain message and submits its binary protobuf to your read node.</p></li>
+                  <li><span>4</span><p>The first response means accepted for relay. Copy the hash, then refresh until your synced node returns the cast; that later read is confirmation.</p></li>
                   <li><span>5</span><p>Open another Farcaster client and verify the same cast publicly. Save that public cast URL for the independent voucher.</p></li>
                 </ol>
               </Chapter>
 
               <Chapter id="operate" number="O" title="Operate what you own">
                 <div className="ops-table">
-                  <div><code>in-three node status</code><span>container, version, block delay, disk</span></div>
-                  <div><code>in-three node logs</code><span>follow Snapchain logs</span></div>
-                  <div><code>in-three client status</code><span>containers, TLS, node health</span></div>
-                  <div><code>in-three client logs</code><span>follow app and proxy logs</span></div>
-                  <div><code>in-three destroy</code><span>delete all billable resources</span></div>
+                  <div><code>./in-three-container node status</code><span>container, version, block delay, disk</span></div>
+                  <div><code>./in-three-container node logs</code><span>follow Snapchain logs</span></div>
+                  <div><code>./in-three-container client status</code><span>containers, TLS, node health</span></div>
+                  <div><code>./in-three-container client logs</code><span>follow app and proxy logs</span></div>
+                  <div><code>./in-three-container destroy</code><span>delete all billable resources</span></div>
                 </div>
-                <p>Back up the delegated app key only if you need continuity. Losing it means registering another small OP transaction. Losing the Snapchain database means downloading a new verified snapshot. If provisioning aborts, the cleanup trap removes any cloud resources created during that run; check the provider console before retrying. None of these failures compromises custody.</p>
+                <p>Back up the delegated app key only if continuity matters. Losing it means authorizing another gasless signer and revoking the old key. Losing the Snapchain database means downloading a new snapshot. If provisioning aborts, check the provider console before retrying. None of these failures transfers custody.</p>
               </Chapter>
 
               <Chapter id="keys" number="S" title="The key boundary">
                 <div className="boundary-grid">
-                  <div className="never"><b>NEVER LEAVES YOUR TERMINAL</b><KeyRound size={24} /><strong>Custody recovery phrase</strong><p>Can register and revoke app keys. Used once in memory.</p></div>
-                  <div className="stored"><b>STORED ON YOUR HOST</b><ShieldCheck size={24} /><strong>Delegated app key</strong><p>Can sign Farcaster messages for one FID. Cannot transfer custody.</p></div>
+                  <div className="never"><b>TEST ACCOUNT · LOCAL ONLY</b><KeyRound size={24} /><strong>Recovery phrase</strong><p>Full account control. Enter only into reviewed, trusted code.</p></div>
+                  <div className="stored"><b>STORED ON YOUR HOST</b><ShieldCheck size={24} /><strong>Scoped app key</strong><p>Casts, reactions, and follows only. Gasless and revocable.</p></div>
                 </div>
                 <p>Compromise of the client host requires revoking that signer. Use the signer public key printed in your deployment receipt and remove it from your Farcaster account’s connected-app management. Then rotate the web password and rebuild the host.</p>
               </Chapter>
@@ -332,7 +335,7 @@ export function App() {
             <div className="showcase-copy">
               <div>
                 <h2>Reference client,<br />included.</h2>
-                <p>The home feed is assembled from follows and casts on your read node. Every write is signed by your delegated key and encoded with the official Farcaster message builders.</p>
+                <p>The home feed is assembled from your read node. Every write is signed by the scoped key, encoded with the official builders, and submitted back to that node for validator gossip.</p>
               </div>
               <ul>
                 <li><Check size={16} /> Read a chronological network feed</li>
@@ -364,12 +367,12 @@ export function App() {
               <p>The buyer supplies a dedicated Hetzner project token and SSH public key. The broker records a token hash for recovery, creates the fixed <code>ccx33 + 2 TiB</code> plan, and returns the resource IDs. Custody happens later on the buyer&apos;s machine.</p>
             </div>
             <div>
-              <CodeBlock code="in-three deploy --service https://YOUR_BROKER" label="25 USDC · ONCE" />
+              <CodeBlock code="./in-three-container deploy --service https://YOUR_BROKER --payment-network base" label="25 USDC · ONCE" />
               <dl>
                 <div><dt>BEFORE PAYMENT</dt><dd>plan + write-access preflight</dd></div>
                 <div><dt>AFTER PAYMENT</dt><dd>idempotent status + free resume</dd></div>
                 <div><dt>SEPARATE BILL</dt><dd>Hetzner runs until destroy</dd></div>
-                <div><dt>PAYMENT RAIL</dt><dd>Celo default · Base optional</dd></div>
+                <div><dt>CONTAINER RAIL</dt><dd>dedicated Base payer</dd></div>
               </dl>
             </div>
           </div>
@@ -442,21 +445,22 @@ export function App() {
           <div className="concepts">
             <Concept index="01" title="FID" accent="purple">A numeric identity registered on OP Mainnet. The IdRegistry maps one FID to its custody address.</Concept>
             <Concept index="02" title="Custody address" accent="orange">The Ethereum account that owns the FID. It authorizes app signers and recovery; it should not live on an app server.</Concept>
-            <Concept index="03" title="App key" accent="cyan">A revocable Ed25519 key registered for one FID. It signs casts, reactions, links, and other Snapchain messages.</Concept>
+            <Concept index="03" title="App key" accent="cyan">A scoped Ed25519 signer authorized by a gasless KEY_ADD. This build permits casts, reactions, and links for a 90-day sliding window.</Concept>
             <Concept index="04" title="Snapchain message" accent="green">Typed protobuf data plus FID, network, timestamp, hash, signature, and signer public key.</Concept>
-            <Concept index="05" title="Read node / validator" accent="purple">Both verify state. Only validators propose and vote on blocks; a read node stores state and serves your queries.</Concept>
+            <Concept index="05" title="Read node / validator" accent="purple">Both accept and validate messages. A read node serves state and gossips writes; validators keep mempools and propose blocks.</Concept>
             <Concept index="06" title="Storage rent" accent="orange">Onchain capacity for casts, reactions, links, profile data, and verifications. A valid signer still cannot exceed its FID’s limits.</Concept>
           </div>
 
           <div className="client-filter-explainer">
             <Filter size={28} />
-            <div><h3>What “filter by client” actually means</h3><p>A cast carries the public key that signed it, not a free-form client name. In Three exposes every discovered key, groups keys sharing a decoded SignedKeyRequest <code>requestFid</code>, and toggles the whole attributed app together. When attribution is unavailable, the exact signer remains an independent fingerprint control.</p></div>
+            <div><h3>What “filter by client” actually means</h3><p>A cast carries its signer key, not a free-form client name. In Three queries the unified signer API, exposes every discovered key, groups keys sharing available app attribution, and keeps unattributed keys as exact fingerprint controls.</p></div>
           </div>
 
           <div className="references">
             <h3>Primary references</h3>
             <a href="https://snapchain.farcaster.xyz/getting-started" target="_blank" rel="noreferrer"><span>Snapchain</span> Getting started <ExternalLink size={15} /></a>
             <a href="https://snapchain.farcaster.xyz/node-types" target="_blank" rel="noreferrer"><span>Snapchain</span> Read nodes vs validators <ExternalLink size={15} /></a>
+            <a href="https://snapchain.farcaster.xyz/guides/writing-messages" target="_blank" rel="noreferrer"><span>Snapchain</span> Gasless writes and signers <ExternalLink size={15} /></a>
             <a href="https://github.com/farcasterxyz/protocol" target="_blank" rel="noreferrer"><span>Protocol</span> Specification <ExternalLink size={15} /></a>
             <a href="https://github.com/farcasterxyz/contracts" target="_blank" rel="noreferrer"><span>Contracts</span> OP deployments <ExternalLink size={15} /></a>
             <a href="https://docs.farcaster.xyz/reference/farcaster/signers" target="_blank" rel="noreferrer"><span>Farcaster</span> Signers <ExternalLink size={15} /></a>
@@ -518,11 +522,11 @@ export function App() {
             <h2>Questions worth<br />answering first.</h2>
             <div>
               <Details question="Does the read node need an API key?">No. It downloads a public, verifiable snapshot and syncs blocks over the Farcaster network. The Hetzner token provisions infrastructure and is never installed on the node.</Details>
-              <Details question="Why does the client write to a validator?">Read-node submission is best-effort gossip. A validator places a valid message in its mempool and can propose it directly, giving the client a stronger delivery path.</Details>
+              <Details question="Where does the client write?">To your read node. It validates the signed message and gossips it to validators. Because a read node has no mempool, submission means accepted for relay; a later node read confirms inclusion.</Details>
               <Details question="Can the app key move my wallet funds?">No. The Ed25519 signer authorizes Farcaster messages for its FID. It is not the Ethereum custody key and cannot sign wallet transactions.</Details>
-              <Details question="Why import a recovery phrase at all?">The phrase proves control of the FID and signs the one OP KeyGateway call locally. Seller setup may also use it for fixed, zero-value SplitFactory calls on Celo and Base. Every destination and transaction count is shown before confirmation; the phrase then disappears.</Details>
+              <Details question="Why enter a recovery phrase at all?">This developer tutorial demonstrates custody authorization for a scoped gasless signer. Use only a disposable test account and code you trust. Production clients should request delegated wallet authorization instead of collecting phrases. Split setup may also sign fixed zero-value Celo/Base factory calls.</Details>
               <Details question="How does an agent pay?">The 402 offers equal USDC prices on Celo and Base. The bundled buy CLI or MCP selects Celo; another x402 v2 wallet may select Base. Write routes also require the owner capability before a quote is issued.</Details>
-              <Details question="What is not automated?">The owner still enters custody locally, confirms the Celo/Base split creation and OP registration, and supplies the client password and facilitator credentials. The human voucher and final prize reply remain human work. Hetzner provisioning and node startup are automated; its recurring bill is not included in the broker fee.</Details>
+              <Details question="What is not automated?">The owner supplies secrets locally, acknowledges the test-account ceremony, and confirms Celo/Base split creation plus gasless signer authorization. The human voucher and final prize reply remain human work. Hetzner's recurring bill is separate from the broker fee.</Details>
             </div>
           </div>
         </section>

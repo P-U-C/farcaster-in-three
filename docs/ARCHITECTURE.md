@@ -1,130 +1,133 @@
 # Architecture
 
-## Data plane
+## Protocol data plane
 
 ```text
-Browser
-  |
-  | HTTPS + signed session cookie
-  v
-Caddy ------------------------------> Client service
-  ^                                       |
-  |                                       | HTTP JSON reads
-  |                                       v
-Agent -> x402 v2 quote/pay -> gateway -> Client service -> Snapchain read node
-            Celo or Base         |                         ^
-                                 |                         |
-                                 |                   full local state
-                                 v
-                         immutable 95/5 split
-
-Client service
-  |
-  | Ed25519-signed protobuf write
-  v
-Farcaster validator ----> mempool ----> consensus ----> read node
+Browser ---------------- HTTPS session -----------------+
+                                                        |
+Agent ----- x402 payment + write capability ------> gateway
+                                                        |
+                                                        v
+                                                 Client service
+                                                   /         \
+                                      HTTP reads  /           \ signed protobuf writes
+                                                 v             v
+                                          owned Snapchain read node
+                                                 |             |
+                                      local state|             | validate + gossip
+                                                 v             v
+                                              responses    validators
+                                                               |
+                                                           consensus
+                                                               |
+                                                     next blocks return
+                                                        to read node
 ```
 
-The read node is authoritative for the client's view. The validator is a delivery endpoint, not a read dependency.
+The client service has one protocol dependency: the operator's Snapchain read node. It reads through that node and posts binary messages to the node's `POST /v1/submitMessage` endpoint.
+
+A read node accepts writes. It validates each message and gossips valid messages to validators, but it has no mempool and does not propose blocks. A successful submit response therefore means **accepted for relay**, not **included in a block**. Confirmation is a later observation of the message in synced node state.
+
+The node's HTTP and gRPC ports are private. Only QUIC gossip, HTTPS, and CIDR-restricted SSH are exposed.
 
 ## Paid deployment control plane
 
 ```text
-Operator machine                         Selected In Three broker                    Buyer Hetzner project
+Operator machine                  selected broker                    buyer's Hetzner project
 
-SSH private key stays local
-cloud token -> HTTPS preflight --------> deployment service -> create/delete probe -> API
-x402 wallet -> 25 USDC on Celo/Base ----> gateway -> immutable 95/5 split
-same request body ----------------------> durable entitlement -> provision --------> server + volume + firewall + SSH key
-                  <---------------------- resource IDs + public IPv4
-SSH ------------------------------------> cloud-init -> mount volume -> Snapchain
-custody phrase stays local -> app-key registration -> client deployment
+SSH keypair generated locally
+cloud token -> HTTPS preflight -> deployment service -> API probe
+x402 wallet -> Celo/Base USDC -> gateway -> immutable 95/5 split
+same bounded request -----------> durable entitlement -> server + volume + firewall
+             <------------------- resource IDs + public IPv4
+
+SSH private key ----------------------------------------------------> new host
+local client command -> SSH tunnel -> owned node -> gasless app-key relay
+test-account phrase remains in the local setup process
 ```
 
-The deployment request uses a random client-generated `deploymentId`. The deployer persists that ID, a SHA-256 cloud-token binding, SSH public key, and source CIDR before calling Hetzner. It never stores the cloud token. Status and resume are free, but resume requires all buyer inputs to match that paid entitlement. This lets a dropped paid response continue without issuing another x402 payment.
+The request has a random client-generated `deploymentId`. Before provisioning, the broker persists that ID with a SHA-256 token binding, SSH public key, and source CIDR. It never persists the Hetzner token. Free status and resume routes require the original inputs to match the paid entitlement, so a dropped paid response can continue without another x402 payment.
 
-The broker is still trusted during the request: it sees the dedicated Hetzner token in process memory and can use its permissions. Buyers should use a new, otherwise-empty project and rotate the token after deployment. The SSH private key, Farcaster custody phrase, client password, app signer, and seller facilitator credentials never reach the broker.
+The broker is trusted while it handles the request: it can use the dedicated Hetzner token within that project's permissions. Use a new, otherwise-empty project and rotate the token after provisioning. The broker never receives the SSH private key, Farcaster phrase, browser password, app key, or facilitator credentials.
 
-Cloud-init writes release files to `/opt/in-three-release`, mounts the attached volume at `/srv/in-three`, copies the release onto that mounted volume, and starts the pinned Snapchain image. Staging outside the mount point is required; files written under `/srv/in-three` before mounting would be hidden by the volume.
+Cloud-init stages release files under `/opt/in-three-release`, mounts the volume at `/srv/in-three`, copies the release to the mounted volume, and starts the pinned Snapchain image.
 
 ## Agent commerce path
 
-Caddy routes <code>/agent/*</code> and <code>/.well-known/agent.json</code> to a separate x402 v2 resource server. An unpaid valid request receives equal USDC offers for Celo and Base. The bundled buy wallet signs the Celo authorization locally; another conforming x402 v2 client may choose Base. The chain-specific facilitator verifies and settles the selected offer before the gateway proxies the request to the client.
+Caddy routes `/agent/*` and `/.well-known/agent.json` to a separate x402 v2 gateway. A valid unpaid request receives equal USDC offers on Celo and Base. A conforming buyer chooses one rail. The selected facilitator verifies and settles payment before the gateway proxies the request.
 
-The gateway and client are deliberately separate trust domains:
+Trust is split by container:
 
-- the gateway has Celo/CDP facilitator credentials, the verified split address, prices, and agent write capability;
-- the deployer has the fixed cloud plan, release files, and durable entitlement hashes, but no facilitator or Farcaster signing key;
-- the client has the Farcaster app signer, password hash, and session secret;
-- neither container receives the other's signing material;
-- the gateway reaches the client over `web` and the deployer over the isolated `deployment` network, but has no route to Snapchain;
-- only the deployment request sends a buyer-supplied Hetzner token to the deployer, and the gateway does not log request bodies;
-- Caddy prevents public callers from bypassing the gateway for <code>/agent/*</code>.
+- The gateway has facilitator credentials, route prices, the revenue address, and the agent write capability.
+- The deployer has the fixed cloud plan and entitlement store, but no payment or Farcaster signer.
+- The client has the delegated Farcaster key, password hash, and session secret.
+- The client can reach Snapchain; the gateway cannot.
+- Caddy prevents public callers from bypassing the gateway for agent routes.
+- Paid reads need payment. Paid writes need the owner capability before the gateway will even return a payment challenge.
 
-Reads require payment only. Writes first require an exact owner-issued bearer capability, then payment. The bearer check runs before the gateway emits a 402, preventing an unauthorized caller from paying for or reaching a write. The bearer header is stripped before the request reaches the client.
-
-The payment recipient is the same deterministic 0xSplits V2 address on both chains. Its immutable Push split assigns 95% to the local operator and 5% to P-U-C, with a 0.1% permissionless distribution incentive. The gateway recomputes the address and confirms deployed bytecode on both chains before listening. Checkout never bridges; recipients can consolidate distributed treasury funds later without putting bridge risk in front of the purchased action.
-
-The free agent manifest and OpenAPI document publish current routes, networks, prices, economics, schemas, and safety rules. A repository skill gives buy-enabled agents the quote-before-pay and ambiguous-settlement procedure.
-
-## Why writes bypass the read node
-
-Snapchain accepts `submitMessage` on either role, but behavior differs:
-
-- A validator validates the message, places it in its shard mempool, gossips it, and may propose it.
-- A read node validates and gossips the message but has no mempool. If gossip is lost, the message must be resubmitted.
-
-Direct validator submission is therefore the more reliable write path. The client retries network and 5xx failures across a small ordered validator set. It does not retry semantic 4xx rejections.
+The deterministic 0xSplits V2 address is the same on Celo and Base. Its immutable Push split assigns 95% to the operator and 5% to P-U-C, with a 0.1% permissionless distribution incentive. No bridge sits in the request path.
 
 ## Feed construction
 
-The reference client intentionally avoids a hosted feed API:
+The reference client does not call a hosted feed API:
 
-1. Query `linksByFid` for the owner's active follow links.
+1. Query `linksByFid` for active follows.
 2. Query recent `castsByFid` for the owner and up to 35 followed FIDs.
 3. Merge and sort by Farcaster timestamp.
-4. Resolve user-data messages for display name, username, bio, and HTTPS profile image.
-5. Resolve onchain signer events for source attribution.
+4. Resolve user-data messages for username, display name, bio, and profile image.
+5. Query `signersByFid` for unified onchain and gasless signer records.
 
-Every discovered signer key remains available to the filter UI. Keys with the same decoded SignedKeyRequest `requestFid` are grouped into one attributed app control; unattributed keys retain independent exact-key controls.
+Every discovered signer key remains available in the source filter. Keys sharing available app attribution are grouped. If attribution is absent, the UI retains exact-key controls instead of inventing a client name.
 
-This is a transparent chronological reference feed, not a ranking engine. A production social client should add pagination, durable profile caches, topic/channel indexes, moderation, spam controls, and user-selectable ranking.
+This is a chronological reference feed. A production client would add pagination, durable profile caches, moderation, spam controls, channel indexes, and user-selectable ranking.
 
-## Key ceremony
+## Test-account key ceremony
 
 ```text
-Client password + confirmation
+browser password + confirmation
   -> facilitator credentials validated
-BIP-39 phrase
-  -> m/44'/60'/0'/0/0 custody/operator account
-  -> deterministic 95/5 split planned for Celo and Base
-  -> IdRegistry.idOf(address) + Farcaster storage check
-  -> random 32-byte Ed25519 secret
-  -> SignedKeyRequest EIP-712 metadata
-  -> Celo split, Base split, and KeyGateway transactions prepared locally
-  -> all signed bytes + local hashes + app key saved owner-only
-  -> exact signed split bytes broadcast; existing splits skipped
-  -> exact signed app-key bytes broadcast to OP Mainnet
-  -> each confirmed transaction removed from recovery state
-  -> confirmed secrets uploaded into separate containers
-  -> pending file removed after HTTPS health checks
-  -> mnemonic discarded with local process
+  -> local SSH tunnel to owned read node
+  -> explicit TEST ACCOUNT acknowledgement
+test-account BIP-39 phrase
+  -> m/44'/60'/0'/0/0 custody address
+  -> FID resolved on Optimism; storage checked through owned node
+  -> Celo/Base 95/5 split state inspected
+fresh Ed25519 app key
+  -> casts/reactions/follows scopes
+  -> 90-day sliding TTL
+  -> next per-FID gasless nonce
+custody account
+  -> EIP-712 authorization for scoped signer
+app key
+  -> signed gasless KEY_ADD Snapchain message
+  -> exact protobuf + hash + checksum + app key saved owner-only
+  -> protobuf submitted through SSH tunnel to owned read node
+  -> read node validates and gossips to validators
+  -> setup waits for signer in unified node API
+  -> only delegated app key uploaded
+  -> saved protobuf removed after confirmation
+  -> pending file removed after public health checks
+  -> phrase discarded with local process exit
 ```
 
-Password confirmation and both facilitator validations happen before phrase input, app-key generation, or transaction signing. Every transaction is signed and hashed locally, and its serialized bytes are persisted with the app key before the first broadcast. If an RPC response, receipt poll, or deployment fails, rerunning `client create` validates each local hash, rebroadcasts the same pending bytes, and resumes rather than creating a different split or signer.
+No Optimism transaction or OP ETH is required. If a deterministic Celo or Base revenue split is absent, setup may separately sign one zero-value contract-creation transaction on that chain; those transactions and local hashes are also saved before broadcast.
 
-The requesting FID in this standalone client is the user's own FID. This creates valid, decodable attribution without a centralized app backend holding a separate app-custody key. The exact Ed25519 public key remains the canonical client-instance identifier.
+If submission produces an uncertain network result, setup preserves the exact gasless message and app key. A rerun checks signer state first, verifies the saved checksum, and resubmits only those bytes. It never creates a replacement key while the first authorization may be live.
 
-## Container networks
+This phrase-based ceremony exists to teach the low-level protocol path. Recovery phrases are equivalent to account control and should only be entered into code the tester has inspected and trusts. Real client onboarding should use delegated signer authorization from a trusted wallet and should not collect raw phrases.
 
-- `protocol`: internal network shared only by Snapchain and client
-- `deployment`: internal network shared only by the agent gateway and deployment service
-- `deployer-egress`: Hetzner API egress for the deployment service
-- `node-egress`: Snapchain peer/snapshot egress
-- `web`: client, agent gateway, and Caddy
+## Container boundaries
 
-The host publishes Caddy and gossip ports. Snapchain HTTP/gRPC and the client origin are not published.
+The operator image is a packaging boundary, not the deployed service. It runs as the host UID/GID with a read-only root filesystem, no Linux capabilities, no Docker socket, and only the current working directory mounted at `/work`. Persistent operator state remains under `.state/`.
 
-## Upstream boundaries
+The deployed service uses these networks:
+
+- `protocol`: Snapchain and client only
+- `deployment`: gateway and deployment service only
+- `deployer-egress`: Hetzner API access for the deployment service
+- `node-egress`: peer and snapshot access for Snapchain
+- `web`: client, gateway, and Caddy
+
+## Upstream boundary
 
 The repository does not fork or vendor Snapchain. It runs the official GPL-3.0 image by immutable digest and supplies configuration at runtime. Original scripts, client code, and documentation are MIT licensed.

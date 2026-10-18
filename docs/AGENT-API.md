@@ -9,8 +9,9 @@ In Three exposes the deployed client to agents through x402 v2:
 - Reads require payment. Writes require payment plus an owner-issued bearer capability.
 - The gateway can reach the client service but cannot reach Snapchain directly. It does not receive the Farcaster app key.
 - The client cannot read either facilitator credential or the bearer capability.
+- Every Farcaster write enters through the operator's read node, which validates it and gossips it to validators.
 
-The browser remains password protected and does not pay per request.
+The browser remains password protected and does not pay per request. A successful write response means accepted for relay; confirm inclusion by reading the message back from synced node state.
 
 The bundled usebuy.ai 0.8.3 buyer is pre-1.0 beta software and currently selects Celo. Start with low balances, test both advertised rails before exposing a mainnet service, and review exact dependency releases before upgrading.
 
@@ -20,12 +21,12 @@ Before command 2:
 
 1. Create a facilitator key at [x402.celo.org](https://x402.celo.org/) and confirm its settlement balance.
 2. Create a Coinbase CDP Secret API key that can authenticate the Base x402 facilitator.
-3. Put a small amount of CELO on Celo and ETH on Base in the Farcaster custody address. These fund one-time split deployment only.
-4. Keep enough ETH on Optimism for Farcaster app-key registration.
+3. Put a small amount of CELO on Celo and ETH on Base in the test account only if the deterministic split contracts are not already deployed.
+4. Use an otherwise disposable Farcaster test account with storage. No OP ETH is required.
 
-<code>in-three client create</code> validates both facilitator credentials before asking for the custody phrase. It derives one deterministic, immutable 0xSplits address and creates it on Celo and Base with the same policy: 95% to the operator address, 5% to P-U-C, and a 0.1% permissionless distribution incentive. If the operator is already the P-U-C address, setup routes payment directly instead of creating a redundant split.
+<code>in-three client create</code> validates both facilitator credentials before asking for the test-account phrase. It requires the explicit acknowledgement <code>TEST ACCOUNT</code>, then creates a scoped gasless signer limited to casts, reactions, and follows. It also derives one deterministic, immutable 0xSplits address and creates it on Celo and Base with the same policy: 95% to the operator address, 5% to P-U-C, and a 0.1% permissionless distribution incentive.
 
-The Celo, Base, and Optimism signed transactions are written to owner-only <code>.state/client.env.pending</code> before the first broadcast. Rerunning command 2 resumes the exact bytes after an ambiguous RPC response. After both public health checks pass, the pending file is deleted and the deployed facilitator credentials remain only in <code>/srv/in-three/agent-gateway.env</code>. The gateway verifies both split deployments before accepting paid traffic.
+The exact gasless <code>KEY_ADD</code> protobuf, app key, and any Celo/Base split transactions are written to owner-only <code>.state/client.env.pending</code> before submission. Rerunning setup checks signer state and receipts, then resubmits only the saved bytes. After both public health checks pass, the pending file is deleted and facilitator credentials remain only in <code>/srv/in-three/agent-gateway.env</code>.
 
 The command creates <code>.state/agent.env</code> with mode 0600:
 
@@ -74,10 +75,18 @@ Checkout does not bridge. The payer transfers chain-local USDC on the selected r
 
 Use the repository wrapper instead of constructing the secret-bearing request by hand:
 
+Container with a dedicated Base buyer:
+
 ~~~bash
-in-three deploy --service https://YOUR_BROKER
-# Base instead of the default Celo rail:
-in-three deploy --service https://YOUR_BROKER --payment-network base
+./in-three-container deploy \
+  --service https://YOUR_BROKER \
+  --payment-network base
+~~~
+
+Host package with a usebuy.ai Celo wallet:
+
+~~~bash
+in-three deploy --service https://YOUR_BROKER --payment-network celo
 ~~~
 
 The wrapper:
@@ -117,7 +126,7 @@ Fund the printed address with USDC on Celo. The buy MCP server exposes discovery
 
 ## Read on Base
 
-The repository includes a narrow GET-only Base buyer for validation and human use:
+The repository includes a narrow quote-first Base buyer for reads and the fixed deployment request:
 
 ~~~bash
 node scripts/pay-base.mjs \
@@ -188,7 +197,7 @@ Settlement happens before the Farcaster operation reaches the client. Therefore:
 - use a dedicated buyer wallet and an exact <code>--max-amount</code>;
 - rotate <code>AGENT_WRITE_TOKEN</code> immediately if it is exposed.
 
-A successful payment is not a guarantee that a validator accepts a semantically invalid Farcaster message. The gateway rejects wrong methods, malformed JSON, oversized bodies, and unexpected top-level fields before payment. The client still performs final schema and protocol validation.
+A successful payment is not a guarantee that the read node accepts a semantically invalid message or that validators include an accepted message. The gateway rejects wrong methods, malformed JSON, oversized bodies, and unexpected top-level fields before payment. The client and read node still perform final validation; confirm the returned message hash through a later node read.
 
 ## Catalog listing
 
@@ -206,8 +215,9 @@ The repository does not submit a listing for an undeployed endpoint.
 
 The deployment API automates payment, Hetzner provisioning, cloud-init, and Snapchain startup. The operational API automates Farcaster reads and authorized message publication. Neither automates custody:
 
-- the owner enters the recovery phrase locally;
-- the owner confirms the one Optimism signer-registration transaction;
+- the owner may enter a test-account phrase only in the local developer ceremony;
+- the owner confirms a scoped, gasless <code>KEY_ADD</code> message; no Optimism transaction is sent;
+- production clients should use delegated wallet authorization instead of collecting phrases;
 - the owner supplies the client password and both facilitator credentials locally;
 - the owner issues and may revoke the write capability;
 - the buyer owns and pays the persistent Hetzner resources.
