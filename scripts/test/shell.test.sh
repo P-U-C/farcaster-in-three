@@ -172,7 +172,7 @@ wait_output="$(
         printf 'fixture-container-id\n'
         ;;
       *"snapshot"*)
-        printf '  snapshot  120G\n  database  8.0K\n  disk      121G used / 2.0T total\n'
+        printf '  snapshot  120G\n  database  8.0K\n  disk      121G used / 2.0T total\n  network   3266/5691 chunks (57%%) | ETA 10h35m\n'
         ;;
       *)
         return 1
@@ -191,6 +191,8 @@ wait_output="$(
 )" || fail "client create did not wait and continue when the node API became ready"
 printf '%s\n' "$wait_output" | grep -F 'Client setup will continue automatically' >/dev/null ||
   fail "client wait flow does not explain automatic continuation"
+printf '%s\n' "$wait_output" | grep -F '3266/5691 chunks (57%) | ETA 10h35m' >/dev/null ||
+  fail "client wait flow hides exact chunk progress"
 printf '%s\n' "$wait_output" | grep -F 'ready' >/dev/null ||
   fail "client wait flow did not continue after readiness"
 

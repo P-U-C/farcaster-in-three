@@ -1,62 +1,51 @@
 # Proof
 
-This page separates shipped code from evidence produced by a real deployment.
+In Three separates automated checks from evidence produced by a real deployment.
 
-## Current verification status
+## Current status
 
 | Claim | Status |
 | --- | --- |
-| npm CLI installs and runs from the public registry | Verified in CI and from a clean anonymous install |
-| amd64 and arm64 operator containers run the same release | Verified from public release assets and GHCR |
-| Unit, shell, package, Compose, and responsive-browser checks | Passing |
-| Paid Hetzner provisioning from the public release | Awaiting a published run receipt |
-| Complete Snapchain mainnet sync | Awaiting a published run receipt |
-| Gasless app-key registration and a public cast | Awaiting a published run receipt |
-| Follow, unfollow, like, remove-like, recast, and remove-recast on mainnet | Awaiting a published run receipt |
-| Real provider teardown | Awaiting a published run receipt |
+| npm and container packages install and run | Verified |
+| Unit, shell, package, Compose, and browser checks | Passing |
+| Paid cloud provisioning and teardown | Live audit in progress |
+| Complete Snapchain sync and public writes | Live audit in progress |
 | Independent clean-machine endorsement | Pending |
 
-Automated tests establish implementation behavior. They do not establish that a paid cloud deployment, complete mainnet sync, public write, or teardown succeeded. Those rows remain pending until their receipts exist.
+Passing tests do not prove that a real node synced or that a cast reached Farcaster.
 
-## Machine-generated receipt
+## Create a run receipt
 
-Every operational command records a small public-safe lifecycle event under .state/proof/. After the client is live, and again before teardown, run:
+After testing the client and before teardown:
 
-~~~bash
+```bash
 in-three proof
-~~~
+```
 
 The command writes:
 
-- .state/proof/latest.json for machine verification
-- .state/proof/report.md for a public run report
-- .state/proof/events.jsonl as the append-only local timeline
+- `.state/proof/latest.json`: machine-readable result
+- `.state/proof/report.md`: public report
+- `.state/proof/events.jsonl`: local event timeline
 
-The receipt can include:
+The report may include the release, timestamps, server plan, Snapchain state, FID, app-key authorization hash, action hashes, and teardown result.
 
-- exact In Three release
-- UTC timestamps for provisioning, node start, node readiness, client deployment, and teardown
-- server type, region, and volume size
-- Snapchain version, database size, disk use, and shard delays
-- FID and gasless KEY_ADD message hash
-- message hashes for casts, follows, unfollows, likes, removals, and recasts
+It excludes cloud tokens, private keys, recovery phrases, passwords, server IDs, IP addresses, and raw environment files. Inspect it before publishing.
 
-It deliberately excludes cloud tokens, private keys, recovery phrases, passwords, server IDs, IP addresses, and raw environment files. Inspect the files before publishing them.
+## What complete evidence needs
 
-A message hash proves that the owned read node accepted a signed message for relay. A complete public report must also show that the message was read back from synced state and appeared in another Farcaster client.
+A complete test report should include:
 
-## Evidence required for the prize
-
-A qualifying independent report should publish:
-
-1. The exact release and installation method.
-2. Machine and operating-system details.
-3. The redacted receipt.
-4. Time and cost from provisioning to a synced node.
-5. A public cast created with the deployed client.
+1. Exact release and installation method.
+2. Operating system and machine details.
+3. Redacted receipt.
+4. Sync time and cloud cost.
+5. Public cast created with the deployed client.
 6. Results for follow, unfollow, like, remove-like, recast, and remove-recast.
 7. Desktop and mobile screenshots.
-8. Teardown confirmation from the provider.
-9. Every failure, retry, workaround, and manual intervention.
+8. Provider teardown confirmation.
+9. Failures, retries, workarounds, and manual steps.
 
-The tester checklist is in [VOUCHER.md](../VOUCHER.md). Until an independent tester publishes that report, the prize requirement is not complete.
+A message hash proves that the node accepted a message for relay. The report must also show that the synced node read it back and another Farcaster client displayed it.
+
+The clean-machine checklist is in [VOUCHER.md](../VOUCHER.md).

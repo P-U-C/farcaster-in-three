@@ -1,236 +1,161 @@
 # Operations
 
-This is the reference for running and repairing In Three. Start with the shorter [README](../README.md).
+Use this page when setup pauses or you need to operate an existing In Three deployment. For the first run, follow the shorter [README](../README.md).
 
-Examples use the container launcher. With npm, replace `./in-three-container` with `in-three`. From source, use `./farcaster`.
+Examples use `in-three`. Docker users can replace it with `./in-three-container`.
 
-## Normal setup
-
-Install once:
+## The normal run
 
 ```bash
-mkdir in-three-node
-cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.13/in-three-container
-chmod +x in-three-container
-./in-three-container doctor
+in-three provision
+in-three node up
+in-three client create
 ```
 
-Then run:
+Keep the working directory. Its private `.state/` folder contains the SSH key and the information needed to resume.
+
+Every command is resumable. If one stops, rerun that same command from the same folder.
+
+## Check the node
 
 ```bash
-./in-three-container provision
-./in-three-container node up
-./in-three-container client create
+in-three node status
+in-three node logs
 ```
 
-Keep the working directory. Its owner-only `.state/` directory contains the SSH key, resource IDs, recovery state, and cached operator image.
+The first sync takes hours. Before the API opens, status shows:
 
-Expected handoff after each command:
+- downloaded chunks and percentage
+- current ETA
+- snapshot and database size
+- disk use
+- recent progress
 
-```text
-provision      server IP, client hostname, local state path, next command
-node up        API-ready status or bootstrap progress and status commands
-client create  waits for Snapchain, registers an app key, prints HTTPS URL
-```
+Do not restart Snapchain while it is downloading or extracting the snapshot. Once ready, `node status` reports shard delay. Below 30 seconds is treated as synced.
 
-Every command is resumable. Do not delete `.state/` while an operation is incomplete or uncertain.
+Investigate before the 2 TiB disk has less than 15% free space.
 
-If your network filters direct SSH to the server and you already operate a reachable jump host, keep the first command but add the route:
+## Finish command three
+
+Run:
 
 ```bash
-./in-three-container provision --ssh-proxy user@jump-host
+in-three client create
 ```
 
-The provisioner detects the jump host's public address, limits port 22 to that exact CIDR, and persists the route for node setup, client deployment, proofs, and teardown. Use `--source-cidr CIDR` as well only when automatic detection from the jump host is unavailable.
+Choose:
 
-## Node sync
+- `CREATE` for a new disposable test account
+- `IMPORT` for an existing test account with storage
 
-The first start downloads and extracts a large snapshot, then catches up from peers. This normally takes hours.
+For `CREATE`, command three encrypts the generated recovery phrase locally, shows the Optimism address and ETH amount to fund, registers one FID with storage, authorizes a gasless app key, and deploys the client.
+
+The server receives only the app key. It does not receive the recovery phrase.
+
+Check the deployed client with:
 
 ```bash
-./in-three-container node status
-./in-three-container node logs
+in-three client status
+in-three client logs
 ```
 
-Before the API is ready, status shows the container state, snapshot size, database size, disk use, and recent logs. Once ready, it shows shard delay. Delays below 30 seconds are treated as synced.
+A write response means your node accepted the message for relay. Read the message back from your synced node to confirm inclusion.
 
-Do not restart Snapchain while it is extracting the snapshot. Investigate before free disk falls below 15%; 2 TiB is a starting size, not a permanent guarantee.
+## Resume safely
 
-## Browser client
+Keep these files if setup is incomplete:
 
-The default command deploys only the browser client:
+| File | Purpose |
+| --- | --- |
+| `.state/test-account.recovery.json` | Password-encrypted test-account phrase |
+| `.state/client.env.pending.fid-registration` | Exact signed account transaction until confirmed |
+| `.state/client.env.pending` | Exact app-key message and delegated key until deployment succeeds |
+
+Rerun `in-three client create` with the same password. The setup checks network state before resubmitting saved bytes.
+
+Do not delete a pending file after an uncertain broadcast. Do not create a second app key until the first attempt is resolved.
+
+## Update the profile
+
+Use the same private password file used during setup:
 
 ```bash
-./in-three-container client create
-```
-
-It asks for:
-
-1. A browser password.
-2. `CREATE` for a new disposable account or `IMPORT` for an existing test account.
-3. For `CREATE`: keep the generated encrypted recovery kit and client password private, fund the shown address with the quoted ETH on Optimism, then approve one FID-and-storage transaction.
-4. For `IMPORT`: enter the test-account phrase through hidden terminal input.
-5. Final confirmation before submitting a gasless app-key message.
-
-A new account requires one Optimism transaction. App-key authorization is gasless. Existing test accounts with active storage skip the account transaction.
-
-For `CREATE`, the phrase is encrypted with the client password in `.state/test-account.recovery.json`. It is never printed or uploaded. The server receives only the revocable app key. That key can cast, follow, react, and update public profile metadata; it cannot move funds, transfer custody, or authorize another key.
-
-When setup finishes:
-
-```text
-URL           https://203-0-113-10.sslip.io
-read path     browser -> client service -> your Snapchain node
-write path    browser -> client service -> your node -> validator gossip
-custody key   not stored
-```
-
-For an agent-led run, generate an owner-only password file without printing the secret, then pass only its path:
-
-```bash
-mkdir -p .state && chmod 700 .state
-umask 077
-openssl rand -base64 24 > .state/client.password
-./in-three-container client create --password-file .state/client.password
-```
-
-The setup rejects password files readable by group or others. The file stays local and is never uploaded. A human must still approve the displayed cloud plan and any Optimism funding.
-
-Check it later with:
-
-```bash
-./in-three-container client status
-./in-three-container client logs
-```
-
-A successful `POST /v1/submitMessage` means the node accepted the message for relay. Read it back from the synced node to confirm inclusion.
-
-## Run receipt
-
-After exercising the client, capture a redacted receipt:
-
-```bash
-./in-three-container proof
-```
-
-The command writes `.state/proof/latest.json` and `.state/proof/report.md`. It reads node metrics through the private SSH path and collects only public-safe client message receipts. It excludes cloud credentials, recovery phrases, passwords, private keys, provider resource IDs, IP addresses, and raw environment files.
-
-Run it before teardown. `destroy` captures it again automatically and adds the provider-deletion timestamp. Inspect both files before publishing them. See [PROOF.md](PROOF.md) for the evidence standard.
-
-## Optional paid agent access
-
-Use this only when you want the x402 API:
-
-```bash
-./in-three-container client create --with-agent
-```
-
-In addition to the normal client inputs, this asks for a Celo x402 facilitator key and Coinbase CDP credentials. It configures Celo/Base USDC payment routes and deploys the separate gateway and deployment service.
-
-Choosing the normal browser setup avoids all payment credentials. To add agent commerce later, rerun with `--with-agent`; it creates a replacement app key, so revoke the previous key after confirming the new deployment.
-
-See [AGENT-API.md](AGENT-API.md) for prices, routes, capabilities, receipts, and the one-payment deployment service.
-
-## Maintain the account profile
-
-The deployed app key can update public profile metadata but cannot move funds, transfer custody, or authorize another key. Use the same owner-only password file used during setup:
-
-```bash
-in-three client profile \\
-  --password-file .state/client.password \\
-  --display-name "In Three" \\
-  --bio "Farcaster from your own node in three commands." \\
-  --pfp-url https://farcaster.permanentupperclass.com/profile.png \\
+in-three client profile \
+  --password-file .state/client.password \
+  --display-name "In Three" \
+  --bio "Farcaster from your own node in three commands." \
+  --pfp-url https://farcaster.permanentupperclass.com/profile.png \
   --url https://farcaster.permanentupperclass.com/
 ```
 
-A newly created FID can claim one available Farcaster name. This signs the fname request locally with the encrypted recovery kit, then publishes the preferred name through the scoped app key:
+A newly created FID can claim an available name:
 
 ```bash
-in-three client profile \\
-  --password-file .state/client.password \\
-  --recovery-file .state/test-account.recovery.json \\
-  --username in-three \\
+in-three client profile \
+  --password-file .state/client.password \
+  --recovery-file .state/test-account.recovery.json \
+  --username in-three \
   --claim-name
 ```
 
-The recovery phrase is decrypted only in local process memory and is never printed or uploaded to the server. Fname availability and policy are controlled by Farcaster; an existing name is never replaced automatically.
+The claim is signed locally. The recovery phrase is never printed or uploaded.
 
-## Recovery
+## Save a receipt
 
-During new-account setup, `.state/test-account.recovery.json` contains the password-encrypted phrase and `.state/client.env.pending.fid-registration` temporarily contains the custody address and exact signed IdGateway transaction. Neither is uploaded. Rerun `client create`, enter the same client password, and leave `CREATE` selected to resume from the encrypted kit.
+After testing the client and before teardown:
 
-During app-key setup, `.state/client.env.pending` may temporarily contain:
+```bash
+in-three proof
+```
 
-- the delegated app key
-- the exact signed gasless `KEY_ADD` message, hash, and checksum
-- optional Celo/Base split transactions
-- optional facilitator credentials and agent capability
+The report is written under `.state/proof/`. It excludes tokens, phrases, passwords, private keys, provider resource IDs, IP addresses, and raw environment files. Inspect it before publishing.
 
-It never contains the recovery phrase or derived custody private key; those remain in the separate encrypted local kit.
-
-If setup stops after signing either transaction or message, keep the recovery files and rerun the same `client create` command. Recovery checks current node state before resubmitting the exact saved bytes. Confirmed payloads are removed, and the file is deleted after the deployed service passes health checks.
-
-Losing the app key does not affect custody. Authorize a replacement and revoke the old key.
+See [Proof](PROOF.md) for the evidence standard.
 
 ## Cost
 
-The default Ashburn plan quoted **$323.67/month gross** on 2026-10-19:
+The default Ashburn plan quoted **$323.67/month** on 2026-10-19:
 
-| Resource | Quoted monthly cost |
+| Resource | Monthly quote |
 | --- | ---: |
 | CCX33 server | $165.99 |
 | 2,048 GiB volume | $157.08 |
 | Public IPv4 | $0.60 |
 
-At that rate, a 12-hour test is about $6.22 and a 24-hour test about $12.45. Traffic, tax, and provider price changes may alter the total. The CLI reads the live provider price, shows all four time scales, and remains authoritative. Read it before typing `PROVISION`.
+That is about $6.22 for 12 hours or $12.45 for 24 hours before traffic, tax, or price changes. The live quote shown before `PROVISION` is authoritative.
 
-Creating a new Farcaster test account also requires the live IdGateway price plus an Optimism gas reserve. `client create` reads both from the network, prints the required ETH balance before signing, and leaves any unused reserve in the test account. Importing an account that already has an FID and storage skips this cost.
+A new test account also needs the IdGateway price and a small Optimism gas reserve. Command three shows the required balance before signing.
 
-Optional agent prices default to 0.002 USDC for metadata, 0.005 USDC for a feed, and 0.02 USDC for a write. The automated deployment purchase is 25 USDC and does not include cloud costs.
+## Common problems
 
-## Custom domain
-
-The default hostname uses `sslip.io`. To use your own domain:
-
-1. Point an A record to the server.
-2. Change `CLIENT_DOMAIN` in `/srv/in-three/.env`.
-3. Run `cd /srv/in-three && sudo docker compose up -d caddy`.
-4. Confirm HTTPS works before retiring the old hostname.
-
-## Failure guide
-
-| Symptom | First action |
+| What you see | What to do first |
 | --- | --- |
-| Node API unavailable on first start | Run `node status`; wait while snapshot or database size changes |
-| Snapchain stopped | Run `node logs` and check disk space |
-| Shard delay keeps rising | Check UDP 3382, peer errors, CPU, and disk saturation |
-| Client health is 503 | Check Snapchain health, then `client logs` |
-| Login fails | Check password, hostname, HTTPS, and cookie scope |
-| Message accepted but absent | Wait for sync, then retry the same signed action |
-| TLS remains pending | Check DNS and ports 80/443 |
-| Account setup stopped after signing | Keep `.state/`; rerun `client create` with the same password and leave `CREATE` selected |
-| App-key setup stopped after signing | Keep the pending file and rerun `client create` |
-| Agent read returns 402 | This is the payment quote |
-| Agent write returns 401 | Supply the owner capability; no payment occurred |
-| Paid result is ambiguous | Preserve the receipt and do not retry blindly |
+| API is waiting for bootstrap | Run `node status` and leave the node running |
+| Snapshot size is not changing | Check the chunk count and recent log line |
+| Snapchain stopped | Run `node logs` and check free disk |
+| Client returns 503 | Check the node, then run `client logs` |
+| Account or app-key setup stopped | Keep `.state/` and rerun `client create` |
+| Cast was accepted but is absent | Wait for sync and read it back before retrying |
+| HTTPS is pending | Check ports 80/443 and the hostname |
+| Login fails | Check the password, HTTPS hostname, and cookie scope |
+
+For direct SSH through an existing jump host, add `--ssh-proxy user@jump-host` to `provision`. The route is saved for later commands.
+
+## Optional features
+
+- [Agent API](AGENT-API.md): x402 access and one-payment deployment
+- [Architecture](ARCHITECTURE.md): networks and trust boundaries
+- [Security](../SECURITY.md): credentials and incident response
+- [Source ledger](SOURCES.md): pinned versions and upstream references
 
 ## Upgrade
 
-Do not replace pinned images with `latest`.
+Do not replace pinned images with `latest`. Review the Snapchain release, update the pinned tag and digest together, run the complete test suite, and verify shard delay after restart.
 
-1. Read the Snapchain release notes.
-2. Record the release tag, image digest, and validator-manifest checksum.
-3. Update Compose, scripts, tutorial, and [source ledger](SOURCES.md) together.
-4. Run package, container, shell, application, and visual checks.
-5. Back up or replace the node volume.
-6. Verify API compatibility and shard delay.
-
-## Teardown
+## Stop the bill
 
 ```bash
-./in-three-container destroy
+in-three destroy
 ```
 
 Then confirm in Hetzner that no server, volume, firewall, or IP labeled `managed-by=in-three` remains.

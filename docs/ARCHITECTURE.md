@@ -1,134 +1,91 @@
 # Architecture
 
-In Three has one required data path and one optional payment path.
-
-## Browser path
+In Three gives the browser one path for reads and writes:
 
 ```text
 browser
    |
-   | HTTPS
    v
 client service
    |
-   | reads and signed protobuf writes
    v
-your Snapchain read node
+your Snapchain node
    |
-   | validates and gossips valid writes
    v
 Farcaster validators
 ```
 
-The browser never calls a hosted Farcaster API. The client service reads from the operator's Snapchain node and submits signed messages to that same node.
+The browser does not use a hosted Farcaster data API. The client reads from your node and sends signed actions back to that same node.
 
-A read node accepts writes. It validates each message and relays valid messages to validators, but it does not propose blocks. A successful submit response means **accepted for relay**, not **included**. Confirmation is a later read from synced node state.
+## Reads and writes
 
-Public network ports:
+**Read:** the client asks your Snapchain node for profiles, follows, casts, reactions, and signer records.
 
-- 80/TCP and 443/TCP+UDP for Caddy and HTTPS
-- 3382/UDP for Snapchain gossip
-- 22/TCP for SSH, restricted to the operator's detected CIDR
+**Write:** the client signs a Farcaster message with its revocable app key and submits it to your node. The node validates the message and relays it to validator peers.
 
-Snapchain HTTP on 3381 and gRPC on 3383 remain private.
+A successful submission means **accepted for relay**, not final inclusion. Reading the message back from synced state confirms that it was included.
 
 ## What runs on the server
 
-```text
-Caddy
-  -> browser routes -> client
-  -> /agent routes -> agent gateway (optional)
+The normal setup starts three services:
 
-client <-> Snapchain
-agent gateway -> client (optional)
-agent gateway -> deployment service (optional)
-```
+| Service | Job |
+| --- | --- |
+| Caddy | HTTPS |
+| Client | Login, feed, signing, and profile controls |
+| Snapchain | Protocol data, validation, and peer relay |
 
-The normal setup starts Snapchain, the client, and Caddy. The `--with-agent` setup also starts the gateway and deployment service.
+Snapchain's HTTP and gRPC APIs stay private. HTTPS is public. Snapchain gossip uses UDP 3382. SSH is restricted to the operator's detected address.
 
-Container networks separate responsibilities:
+## Account and app key
 
-- `protocol`: Snapchain and client
-- `web`: client, optional gateway, and Caddy
-- `deployment`: optional gateway and deployer
-- `node-egress`: Snapchain peers and snapshots
-- `deployer-egress`: Hetzner API
+Command three can create a disposable account or import an existing test account.
 
-The gateway cannot reach Snapchain directly. The deployer cannot reach the client. The client never receives payment credentials.
+For a new account it:
 
-## Account and app-key setup
+1. Generates and encrypts a recovery phrase locally.
+2. Registers an FID and one storage unit on Optimism.
+3. Creates an Ed25519 app key.
+4. Signs a scoped, gasless `KEY_ADD` message locally.
+5. Saves the exact signed bytes before submission.
+6. Sends the message through a private tunnel to your node.
+7. Uploads only the app key after authorization is confirmed.
 
-```text
-CREATE (default)                    IMPORT
-  -> generate phrase locally          -> read test phrase locally
-  -> encrypt local recovery kit       -> derive custody address
-  -> derive custody address                    |
-  -> quote IdGateway price                     |
-  -> fund address on Optimism                   |
-  -> save + send signed registration            |
-  -> create FID + one storage unit              |
-                     \__________________________/
-                                  |
-                     resolve FID on Optimism
-                     verify storage on owned node
-                     create fresh Ed25519 app key
-                     sign scoped gasless KEY_ADD
-                     save exact message before submission
-                     submit through local tunnel to owned node
-                     wait for signer in node state
-                     upload only the app key
-                     discard plaintext when process exits
-```
+The app key can cast, react, follow, and update public profile metadata. It cannot move funds, transfer custody, or authorize another key.
 
-New-account registration is one Optimism transaction. The generated phrase is stored only in a local, password-encrypted recovery kit; the exact signed transaction bytes are also saved before broadcast so an uncertain RPC response can be resumed. Existing accounts skip that transaction.
+Production clients should prefer delegated authorization from a trusted wallet. This local custody flow exists for a developer tutorial and should use a test account only.
 
-The app key is limited to casts, reactions, follows, and public profile metadata. It cannot move funds, transfer custody, or authorize another key. It has a 90-day sliding lifetime, and its authorization is a gasless Snapchain message.
+## Six protocol terms
 
-If submission is uncertain, setup retains the exact signed message and app key. A rerun checks signer state first and resubmits only the saved bytes. It does not create another key while the first authorization may be live.
+| Term | Plain meaning |
+| --- | --- |
+| FID | The numeric ID of a Farcaster account |
+| Custody address | The wallet that owns the FID |
+| App key | A revocable key used by one client |
+| Message | A signed cast, reaction, follow, or profile update |
+| Read node | A node that stores data, answers reads, and relays valid writes |
+| Storage | The account capacity used by messages |
 
-This custody path exists for a developer tutorial. Production clients should request delegated authorization from a trusted wallet and should not collect recovery phrases.
+## Feed and source filters
 
-## Feed
+The reference client builds a chronological feed from the owner's casts and up to 35 followed FIDs. Profile and signer data also come from the owned node.
 
-The reference feed is built without a hosted feed service:
+Signer keys with known app attribution are grouped by app. Unknown keys remain available as exact-key filters. This is a reference feed, not a ranking or moderation service.
 
-1. Read active follows for the owner.
-2. Read recent casts for the owner and up to 35 followed FIDs.
-3. Merge and sort by Farcaster time.
-4. Resolve profile data from user-data messages.
-5. Read signer records for source filtering.
+## Optional agent path
 
-When multiple signer keys have the same app attribution, the UI groups them. Keys without reliable attribution remain available as exact-key controls.
+`client create --with-agent` adds an x402 gateway and deployment service:
 
-This is a chronological reference feed. A production service would add pagination, moderation, spam controls, durable caches, channel indexes, and ranking.
+- buyers pay USDC on Celo or Base
+- writes require payment plus an owner capability
+- payment credentials stay outside the client
+- the gateway cannot connect directly to Snapchain
+- the deployment service cannot connect to the client
 
-## Optional agent commerce
+The normal setup does not start these services. See [Agent API](AGENT-API.md).
 
-With `client create --with-agent`, Caddy exposes `/.well-known/agent.json` and `/agent/*` through a separate x402 gateway.
+## Packaging boundary
 
-- Reads require USDC payment.
-- Writes require both payment and an owner capability.
-- Buyers choose Celo or Base; no bridge runs during checkout.
-- Revenue uses the same deterministic 95% operator / 5% P-U-C split on both chains.
-- Facilitator credentials stay in the gateway.
-- Farcaster signing stays in the client.
+The operator container runs with a read-only root, no Linux capabilities, `no-new-privileges`, no Docker socket, and only the current directory mounted at `/work`.
 
-The automated deployment service uses a client-generated deployment ID and durable entitlement. It receives a dedicated Hetzner token only for the request and never receives the SSH private key, Farcaster phrase, browser password, or app key.
-
-## Operator container
-
-The local operator image is a packaging boundary. The launcher gives it:
-
-- the caller's UID and GID
-- a read-only root filesystem
-- no Linux capabilities
-- `no-new-privileges`
-- a no-exec temporary filesystem
-- only the current directory mounted at `/work`
-- no Docker socket
-
-Persistent local state remains under `.state/`.
-
-## Upstream boundary
-
-This repository does not fork or vendor Snapchain. It runs the official GPL-3.0 image by immutable digest and supplies configuration at runtime. Original scripts, client code, and documentation are MIT licensed.
+This repository runs the official digest-pinned Snapchain image. It does not fork or vendor Snapchain.

@@ -2,8 +2,6 @@ import {
   ArrowDown,
   ArrowRight,
   BookOpen,
-  Bot,
-  Box,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -13,16 +11,13 @@ import {
   Container,
   Download,
   ExternalLink,
-  FileCheck2,
   Github,
   KeyRound,
   Menu,
-  Network,
   Package,
   Server,
   ShieldCheck,
   Terminal,
-  UserRound,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -31,33 +26,31 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.13`;
+const RELEASE = `${REPO}/releases/tag/v0.1.14`;
 
 type InstallMethod = "npm" | "container";
 
-const setupCommands: Record<InstallMethod, Array<{ number: string; label: string; command: string }>> = {
+const setupCommands: Record<InstallMethod, Array<{ number: string; label: string; command: string; detail: string }>> = {
   npm: [
-    { number: "0", label: "COMPUTE", command: "in-three provision" },
-    { number: "1", label: "SNAPCHAIN", command: "in-three node up" },
-    { number: "2", label: "CLIENT", command: "in-three client create" },
+    { number: "0", label: "COMPUTE", command: "in-three provision", detail: "Review the price, then create the server." },
+    { number: "1", label: "SNAPCHAIN", command: "in-three node up", detail: "Start the node. The first sync takes hours." },
+    { number: "2", label: "CLIENT", command: "in-three client create", detail: "Create an account and open your client." },
   ],
   container: [
-    { number: "0", label: "COMPUTE", command: "./in-three-container provision" },
-    { number: "1", label: "SNAPCHAIN", command: "./in-three-container node up" },
-    { number: "2", label: "CLIENT", command: "./in-three-container client create" },
+    { number: "0", label: "COMPUTE", command: "./in-three-container provision", detail: "Review the price, then create the server." },
+    { number: "1", label: "SNAPCHAIN", command: "./in-three-container node up", detail: "Start the node. The first sync takes hours." },
+    { number: "2", label: "CLIENT", command: "./in-three-container client create", detail: "Create an account and open your client." },
   ],
 };
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.13/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.14/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
 const navigation = [
-  { id: "quickstart", label: "Start" },
-  { id: "first-cast", label: "First cast" },
-  { id: "proof", label: "Proof" },
-  { id: "learn", label: "Understand" },
+  { id: "start", label: "Start" },
+  { id: "after", label: "After setup" },
   { id: "help", label: "Help" },
 ];
 
@@ -65,13 +58,13 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [installMethod, setInstallMethod] = useState<InstallMethod>("npm");
   const commands = setupCommands[installMethod];
-  const usesNpm = installMethod === "npm";
+  const prefix = installMethod === "npm" ? "in-three" : "./in-three-container";
 
   return (
     <>
       <header className="site-header">
         <a className="wordmark" href="#top" aria-label="In Three home">
-          <span>III</span>
+          <img src="./profile.svg" alt="" width="36" height="36" />
           <strong>IN THREE</strong>
         </a>
         <nav aria-label="Main navigation">
@@ -87,9 +80,9 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">INSTALL <b>v0.1.13</b></span>
+        <span className="package-bar-label">GET <b>v0.1.14</b></span>
         <div className="package-links">
-          <PackageLink icon={<Package size={14} />} label="npm" detail="farcaster-in-three" href={NPM_PACKAGE} />
+          <PackageLink icon={<Package size={14} />} label="npm" detail="recommended" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
           <PackageLink icon={<Download size={14} />} label="Release" detail="checksummed" href={RELEASE} />
           <PackageLink icon={<Github size={14} />} label="Source" detail="MIT" href={REPO} />
@@ -99,15 +92,15 @@ export function App() {
       {menuOpen && (
         <div className="mobile-menu">
           <header>
-            <span>Navigate</span>
+            <span>IN THREE</span>
             <button type="button" title="Close menu" onClick={() => setMenuOpen(false)}><X size={20} /></button>
           </header>
           {navigation.map((item) => (
             <a key={item.id} href={`#${item.id}`} onClick={() => setMenuOpen(false)}>
-              {item.label}<ChevronRight size={17} />
+              {item.label}<ChevronRight size={18} />
             </a>
           ))}
-          <a href={REPO} target="_blank" rel="noreferrer">GitHub<ExternalLink size={16} /></a>
+          <a href={REPO} target="_blank" rel="noreferrer">Source<ExternalLink size={16} /></a>
         </div>
       )}
 
@@ -115,296 +108,186 @@ export function App() {
         <section className="hero">
           <div className="hero-copy">
             <div className="release-line">
-              <span>OPEN-SOURCE FARCASTER STARTER</span>
-              <i />
-              <span>v0.1.13</span>
+              <img src="./profile.svg" alt="" width="54" height="54" />
+              <span>FARCASTER ON YOUR OWN NODE</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
-            <p>Provision a server, start a Snapchain node, and open your own browser client. Reads and writes go through infrastructure you operate.</p>
+            <p>One server. One Snapchain node. One private browser client. Set it up in three commands.</p>
             <div className="hero-actions">
-              <a className="primary-link" href="#quickstart">Start here <ArrowDown size={17} /></a>
-              <a className="text-link" href={REPO} target="_blank" rel="noreferrer">Inspect the code <ArrowRight size={16} /></a>
+              <a className="primary-link" href="#start">Run the three <ArrowDown size={17} /></a>
+              <a className="text-link" href={REPO} target="_blank" rel="noreferrer">View source <ArrowRight size={16} /></a>
             </div>
           </div>
 
-          <div className="command-console" aria-label="Three command overview">
+          <div className="command-console" aria-label="The three setup commands">
             <header>
-              <span className="console-lights"><i /><i /><i /></span>
               <span>~/in-three-node</span>
-              <b>MAINNET</b>
+              <b>3 COMMANDS</b>
             </header>
             {commands.map((item) => <Command key={item.number} {...item} />)}
             <footer>
               <span><i /> YOUR NODE</span>
               <span>YOUR CLIENT</span>
-              <span>MIT LICENSED</span>
             </footer>
           </div>
         </section>
 
-        <section className="proof-strip" aria-label="Project summary">
-          <div><Terminal size={19} /><strong>3</strong><span>commands after install</span></div>
-          <div><Network size={19} /><strong>0</strong><span>hosted Farcaster APIs</span></div>
-          <div><KeyRound size={19} /><strong>1*</strong><span>only when creating an account</span></div>
-          <div><ShieldCheck size={19} /><strong>MIT</strong><span>open source</span></div>
+        <section className="plain-facts" aria-label="Before you begin">
+          <div><CheckCircle2 size={18} /><span><b>No account needed</b><small>Command 3 can create a test account.</small></span></div>
+          <div><Clock3 size={18} /><span><b>Allow several hours</b><small>Snapchain downloads its first snapshot.</small></span></div>
+          <div><Cloud size={18} /><span><b>About $324/month</b><small>You approve the live Hetzner price first.</small></span></div>
+          <div><ShieldCheck size={18} /><span><b>Use a test account</b><small>Never import a wallet holding value.</small></span></div>
         </section>
 
-        <section className="quickstart section" id="quickstart">
-          <SectionLabel number="00" text="START HERE" />
-          <div className="section-heading">
-            <h2>Before you run<br />anything.</h2>
-            <p>This starts real cloud infrastructure and costs about $324 per month at the 2026-10-19 quote. The final command can create the disposable Farcaster test account for you.</p>
+        <section className="start section" id="start">
+          <div className="section-intro">
+            <span>START HERE</span>
+            <h2>Install once. Run three.</h2>
+            <p>Use macOS or Linux. You need a new Hetzner project with 2 TiB Volume quota.</p>
           </div>
-
-          <div className="prereq-grid">
-            <Prerequisite
-              icon={usesNpm ? <Package size={22} /> : <Box size={22} />}
-              title={usesNpm ? "Node.js 22+" : "Docker"}
-              detail={usesNpm ? "Installed on macOS or Linux." : "Running on macOS or Linux."}
-            />
-            <Prerequisite icon={<Cloud size={22} />} title="Hetzner token" detail="Create it in a new, empty project." />
-            <Prerequisite icon={<UserRound size={22} />} title="A little OP ETH" detail="Only for a new test account. The CLI quotes the amount." />
-            <Prerequisite icon={<Clock3 size={22} />} title="Several hours" detail="The first Snapchain sync is large." />
-          </div>
-
-          <Callout tone="orange" icon={<KeyRound size={21} />} title="No Farcaster account? That is fine.">
-            Choose CREATE inside the final command. In Three generates a disposable account locally, tells you exactly how much ETH to send on Optimism, registers its FID and storage, then continues automatically. <a href="#account-setup">Open the click-by-click guide.</a>
-          </Callout>
 
           <div className="install-method-picker">
-            <span>CHOOSE HOW TO RUN IT</span>
+            <span>RUN WITH</span>
             <div className="install-method-switch" aria-label="Installation method">
               <button
-                className={usesNpm ? "active" : ""}
+                className={installMethod === "npm" ? "active" : ""}
                 type="button"
-                aria-pressed={usesNpm}
+                aria-pressed={installMethod === "npm"}
                 onClick={() => setInstallMethod("npm")}
               >
                 <Package size={17} />
-                <b>npm CLI</b>
-                <small>Node.js 22+</small>
+                <span><b>npm CLI</b><small>Node.js 22+</small></span>
               </button>
               <button
-                className={!usesNpm ? "active" : ""}
+                className={installMethod === "container" ? "active" : ""}
                 type="button"
-                aria-pressed={!usesNpm}
+                aria-pressed={installMethod === "container"}
                 onClick={() => setInstallMethod("container")}
               >
                 <Container size={17} />
-                <b>Docker</b>
-                <small>isolated package</small>
+                <span><b>Docker</b><small>isolated package</small></span>
               </button>
             </div>
           </div>
 
           <div className="install-block">
-            <span>{usesNpm ? "INSTALL THE CLI" : "INSTALL THE CONTAINER LAUNCHER"}</span>
+            <span>INSTALL AND CHECK</span>
             <CodeBlock code={installCommands[installMethod]} />
-            <p><b>Expected result:</b> <code>All checks passed.</code> Keep using this directory; it holds the local state needed to resume safely.</p>
+            <p>Continue when you see <code>All checks passed.</code></p>
           </div>
 
-          <div className="manual-label"><span>NOW RUN THESE THREE COMMANDS</span><i /></div>
-
           <div className="three-steps">
-            {commands.map((item, index) => (
+            {commands.map((item) => (
               <article key={item.number}>
                 <header><b>{item.number}</b><span>{item.label}</span></header>
-                <h3>{["Create the server", "Start the node", "Create the client"][index]}</h3>
                 <CodeBlock code={item.command} />
-                <p>{[
-                  "Shows the exact Hetzner plan and waits for you to type PROVISION before billing starts.",
-                  "Starts Snapchain, prints its status, and leaves the initial sync running on the server.",
-                  "Waits for the node, creates or imports a test account, adds a gasless app key, deploys the client, and prints its URL.",
-                ][index]}</p>
+                <p>{item.detail}</p>
               </article>
             ))}
           </div>
 
-          <div className="account-guide" id="account-setup">
-            <header>
-              <span>COMMAND 3 / BEGINNER PATH</span>
-              <h3>No account? Make the test account here.</h3>
-              <p>This happens inside <code>{usesNpm ? "in-three client create" : "./in-three-container client create"}</code>. It does not add a fourth command.</p>
-            </header>
+          <div className="keep-note">
+            <Terminal size={20} />
+            <p><b>Keep this folder.</b> If setup pauses, rerun the same command from here. In Three resumes instead of starting over.</p>
+          </div>
+        </section>
+
+        <section className="guided section-band">
+          <div className="section">
+            <div className="section-intro light">
+              <span>COMMAND 3</span>
+              <h2>No Farcaster account? No extra step.</h2>
+              <p>Choose <code>CREATE</code>. The final command handles the rest.</p>
+            </div>
+
+            <ol className="guided-steps">
+              <li><b>1</b><span><strong>Press Enter</strong><small>CREATE is already selected.</small></span></li>
+              <li><b>2</b><span><strong>Choose a password</strong><small>Your recovery kit stays encrypted on this machine.</small></span></li>
+              <li><b>3</b><span><strong>Send the quoted OP ETH</strong><small>Use the address and amount shown on screen.</small></span></li>
+              <li><b>4</b><span><strong>Continue</strong><small>In Three registers the account and deploys your client.</small></span></li>
+            </ol>
+
+            <div className="safety-note">
+              <KeyRound size={22} />
+              <div>
+                <strong>Use a new test account.</strong>
+                <p>The server gets a revocable app key, not your recovery phrase. The app key can post, follow, react, and edit the profile. It cannot move funds.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="after section" id="after">
+          <div className="section-intro">
+            <span>AFTER SETUP</span>
+            <h2>Open the URL. Make a cast.</h2>
+            <p>Command 3 prints the private client URL and your next action.</p>
+          </div>
+
+          <div className="after-layout">
             <ol>
-              <li>
-                <b>1</b>
-                <div><strong>Choose CREATE</strong><p>At the prompt, press Enter. CREATE is already the default.</p></div>
-                <code>Choose CREATE or IMPORT [CREATE]:</code>
-              </li>
-              <li>
-                <b>2</b>
-                <div><strong>Keep the recovery kit</strong><p>In Three encrypts the 12 words inside <code>.state/</code> and never prints or uploads them. Back up that file and your password separately.</p></div>
-              </li>
-              <li>
-                <b>3</b>
-                <div><strong>Fund the address shown</strong><p>Send the quoted amount of ETH on <em>Optimism</em>. Copy the address exactly. Do not use Ethereum mainnet.</p></div>
-              </li>
-              <li>
-                <b>4</b>
-                <div><strong>Return and continue</strong><p>Type <code>CHECK</code>, then <code>CREATE FID</code>. In Three registers the account, storage, and app key and deploys the client.</p></div>
-              </li>
+              <li><b>1</b><p>Open the HTTPS URL and sign in.</p></li>
+              <li><b>2</b><p>Publish a test cast.</p></li>
+              <li><b>3</b><p>Read it back from your node.</p></li>
             </ol>
-            <footer>
-              <a href="https://app.optimism.io/bridge/deposit" target="_blank" rel="noreferrer">Open the Optimism bridge <ExternalLink size={14} /></a>
-              <a href="https://snapchain.farcaster.xyz/guides/writing-messages" target="_blank" rel="noreferrer">Read the protocol source <ExternalLink size={14} /></a>
-            </footer>
-          </div>
-
-          <Callout tone="green" icon={<CheckCircle2 size={22} />} title="It is safe to stop and resume">
-            If the node is still syncing, the final command prints progress and keeps waiting. Press Ctrl-C when needed and rerun the same command from this directory.
-          </Callout>
-
-          <p className="install-note">
-            npm runs the prebuilt CLI directly. Docker runs the same release in an isolated container. Both create the same remote server and client.
-          </p>
-        </section>
-
-        <section className="architecture section-band" id="system">
-          <div className="section narrow">
-            <SectionLabel number="01" text="WHAT IT BUILDS" light />
-            <div className="section-heading light">
-              <h2>One server.<br />Two clear paths.</h2>
-              <p>Your browser reads from your Snapchain node. Signed actions go back to that same node, which validates and relays them to validators.</p>
-            </div>
-            <div className="simple-system">
-              <SystemPart label="YOU" icon={<Terminal size={28} />} title="Browser" detail="feed and actions" />
-              <ArrowRight />
-              <SystemPart label="YOUR SERVER" icon={<Cloud size={28} />} title="Client service" detail="login and signing" />
-              <ArrowRight />
-              <SystemPart label="YOUR SERVER" icon={<Server size={28} />} title="Snapchain" detail="read, validate, relay" />
-              <ArrowRight />
-              <SystemPart label="NETWORK" icon={<Network size={28} />} title="Validators" detail="include messages" />
-            </div>
-            <p className="architecture-note"><b>In plain English:</b> no third-party Farcaster API serves the feed or accepts the cast. The node you operate handles both.</p>
-          </div>
-        </section>
-
-        <section className="first-run section" id="first-cast">
-          <SectionLabel number="02" text="YOUR FIRST CAST" />
-          <div className="section-heading">
-            <h2>The final command<br />prints your URL.</h2>
-            <p>Open it on desktop or mobile. The client supports feeds, casts, follows, likes, recasts, and source filters.</p>
-          </div>
-          <div className="first-run-grid">
-            <ol className="first-run-steps">
-              <li><span>1</span><p>Open the HTTPS URL and enter the password you created.</p></li>
-              <li><span>2</span><p>Select <b>New cast</b>, write a test message, and publish it.</p></li>
-              <li><span>3</span><p>Refresh until your node returns the cast.</p></li>
-              <li><span>4</span><p>Open another Farcaster client and confirm the same cast appears there.</p></li>
-            </ol>
-            <figure className="client-frame compact-preview">
-              <div className="browser-bar"><i /><i /><i /><span>your-node.sslip.io</span></div>
-              <img src="./client-preview.webp" alt="Illustrative In Three client preview using synthetic profiles and casts" />
-              <figcaption>Illustrative preview. All shown accounts and casts are synthetic.</figcaption>
+            <figure>
+              <img src="./client-preview.webp" alt="Illustrative preview of the In Three Farcaster client" />
+              <figcaption>Illustrative client preview. Shown profiles and casts are synthetic.</figcaption>
             </figure>
           </div>
-        </section>
 
-        <section className="proof-section section" id="proof">
-          <SectionLabel number="03" text="EVIDENCE" />
-          <div className="section-heading">
-            <h2>Receipts,<br />not claims.</h2>
-            <p>Every real run can produce a redacted record of the release, infrastructure, node state, app key, client writes, and teardown.</p>
-          </div>
-
-          <div className="proof-board">
-            <div className="proof-command">
-              <span>CAPTURE THE CURRENT RUN</span>
-              <CodeBlock code={`${usesNpm ? "in-three" : "./in-three-container"} proof`} />
-              <p>Writes owner-readable JSON and Markdown under <code>.state/proof/</code>. Tokens, phrases, passwords, private keys, server IDs, and IP addresses are excluded.</p>
-            </div>
-            <div className="proof-status" aria-label="Verification status">
-              <div className="verified"><CheckCircle2 size={18} /><span><b>PASSING</b><small>package, unit, shell, Compose, and browser checks</small></span></div>
-              <div className="pending"><Clock3 size={18} /><span><b>PENDING</b><small>published paid-cloud mainnet receipt</small></span></div>
-              <div className="pending"><UserRound size={18} /><span><b>PENDING</b><small>independent clean-machine endorsement</small></span></div>
-            </div>
-          </div>
-
-          <div className="proof-links">
-            <a href={`${DOCS}/docs/PROOF.md`} target="_blank" rel="noreferrer">Read the proof ledger and test protocol <ArrowRight size={15} /></a>
+          <div className="finish-strip">
+            <div><Server size={20} /><span><b>Check the node</b><code>{prefix} node status</code></span></div>
+            <div><Download size={20} /><span><b>Save a receipt</b><code>{prefix} proof</code></span></div>
+            <div><X size={20} /><span><b>Stop the bill</b><code>{prefix} destroy</code></span></div>
           </div>
         </section>
 
-        <section className="protocol section" id="learn">
-          <SectionLabel number="04" text="SIX USEFUL TERMS" />
-          <div className="section-heading">
-            <h2>Enough protocol<br />to read the output.</h2>
-            <p>You do not need to memorize Farcaster before starting. These are the terms used by the setup and recovery messages.</p>
-          </div>
-          <div className="concepts">
-            <Concept index="01" title="FID" accent="purple">Your numeric Farcaster account ID.</Concept>
-            <Concept index="02" title="Custody address" accent="orange">The wallet that owns the FID. It stays off the server.</Concept>
-            <Concept index="03" title="App key" accent="cyan">A revocable key for casts, follows, and reactions. Creating it is gasless.</Concept>
-            <Concept index="04" title="Message" accent="green">A signed instruction such as publishing a cast or following an FID.</Concept>
-            <Concept index="05" title="Read node" accent="purple">Your copy of Farcaster data. It also validates and relays writes.</Concept>
-            <Concept index="06" title="Storage" accent="orange">Account capacity for casts, follows, and reactions.</Concept>
-          </div>
-        </section>
-
-        <section className="agent-summary section-band">
-          <div className="section narrow">
-            <SectionLabel number="05" text="OPTIONAL: AGENT ACCESS" light />
-            <div className="agent-summary-grid">
-              <div>
-                <h2>Keep the first run simple.</h2>
-                <p>The normal command creates only the browser client. To add paid x402 access for agents, use <code>client create --with-agent</code> during initial setup and follow the separate agent guide.</p>
-              </div>
-              <div className="agent-summary-facts">
-                <AgentFact icon={<Bot size={22} />} title="Discover" detail="/.well-known/agent.json" />
-                <AgentFact icon={<Network size={22} />} title="Pay" detail="USDC on Celo or Base" />
-                <AgentFact icon={<ShieldCheck size={22} />} title="Write" detail="payment plus owner capability" />
-              </div>
-            </div>
-            <div className="agent-links">
-              <a href={`${DOCS}/docs/AGENT-API.md`} target="_blank" rel="noreferrer">Read the optional agent guide <ArrowRight size={15} /></a>
-            </div>
-          </div>
-        </section>
-
-        <section className="faq section" id="help">
-          <SectionLabel number="06" text="HELP AND REFERENCE" />
-          <div className="section-heading">
-            <h2>Go deeper only<br />when you need to.</h2>
-            <p>The quickstart is enough for a clean first run. These references cover recovery, security, architecture, and advanced operation.</p>
-          </div>
-          <div className="docs-grid">
-            <DocLink icon={<BookOpen size={22} />} title="Operations" detail="Expected output, sync status, recovery, upgrades, and teardown." href={`${DOCS}/docs/OPERATIONS.md`} />
-            <DocLink icon={<FileCheck2 size={22} />} title="Proof" detail="Verification status, redacted receipts, and independent evidence." href={`${DOCS}/docs/PROOF.md`} />
-            <DocLink icon={<Network size={22} />} title="Architecture" detail="What runs where and how reads and writes move." href={`${DOCS}/docs/ARCHITECTURE.md`} />
-            <DocLink icon={<ShieldCheck size={22} />} title="Security" detail="Phrase handling, app keys, secrets, and incident response." href={`${DOCS}/SECURITY.md`} />
-            <DocLink icon={<Bot size={22} />} title="Agent API" detail="Optional x402 setup, routes, prices, and payment safety." href={`${DOCS}/docs/AGENT-API.md`} />
-            <DocLink icon={<FileCheck2 size={22} />} title="Primary sources" detail="Pinned Snapchain and Farcaster protocol references." href={`${DOCS}/docs/SOURCES.md`} />
-            <DocLink icon={<Github size={22} />} title="Source code" detail="MIT-licensed scripts, client, tests, and release files." href={REPO} />
+        <section className="help section" id="help">
+          <div className="section-intro">
+            <span>ONLY IF YOU NEED IT</span>
+            <h2>Help without the wall of text.</h2>
+            <p>Start with the short answer. Open the detailed reference only when something pauses or fails.</p>
           </div>
 
-          <div className="faq-grid compact">
-            <h2>Common<br />questions.</h2>
-            <div>
-              <Details question="Do I need a Farcaster account first?">No. In the final command, press Enter to choose CREATE. The CLI generates a disposable account locally and walks you through funding and registering it. IMPORT remains available for an existing test account.</Details>
-              <Details question="What will this cost?">The default plan quoted about $324 per month on 2026-10-19, or roughly $6.22 for 12 hours and $12.45 for 24 hours. Provider prices can change; the script shows the live plan before creating it.</Details>
-              <Details question="Can the app key move funds?">No. It can sign Farcaster casts, follows, and reactions. It cannot transfer custody or sign wallet transactions.</Details>
-              <Details question="What does a successful write mean?">Your node accepted the message for relay. Read it back from the synced node to confirm inclusion.</Details>
-              <Details question="How do I stop the bill?">Run <code>in-three destroy</code> (or <code>./in-three-container destroy</code> with Docker), then confirm the server and volume are gone in Hetzner.</Details>
-            </div>
+          <div className="quick-answers">
+            <Details question="The node says it is still syncing.">
+              Leave it running. Check <code>{prefix} node status</code>. Do not restart during snapshot extraction.
+            </Details>
+            <Details question="Command 3 stopped.">
+              Keep the folder and rerun <code>{prefix} client create</code>. Signed recovery data is saved before broadcast.
+            </Details>
+            <Details question="I want Docker instead.">
+              Select Docker above. The setup and three commands stay the same.
+            </Details>
+            <Details question="I want agent or x402 access.">
+              Finish the normal browser setup first, then use the separate advanced agent guide.
+            </Details>
+          </div>
+
+          <div className="docs-list">
+            <DocLink icon={<BookOpen size={20} />} title="Operations" detail="Sync, recovery, upgrades, and teardown" href={`${DOCS}/docs/OPERATIONS.md`} />
+            <DocLink icon={<ShieldCheck size={20} />} title="Security" detail="Keys, recovery files, and exposure" href={`${DOCS}/SECURITY.md`} />
+            <DocLink icon={<Server size={20} />} title="Architecture" detail="How reads and writes move" href={`${DOCS}/docs/ARCHITECTURE.md`} />
+            <DocLink icon={<CheckCircle2 size={20} />} title="Proof" detail="Receipts and verification status" href={`${DOCS}/docs/PROOF.md`} />
+            <DocLink icon={<Terminal size={20} />} title="All documentation" detail="Advanced and contributor references" href={`${DOCS}/docs/README.md`} />
           </div>
         </section>
 
         <section className="final-cta">
-          <span className="eyebrow">READ THE COST. CREATE A TEST ACCOUNT IN COMMAND 3. KEEP THE DIRECTORY.</span>
-          <h2>Then run<br />the three.</h2>
+          <img src="./profile.svg" alt="" width="58" height="58" />
           <div>
-            <a href="#quickstart">Open the quickstart <Terminal size={18} /></a>
-            <a href={REPO} target="_blank" rel="noreferrer">Inspect the source <Github size={18} /></a>
+            <span>READY?</span>
+            <h2>Run the three.</h2>
           </div>
+          <a href="#start">Start <ArrowRight size={18} /></a>
         </section>
       </main>
 
       <footer className="site-footer">
-        <div><span className="wordmark compact"><i>III</i><strong>IN THREE</strong></span><p>Built in public by Permanent Upper Class.</p></div>
-        <div><span>LICENSE</span><strong>MIT</strong></div>
-        <div><span>SNAPCHAIN</span><strong>v0.14.3</strong></div>
-        <div><span>RELEASE</span><strong>v0.1.13</strong></div>
+        <span>IN THREE</span>
+        <p>Built by Permanent Upper Class.</p>
+        <a href={REPO} target="_blank" rel="noreferrer">MIT source <ExternalLink size={13} /></a>
       </footer>
     </>
   );
@@ -429,7 +312,7 @@ function CodeBlock({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="code-block">
-      <code><i>$</i> {code}</code>
+      <code>{code}</code>
       <button type="button" title="Copy command" onClick={async () => {
         await navigator.clipboard.writeText(code);
         setCopied(true);
@@ -439,38 +322,14 @@ function CodeBlock({ code }: { code: string }) {
   );
 }
 
-function SectionLabel({ number, text, light = false }: { number: string; text: string; light?: boolean }) {
-  return <div className={light ? "section-label light" : "section-label"}><span>{number}</span><i /><b>{text}</b></div>;
-}
-
-function Callout({ tone, icon, title, children }: { tone: string; icon: React.ReactNode; title: string; children: React.ReactNode }) {
-  return <div className={`callout ${tone}`}>{icon}<div><strong>{title}</strong><p>{children}</p></div></div>;
-}
-
-function Prerequisite({ icon, title, detail }: { icon: React.ReactNode; title: string; detail: string }) {
-  return <div className="prerequisite">{icon}<strong>{title}</strong><span>{detail}</span></div>;
-}
-
-function SystemPart({ label, icon, title, detail }: { label: string; icon: React.ReactNode; title: string; detail: string }) {
-  return <div><span>{label}</span>{icon}<strong>{title}</strong><small>{detail}</small></div>;
-}
-
-function AgentFact({ icon, title, detail }: { icon: React.ReactNode; title: string; detail: string }) {
-  return <div>{icon}<span><b>{title}</b><small>{detail}</small></span></div>;
-}
-
-function Concept({ index, title, accent, children }: { index: string; title: string; accent: string; children: React.ReactNode }) {
-  return <article className={`concept ${accent}`}><span>{index}</span><h3>{title}</h3><p>{children}</p></article>;
-}
-
 function PackageLink({ icon, label, detail, href }: { icon: React.ReactNode; label: string; detail: string; href: string }) {
   return <a className="package-pill" href={href} target="_blank" rel="noreferrer">{icon}<b>{label}</b><small>{detail}</small><ExternalLink size={12} /></a>;
 }
 
-function DocLink({ icon, title, detail, href }: { icon: React.ReactNode; title: string; detail: string; href: string }) {
-  return <a className="doc-link" href={href} target="_blank" rel="noreferrer">{icon}<span><strong>{title}</strong><small>{detail}</small></span><ExternalLink size={15} /></a>;
-}
-
 function Details({ question, children }: { question: string; children: React.ReactNode }) {
   return <details><summary>{question}<span>+</span></summary><p>{children}</p></details>;
+}
+
+function DocLink({ icon, title, detail, href }: { icon: React.ReactNode; title: string; detail: string; href: string }) {
+  return <a className="doc-link" href={href} target="_blank" rel="noreferrer">{icon}<span><strong>{title}</strong><small>{detail}</small></span><ArrowRight size={16} /></a>;
 }

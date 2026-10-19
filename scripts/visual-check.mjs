@@ -237,7 +237,7 @@ try {
   const expectedPackageHrefs = [
     "https://www.npmjs.com/package/farcaster-in-three",
     "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three",
-    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.13",
+    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.14",
     "https://github.com/P-U-C/farcaster-in-three",
   ];
   if (expectedPackageHrefs.some((href) => !packageHrefs.includes(href))) {
@@ -260,6 +260,7 @@ try {
     throw new Error("website Docker commands do not switch with the installer");
   }
   await npmMethod.click();
+  await sitePage.evaluate(() => window.scrollTo(0, 0));
 
   await sitePage.screenshot({ path: "/tmp/in-three-site-desktop.png", fullPage: true });
   await assertNoOverflow(sitePage, "site desktop");
@@ -277,6 +278,7 @@ try {
   await dockerMethod.click();
   await assertNoOverflow(sitePage, "site mobile Docker method");
   await npmMethod.click();
+  await sitePage.evaluate(() => window.scrollTo(0, 0));
   await sitePage.screenshot({ path: "/tmp/in-three-site-mobile.png", fullPage: true });
   await assertNoOverflow(sitePage, "site mobile");
 
