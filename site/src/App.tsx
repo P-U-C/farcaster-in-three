@@ -54,6 +54,13 @@ const navigation = [
   { id: "help", label: "Help" },
 ];
 
+function openHetznerHelp() {
+  const details = document.getElementById("hetzner-help");
+  if (details instanceof HTMLDetailsElement) {
+    details.open = true;
+  }
+}
+
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [installMethod, setInstallMethod] = useState<InstallMethod>("npm");
@@ -143,7 +150,12 @@ export function App() {
           <div className="section-intro">
             <span>START HERE</span>
             <h2>Install once. Run three.</h2>
-            <p>Use a machine you already own. Add <code>--hetzner</code> if you want In Three to create one.</p>
+            <p>
+              Use a machine you already own.{" "}
+              <a className="hetzner-jump" href="#hetzner-help" onClick={openHetznerHelp}>
+                Add <strong><code>--hetzner</code></strong> if you want In Three to create one.
+              </a>
+            </p>
           </div>
 
           <div className="install-method-picker">
@@ -249,7 +261,7 @@ export function App() {
           </div>
 
           <div className="quick-answers">
-            <Details question="I need a Hetzner machine.">
+            <Details id="hetzner-help" question="I need a Hetzner machine.">
               <ol>
                 <li><a href="https://console.hetzner.cloud/" target="_blank" rel="noreferrer">Create a Hetzner account and an empty project.</a></li>
                 <li>Open <b>Security → API tokens</b>. Generate a <b>Read &amp; Write</b> token and copy it.</li>
@@ -333,8 +345,8 @@ function PackageLink({ icon, label, detail, href }: { icon: React.ReactNode; lab
   return <a className="package-pill" href={href} target="_blank" rel="noreferrer">{icon}<b>{label}</b><small>{detail}</small><ExternalLink size={12} /></a>;
 }
 
-function Details({ question, children }: { question: string; children: React.ReactNode }) {
-  return <details><summary>{question}<span>+</span></summary><div className="details-body">{children}</div></details>;
+function Details({ id, question, children }: { id?: string; question: string; children: React.ReactNode }) {
+  return <details id={id}><summary>{question}<span>+</span></summary><div className="details-body">{children}</div></details>;
 }
 
 function DocLink({ icon, title, detail, href }: { icon: React.ReactNode; title: string; detail: string; href: string }) {

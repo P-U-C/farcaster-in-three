@@ -262,11 +262,30 @@ try {
   if (!(await sitePage.getByRole("heading", { name: "FAQ" }).isVisible())) {
     throw new Error("website FAQ heading is missing");
   }
-  const hetznerHelp = sitePage.locator(".quick-answers details").first();
+  const hetznerHelp = sitePage.locator("#hetzner-help");
   if (await hetznerHelp.getAttribute("open") !== null) {
     throw new Error("Hetzner help must be folded by default");
   }
-  await hetznerHelp.locator("summary").click();
+  const hetznerJump = sitePage.locator(".hetzner-jump");
+  const hetznerJumpColor = await hetznerJump.evaluate(
+    (element) => getComputedStyle(element).color,
+  );
+  if (hetznerJumpColor !== "rgb(121, 80, 190)") {
+    throw new Error(`Hetzner help link is not purple: ${hetznerJumpColor}`);
+  }
+  const hetznerFlagWeight = await hetznerJump.locator("strong").evaluate(
+    (element) => Number.parseInt(getComputedStyle(element).fontWeight, 10),
+  );
+  if (hetznerFlagWeight < 700) {
+    throw new Error(`--hetzner is not bold: ${hetznerFlagWeight}`);
+  }
+  await hetznerJump.click();
+  if (await hetznerHelp.getAttribute("open") === null) {
+    throw new Error("Hetzner help link did not open the accordion");
+  }
+  if (new URL(sitePage.url()).hash !== "#hetzner-help") {
+    throw new Error(`Hetzner help link has the wrong target: ${sitePage.url()}`);
+  }
   if (!(await hetznerHelp.innerText()).includes("2,048 GiB")) {
     throw new Error("Hetzner help omits the required Volume quota");
   }
@@ -299,6 +318,17 @@ try {
   if (!(await npmMethod.isVisible()) || !(await dockerMethod.isVisible())) {
     throw new Error("installation method selector is hidden on mobile");
   }
+  await hetznerJump.click();
+  if (await hetznerHelp.getAttribute("open") === null || new URL(sitePage.url()).hash !== "#hetzner-help") {
+    throw new Error("Hetzner help link did not open the accordion on mobile");
+  }
+  await sitePage.evaluate(() => {
+    const details = document.getElementById("hetzner-help");
+    if (details instanceof HTMLDetailsElement) {
+      details.open = false;
+    }
+    window.history.replaceState(null, "", window.location.pathname);
+  });
   await dockerMethod.click();
   await assertNoOverflow(sitePage, "site mobile Docker method");
   await npmMethod.click();
