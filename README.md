@@ -83,7 +83,7 @@ Use this path if you prefer to run packaged code inside Docker. It requires a ru
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.11/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.12/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -112,17 +112,17 @@ The normal setup creates only the browser client. To add paid x402 access for ag
 in-three client create --with-agent
 ```
 
-This advanced path also asks for Celo and Coinbase facilitator credentials and configures USDC settlement on Celo and Base. Read the [agent guide](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.11/docs/AGENT-API.md) before choosing it.
+This advanced path also asks for Celo and Coinbase facilitator credentials and configures USDC settlement on Celo and Base. Read the [agent guide](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.12/docs/AGENT-API.md) before choosing it.
 
 ## Reference
 
-- [Operations](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.11/docs/OPERATIONS.md): expected output, sync status, recovery, upgrades, and teardown
-- [Proof](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.11/docs/PROOF.md): verification status, redacted run receipts, and evidence requirements
-- [Architecture](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.11/docs/ARCHITECTURE.md): what runs where and how reads and writes move
-- [Security](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.11/SECURITY.md): phrase handling, app keys, secrets, and incident response
-- [Agent API](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.11/docs/AGENT-API.md): optional x402 routes, prices, and payment safety
-- [Primary sources](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.11/docs/SOURCES.md): pinned Farcaster, Snapchain, and infrastructure references
-- [Independent test](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.11/VOUCHER.md): clean-machine validation checklist
+- [Operations](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.12/docs/OPERATIONS.md): expected output, sync status, recovery, upgrades, and teardown
+- [Proof](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.12/docs/PROOF.md): verification status, redacted run receipts, and evidence requirements
+- [Architecture](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.12/docs/ARCHITECTURE.md): what runs where and how reads and writes move
+- [Security](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.12/SECURITY.md): phrase handling, app keys, secrets, and incident response
+- [Agent API](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.12/docs/AGENT-API.md): optional x402 routes, prices, and payment safety
+- [Primary sources](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.12/docs/SOURCES.md): pinned Farcaster, Snapchain, and infrastructure references
+- [Independent test](https://github.com/P-U-C/farcaster-in-three/blob/v0.1.12/VOUCHER.md): clean-machine validation checklist
 
 ## Development
 

@@ -84,7 +84,7 @@ start_setup_tunnel() {
 }
 
 node_bootstrap_progress() {
-  remote "printf '  snapshot  '; du -sh /srv/in-three/data/snapshot 2>/dev/null | awk '{print \$1}' || printf 'not created'; printf '\n  database  '; du -sh /srv/in-three/data/rocks 2>/dev/null | awk '{print \$1}' || printf 'not created'; printf '\n  disk      '; df -h /srv/in-three | tail -1 | awk '{print \$3 " used / " \$2 " total"}'; printf '\n'"
+  remote "printf '  snapshot  '; du -sh /srv/in-three/data/snapshot 2>/dev/null | awk '{print \$1}' || printf 'not created'; printf '\n  database  '; du -sh /srv/in-three/data/rocks 2>/dev/null | awk '{print \$1}' || printf 'not created'; printf '\n  disk      '; df -h /srv/in-three | tail -1 | awk '{print \$3 \" used / \" \$2 \" total\"}'; printf '\n'"
 }
 
 wait_for_node_api() {

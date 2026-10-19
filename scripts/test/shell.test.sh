@@ -151,6 +151,14 @@ if printf '%s\n' "$healthcheck" | grep -F 'curl' >/dev/null; then
   fail "Snapchain healthcheck still requires curl"
 fi
 
+progress_command="$(
+  source "$ROOT/scripts/client.sh"
+  remote() { printf '%s\n' "$*"; }
+  node_bootstrap_progress
+)"
+printf '%s\n' "$progress_command" | grep -F '$3 " used / " $2 " total"' >/dev/null ||
+  fail "client bootstrap progress expands remote disk fields locally"
+
 wait_output="$(
   source "$ROOT/scripts/client.sh"
   api_attempts=0
@@ -635,6 +643,7 @@ printf 'ok - SSH jump hosts cover source detection and every remote operation\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain config includes required fields and a native validation mode\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'
+printf 'ok - client bootstrap progress preserves remote disk fields\n'
 printf 'ok - client create waits and continues after node bootstrap\n'
 printf 'ok - deployment separates client, payment, and local agent secrets\n'
 printf 'ok - paid deployment recovery never invokes buy twice\n'
