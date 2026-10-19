@@ -88,7 +88,7 @@ Current setup has two independent recovery boundaries: a locally signed IdGatewa
 
 ## Developer custody guidance
 
-A recovery phrase gives full account control. The default path generates a phrase locally for a disposable test account and prints it once; the import path accepts an existing test phrase through hidden terminal input. In Three never writes the phrase to disk or uploads it. Testers should inspect and trust the code, save generated words privately, and never use a valuable account. Production client onboarding should use delegated signer authorization through a trusted wallet and should not collect raw phrases.
+A recovery phrase gives full account control. The default path generates one locally for a disposable test account, encrypts it with the client password using scrypt and AES-256-GCM, and stores the kit in the owner-only local `.state/` directory without printing or uploading the phrase. The import path accepts an existing test phrase through hidden terminal input. Testers should inspect and trust the code, protect the recovery kit and password separately, and never use a valuable account. Production client onboarding should use delegated signer authorization through a trusted wallet and should not collect raw phrases.
 
 ## Operator image
 
@@ -111,8 +111,10 @@ Checked on 2026-10-17:
 - API: https://docs.hetzner.cloud/reference/cloud
 - Ashburn CCX33: $165.99/month before tax
 - Volume: $0.0484/GiB-month
-- 2,048 GiB volume: approximately $99.12/month
-- Default estimate: approximately $265/month before IPv4, traffic, and tax
+- 2,048 GiB volume: $157.08/month in the live 2026-10-19 quote
+- CCX33 server: $165.99/month in the same quote
+- Public IPv4: $0.60/month in the same quote
+- Default total: $323.67/month gross; about $6.22 for 12 hours or $12.45 for 24 hours at the quoted hourly rate
 
 The provider console is authoritative. Paid-deployment preflight reads the live plan and performs a temporary SSH-key create/delete probe before payment.
 

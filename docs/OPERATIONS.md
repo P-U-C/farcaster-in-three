@@ -11,7 +11,7 @@ Install once:
 ```bash
 mkdir in-three-node
 cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.7/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.8/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -61,13 +61,13 @@ It asks for:
 
 1. A browser password.
 2. `CREATE` for a new disposable account or `IMPORT` for an existing test account.
-3. For `CREATE`: save the 12 generated words, fund the shown address with the quoted ETH on Optimism, then approve one FID-and-storage transaction.
+3. For `CREATE`: keep the generated encrypted recovery kit and client password private, fund the shown address with the quoted ETH on Optimism, then approve one FID-and-storage transaction.
 4. For `IMPORT`: enter the test-account phrase through hidden terminal input.
 5. Final confirmation before submitting a gasless app-key message.
 
 A new account requires one Optimism transaction. App-key authorization is gasless. Existing test accounts with active storage skip the account transaction.
 
-The phrase stays in the local setup process. The server receives only the revocable app key. That key can cast, follow, and react; it cannot move wallet funds.
+For `CREATE`, the phrase is encrypted with the client password in `.state/test-account.recovery.json`. It is never printed or uploaded. The server receives only the revocable app key. That key can cast, follow, and react; it cannot move wallet funds.
 
 When setup finishes:
 
@@ -77,6 +77,17 @@ read path     browser -> client service -> your Snapchain node
 write path    browser -> client service -> your node -> validator gossip
 custody key   not stored
 ```
+
+For an agent-led run, generate an owner-only password file without printing the secret, then pass only its path:
+
+```bash
+mkdir -p .state && chmod 700 .state
+umask 077
+openssl rand -base64 24 > .state/client.password
+./in-three-container client create --password-file .state/client.password
+```
+
+The setup rejects password files readable by group or others. The file stays local and is never uploaded. A human must still approve the displayed cloud plan and any Optimism funding.
 
 Check it later with:
 
@@ -115,7 +126,7 @@ See [AGENT-API.md](AGENT-API.md) for prices, routes, capabilities, receipts, and
 
 ## Recovery
 
-During new-account setup, `.state/client.env.pending.fid-registration` temporarily contains the custody address and exact signed IdGateway transaction. It never contains the phrase or custody private key. Rerun `client create`, choose `IMPORT`, and enter the saved phrase to resume it.
+During new-account setup, `.state/test-account.recovery.json` contains the password-encrypted phrase and `.state/client.env.pending.fid-registration` temporarily contains the custody address and exact signed IdGateway transaction. Neither is uploaded. Rerun `client create`, enter the same client password, and leave `CREATE` selected to resume from the encrypted kit.
 
 During app-key setup, `.state/client.env.pending` may temporarily contain:
 
@@ -124,7 +135,7 @@ During app-key setup, `.state/client.env.pending` may temporarily contain:
 - optional Celo/Base split transactions
 - optional facilitator credentials and agent capability
 
-It never contains the recovery phrase or derived custody private key.
+It never contains the recovery phrase or derived custody private key; those remain in the separate encrypted local kit.
 
 If setup stops after signing either transaction or message, keep the recovery files and rerun the same `client create` command. Recovery checks current node state before resubmitting the exact saved bytes. Confirmed payloads are removed, and the file is deleted after the deployed service passes health checks.
 
@@ -132,14 +143,15 @@ Losing the app key does not affect custody. Authorize a replacement and revoke t
 
 ## Cost
 
-The default Ashburn plan was about **$265/month** when checked on 2026-10-17:
+The default Ashburn plan quoted **$323.67/month gross** on 2026-10-19:
 
-| Resource | Approximate monthly cost |
+| Resource | Quoted monthly cost |
 | --- | ---: |
 | CCX33 server | $165.99 |
-| 2,048 GiB volume | $99.12 |
+| 2,048 GiB volume | $157.08 |
+| Public IPv4 | $0.60 |
 
-IPv4, traffic, tax, and provider price changes are extra. The Hetzner console is authoritative. Read the displayed total before typing `PROVISION`.
+At that rate, a 12-hour test is about $6.22 and a 24-hour test about $12.45. Traffic, tax, and provider price changes may alter the total. The CLI reads the live provider price, shows all four time scales, and remains authoritative. Read it before typing `PROVISION`.
 
 Creating a new Farcaster test account also requires the live IdGateway price plus an Optimism gas reserve. `client create` reads both from the network, prints the required ETH balance before signing, and leaves any unused reserve in the test account. Importing an account that already has an FID and storage skips this cost.
 
@@ -165,7 +177,7 @@ The default hostname uses `sslip.io`. To use your own domain:
 | Login fails | Check password, hostname, HTTPS, and cookie scope |
 | Message accepted but absent | Wait for sync, then retry the same signed action |
 | TLS remains pending | Check DNS and ports 80/443 |
-| Account setup stopped after signing | Keep the pending file; rerun `client create`, choose `IMPORT`, and use the saved words |
+| Account setup stopped after signing | Keep `.state/`; rerun `client create` with the same password and leave `CREATE` selected |
 | App-key setup stopped after signing | Keep the pending file and rerun `client create` |
 | Agent read returns 402 | This is the payment quote |
 | Agent write returns 401 | Supply the owner capability; no payment occurred |

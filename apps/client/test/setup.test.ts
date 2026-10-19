@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -10,8 +10,10 @@ import { keccak256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   normalizeCdpApiKeySecret,
+  readClientPasswordFile,
   readHidden,
   registrationFundingTarget,
+  readRecoveryKit,
   readVisible,
   submitSavedFidRegistration,
   submitSavedGaslessRegistration,
@@ -19,6 +21,7 @@ import {
   submitSignedRegistration,
   validateCdpApiKeyId,
   validateFacilitatorApiKey,
+  writeRecoveryKit,
 } from "../src/setup.js";
 import {
   FarcasterNetwork,
@@ -98,6 +101,48 @@ test("new account funding includes the protocol price and a gas reserve", () => 
     registrationFundingTarget(5_000n, 1_000_000_000_000n),
     1_800_000_000_000_005_000n,
   );
+});
+
+test("agent password files must be one owner-only line", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "in-three-password-"));
+  const path = join(directory, "client.password");
+  try {
+    await writeFile(path, "agent-generated-password\n", { mode: 0o600 });
+    assert.equal(await readClientPasswordFile(path), "agent-generated-password");
+    await writeFile(path, "first line\nsecond line\n", { mode: 0o600 });
+    await assert.rejects(readClientPasswordFile(path), /exactly one line/);
+    await chmod(path, 0o644);
+    await assert.rejects(readClientPasswordFile(path), /chmod 600/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("generated account recovery is encrypted, owner-only, and resumable", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "in-three-recovery-"));
+  const path = join(directory, "test-account.recovery.json");
+  const mnemonic = "test test test test test test test test test test test junk";
+  const password = "correct horse battery staple";
+
+  try {
+    await writeRecoveryKit(path, mnemonic, password);
+    const raw = await readFile(path, "utf8");
+    assert.doesNotMatch(raw, /test test test/);
+    assert.equal((await stat(path)).mode & 0o777, 0o600);
+    assert.equal(await readRecoveryKit(path, password), mnemonic);
+    await assert.rejects(
+      readRecoveryKit(path, "a different long password"),
+      /same client password/,
+    );
+    await assert.rejects(
+      writeRecoveryKit(path, mnemonic, password),
+      (error: NodeJS.ErrnoException) => error.code === "EEXIST",
+    );
+    await chmod(path, 0o644);
+    await assert.rejects(readRecoveryKit(path, password), /chmod 600/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("new account registration preserves signed bytes across an ambiguous broadcast", async () => {

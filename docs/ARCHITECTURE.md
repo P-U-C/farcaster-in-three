@@ -61,7 +61,7 @@ The gateway cannot reach Snapchain directly. The deployer cannot reach the clien
 ```text
 CREATE (default)                    IMPORT
   -> generate phrase locally          -> read test phrase locally
-  -> user saves phrase                -> derive custody address
+  -> encrypt local recovery kit       -> derive custody address
   -> derive custody address                    |
   -> quote IdGateway price                     |
   -> fund address on Optimism                   |
@@ -77,10 +77,10 @@ CREATE (default)                    IMPORT
                      submit through local tunnel to owned node
                      wait for signer in node state
                      upload only the app key
-                     discard phrase when process exits
+                     discard plaintext when process exits
 ```
 
-New-account registration is one Optimism transaction. Its exact signed bytes are saved before broadcast so an uncertain RPC response can be resumed. Existing accounts skip that transaction.
+New-account registration is one Optimism transaction. The generated phrase is stored only in a local, password-encrypted recovery kit; the exact signed transaction bytes are also saved before broadcast so an uncertain RPC response can be resumed. Existing accounts skip that transaction.
 
 The app key is limited to casts, reactions, and follows. It has a 90-day sliding lifetime, and its authorization is a gasless Snapchain message.
 

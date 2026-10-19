@@ -19,7 +19,8 @@ usage() {
   printf 'Three-command setup:\n'
   printf '  %s provision\n  %s node up\n  %s client create\n\n' \
     "$IN_THREE_COMMAND" "$IN_THREE_COMMAND" "$IN_THREE_COMMAND"
-  printf 'Optional agent commerce:\n'
+  printf 'Optional agent operation:\n'
+  printf '  %s client create --password-file PATH\n' "$IN_THREE_COMMAND"
   printf '  %s client create --with-agent\n' "$IN_THREE_COMMAND"
   printf '  %s deploy --service https://YOUR_BROKER\n' "$IN_THREE_COMMAND"
 }

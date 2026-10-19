@@ -92,27 +92,12 @@ if [[ -z "$SOURCE_CIDR" ]]; then
   fi
 fi
 
-api() {
-  local method="$1"
-  local path="$2"
-  local data="${3:-}"
-  local args=(
-    -fsS
-    --max-time 45
-    -X "$method"
-    -H "Authorization: Bearer $HCLOUD_TOKEN"
-    -H "Content-Type: application/json"
-  )
-  [[ -z "$data" ]] || args+=(--data "$data")
-  curl "${args[@]}" "https://api.hetzner.cloud/v1$path"
-}
-
-server_type_json="$(api GET "/server_types?name=$SERVER_TYPE")" ||
+server_type_json="$(hcloud_api GET "/server_types?name=$SERVER_TYPE")" ||
   die "Hetzner rejected the token or server type"
 cores="$(jq -r '.server_types[0].cores // empty' <<<"$server_type_json")"
 memory="$(jq -r '.server_types[0].memory // empty' <<<"$server_type_json")"
 [[ -n "$cores" && -n "$memory" ]] || die "server type $SERVER_TYPE was not found"
-pricing_json="$(api GET /pricing)" || die "could not read the Hetzner price list"
+pricing_json="$(hcloud_api GET /pricing)" || die "could not read the Hetzner price list"
 cost_estimate_json="$(hcloud_cost_estimate \
   "$server_type_json" \
   "$pricing_json" \
@@ -125,11 +110,12 @@ printf '  compute      %s (%s vCPU, %s GiB RAM)\n' "$SERVER_TYPE" "$cores" "$mem
 printf '  data         %s GiB cloud block volume\n' "$VOLUME_SIZE"
 printf '  ingress      SSH from %s; HTTPS and gossip public\n' "$SOURCE_CIDR"
 printf '  protocol     no hosted Farcaster API keys\n'
-printf '  estimate     ~%s %s/hour; %s %s/month gross\n\n' \
+printf '  estimate     ~%s %s/hour; %s / 12h; %s / 24h; %s / month gross\n\n' \
   "$(jq -r '.totalHourlyEstimate * 10000 | round / 10000' <<<"$cost_estimate_json")" \
   "$(jq -r '.currency' <<<"$cost_estimate_json")" \
-  "$(jq -r '.totalMonthly * 100 | round / 100' <<<"$cost_estimate_json")" \
-  "$(jq -r '.currency' <<<"$cost_estimate_json")"
+  "$(jq -r '.total12Hours * 100 | round / 100' <<<"$cost_estimate_json")" \
+  "$(jq -r '.total24Hours * 100 | round / 100' <<<"$cost_estimate_json")" \
+  "$(jq -r '.totalMonthly * 100 | round / 100' <<<"$cost_estimate_json")"
 
 if [[ "$ASSUME_YES" != true ]]; then
   read -r -p "Type PROVISION to create billable resources: " confirmation
@@ -155,16 +141,20 @@ ssh-keygen -q -t ed25519 -N "" -C "$resource_name" -f "$ssh_key"
 chmod 600 "$ssh_key"
 public_key="$(cat "$ssh_key.pub")"
 
-note "Registering an isolated SSH key"
-ssh_response="$(api POST /ssh_keys "$(jq -n   --arg name "$resource_name"   --arg public_key "$public_key"   '{name:$name, public_key:$public_key, labels:{"managed-by":"in-three"}}')")"
-ssh_key_id="$(jq -r '.ssh_key.id' <<<"$ssh_response")"
-
-note "Creating the $VOLUME_SIZE GiB data volume"
-volume_response="$(api POST /volumes "$(jq -n   --arg name "$resource_name-data"   --arg location "$LOCATION"   --argjson size "$VOLUME_SIZE"   '{name:$name, location:$location, size:$size, format:"ext4", labels:{"managed-by":"in-three"}}')")"
+note "Checking quota by creating the $VOLUME_SIZE GiB data volume first"
+if ! volume_response="$(hcloud_api POST /volumes "$(jq -n   --arg name "$resource_name-data"   --arg location "$LOCATION"   --argjson size "$VOLUME_SIZE"   '{name:$name, location:$location, size:$size, format:"ext4", labels:{"managed-by":"in-three"}}')")"; then
+  printf 'The project must allow at least %s GiB of total Volume storage.\n' "$VOLUME_SIZE" >&2
+  printf 'Request at least 2,500 GiB of Volume quota in Hetzner Console, then rerun this command.\n' >&2
+  exit 1
+fi
 volume_id="$(jq -r '.volume.id' <<<"$volume_response")"
 
+note "Registering an isolated SSH key"
+ssh_response="$(hcloud_api POST /ssh_keys "$(jq -n   --arg name "$resource_name"   --arg public_key "$public_key"   '{name:$name, public_key:$public_key, labels:{"managed-by":"in-three"}}')")"
+ssh_key_id="$(jq -r '.ssh_key.id' <<<"$ssh_response")"
+
 note "Applying least-exposure firewall rules"
-firewall_response="$(api POST /firewalls "$(jq -n   --arg name "$resource_name"   --arg source "$SOURCE_CIDR"   '{
+firewall_response="$(hcloud_api POST /firewalls "$(jq -n   --arg name "$resource_name"   --arg source "$SOURCE_CIDR"   '{
     name:$name,
     labels:{"managed-by":"in-three"},
     rules:[
@@ -180,7 +170,7 @@ firewall_id="$(jq -r '.firewall.id' <<<"$firewall_response")"
 cloud_init="$(render_cloud_init "$public_key" "$volume_id")"
 
 note "Creating the Snapchain host"
-server_response="$(api POST /servers "$(jq -n   --arg name "$resource_name"   --arg type "$SERVER_TYPE"   --arg location "$LOCATION"   --arg user_data "$cloud_init"   --argjson ssh_key "$ssh_key_id"   --argjson firewall "$firewall_id"   '{
+server_response="$(hcloud_api POST /servers "$(jq -n   --arg name "$resource_name"   --arg type "$SERVER_TYPE"   --arg location "$LOCATION"   --arg user_data "$cloud_init"   --argjson ssh_key "$ssh_key_id"   --argjson firewall "$firewall_id"   '{
     name:$name,
     server_type:$type,
     image:"ubuntu-24.04",
@@ -197,7 +187,7 @@ server_ip="$(jq -r '.server.public_net.ipv4.ip' <<<"$server_response")"
 [[ -n "$server_id" && -n "$server_ip" ]] || die "server creation returned no server ID or IP"
 
 note "Attaching the data volume"
-api POST "/volumes/$volume_id/actions/attach" "$(jq -n --argjson server "$server_id" '{server:$server, automount:false}')" >/dev/null
+hcloud_api POST "/volumes/$volume_id/actions/attach" "$(jq -n --argjson server "$server_id" '{server:$server, automount:false}')" >/dev/null
 
 domain="${server_ip//./-}.sslip.io"
 cat > "$STATE_FILE" <<EOF

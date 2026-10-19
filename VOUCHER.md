@@ -14,7 +14,7 @@ The test costs real money. Read the estimated cost, agree on reimbursement befor
 - Record the exact release, commands, timings, and errors.
 - Do not use an existing project contributor as the independent tester.
 
-For an agent-led run, give the agent [`skills/in-three/SKILL.md`](skills/in-three/SKILL.md). The human operator must enter secrets directly, approve spending, and keep phrases, tokens, and private keys out of agent chat. Record every human intervention.
+For an agent-led run, give the agent [`skills/in-three/SKILL.md`](skills/in-three/SKILL.md). Use owner-only secret files where supported; the human operator must approve spending and keep phrases, tokens, passwords, and private keys out of agent chat. Record every human intervention.
 
 ## Test record
 
@@ -49,12 +49,12 @@ Public report URL:
 ```bash
 mkdir in-three-test
 cd in-three-test
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.7/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.8/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
 
-Record the output. Confirm the downloaded launcher contains `VERSION="0.1.7"`.
+Record the output. Confirm the downloaded launcher contains `VERSION="0.1.8"`.
 
 The first operational command downloads the matching public amd64 or arm64 container release and checks its SHA-256 before loading it.
 

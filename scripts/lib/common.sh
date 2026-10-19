@@ -117,6 +117,46 @@ wait_for_ssh() {
   return 1
 }
 
+hcloud_api() {
+  local method="$1"
+  local path="$2"
+  local data="${3:-}"
+  local body_file http_code curl_status response error_code error_message
+  body_file="$(mktemp)"
+  local -a args=(
+    -sS
+    --max-time 45
+    -o "$body_file"
+    -w "%{http_code}"
+    -X "$method"
+    -H "Authorization: Bearer $HCLOUD_TOKEN"
+    -H "Content-Type: application/json"
+  )
+
+  [[ -z "$data" ]] || args+=(--data "$data")
+  if http_code="$(curl "${args[@]}" "https://api.hetzner.cloud/v1$path")"; then
+    curl_status=0
+  else
+    curl_status=$?
+  fi
+  response="$(cat "$body_file")"
+  rm -f "$body_file"
+
+  if (( curl_status != 0 )); then
+    return "$curl_status"
+  fi
+  if [[ "$http_code" =~ ^2[0-9][0-9]$ ]]; then
+    printf '%s' "$response"
+    return 0
+  fi
+
+  error_code="$(jq -r '.error.code // "http_error"' <<<"$response" 2>/dev/null || printf 'http_error')"
+  error_message="$(jq -r '.error.message // "request rejected"' <<<"$response" 2>/dev/null || printf 'request rejected')"
+  printf 'error: Hetzner API %s %s failed (HTTP %s, %s): %s\n' \
+    "$method" "$path" "$http_code" "$error_code" "$error_message" >&2
+  return 1
+}
+
 hcloud_cost_estimate() {
   local server_type_json="$1"
   local pricing_json="$2"
@@ -152,6 +192,8 @@ hcloud_cost_estimate() {
           volumeMonthly:$volumeMonthly,
           volumeHourlyEstimate:$volumeHourlyEstimate,
           totalHourlyEstimate:($serverHourly + $ipHourly + $volumeHourlyEstimate),
+          total12Hours:(($serverHourly + $ipHourly + $volumeHourlyEstimate) * 12),
+          total24Hours:(($serverHourly + $ipHourly + $volumeHourlyEstimate) * 24),
           totalMonthly:($serverMonthly + $ipMonthly + $volumeMonthly)
         }
     '

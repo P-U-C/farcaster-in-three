@@ -8,37 +8,37 @@ This project has not received an independent security audit.
 
 - Use a disposable Farcaster test account.
 - Inspect and trust the exact release before creating or importing an account.
-- Save a newly generated phrase privately. Never put it in chat, an environment variable, a command argument, a remote shell, or another account.
+- Keep the generated encrypted recovery kit and client password private and backed up separately. Never put a phrase in chat, an environment variable, a command argument, or a remote shell.
 - Do not reuse a phrase that controls valuable assets.
 - Prefer delegated wallet authorization for production clients.
 - Keep the working directory and `.state/` private.
 - Destroy cloud resources when the test ends.
 
-Setup defaults to `CREATE`, prints a fresh phrase once, and requires `I SAVED IT` before continuing. `IMPORT` uses hidden terminal input. These prompts are warnings, not security guarantees. JavaScript strings cannot be reliably zeroized; process exit is the final memory boundary.
+Setup defaults to `CREATE`, generates a fresh phrase, and writes only a password-encrypted recovery kit to the owner-only local `.state/` directory. It does not print the phrase. `IMPORT` uses hidden terminal input. These controls are not security guarantees. JavaScript strings cannot be reliably zeroized; process exit is the final memory boundary.
 
 ## What each key can do
 
 | Item | Where it exists | Authority |
 | --- | --- | --- |
 | Hetzner token | Local setup process | Resources in the selected Hetzner project |
-| Test-account phrase | Terminal and local process memory during setup | Full custody account control |
+| Test-account phrase | Local process memory and AES-256-GCM encrypted recovery kit | Full custody account control |
 | Signed FID registration | Local owner-only recovery file until confirmed | Creates one FID and storage unit for the shown address |
 | App key | Local recovery file, then client container | Casts, reactions, and follows for one FID |
 | Signed `KEY_ADD` | Local recovery file until confirmed | Authorizes one exact app key |
-| Browser password | User memory | Opens the web client |
+| Browser password | User memory or optional owner-only local password file | Opens the web client and encrypts the generated-account recovery kit |
 | Password hash and session secret | Client container | Login and cookies |
 | SSH private key | Local `.state/` | Operates the server |
 | Agent write capability | Optional local and gateway state | Reaches paid write routes |
 | Facilitator credentials | Optional gateway only | Settles x402 payments |
 | Revenue-split transactions | Optional recovery file until confirmed | Creates fixed Celo/Base split contracts |
 
-The recovery phrase and derived custody private key are never written to disk or uploaded by In Three.
+The recovery phrase is never printed or uploaded. For `CREATE`, it is written only inside an AES-256-GCM recovery kit whose key is derived from the client password with scrypt. The plaintext phrase and derived custody private key exist only in local process memory. Agent-led runs may read the client password from an explicit owner-only file; setup rejects group/world permissions and never uploads that file.
 
 ## Account and app-key recovery
 
-For a new account, setup generates the phrase locally, quotes the required Optimism balance, and signs the IdGateway transaction only after explicit confirmation. It saves the exact signed transaction and local hash before broadcasting. If the RPC response is lost, rerunning `client create`, choosing `IMPORT`, and entering the saved phrase resumes the same transaction.
+For a new account, setup generates the phrase locally, encrypts it into `.state/test-account.recovery.json`, quotes the required Optimism balance, and signs the IdGateway transaction only after explicit confirmation. It saves the exact signed transaction and local hash before broadcasting. If the RPC response is lost, rerunning `client create` with the same password and leaving `CREATE` selected decrypts the kit and resumes the same transaction.
 
-The recovery file contains the address and signed transaction, never the phrase or custody private key. Once the FID is confirmed, setup deletes that transaction file and waits for the bundled storage unit to appear on the owned node.
+The transaction-recovery file contains the address and signed transaction, never the phrase or custody private key. Once the FID is confirmed, setup deletes that transaction file and waits for the bundled storage unit to appear on the owned node. The encrypted account kit remains local until the operator deliberately removes it.
 
 Before creating the app key, setup confirms the browser password and opens a local SSH tunnel to the owned node. It then:
 
@@ -102,7 +102,7 @@ The client uses:
 
 **Client host compromised:** an attacker can use the delegated app key until it expires or is revoked. Revoke it, rotate browser and optional agent secrets, destroy the host, and rebuild.
 
-**Operator machine compromised:** malware can capture the phrase or typed credentials. In Three cannot protect a compromised keyboard, terminal, clipboard, or screen recording.
+**Operator machine compromised:** malware can capture passwords, decrypt the local recovery kit, or read secrets from process memory. In Three cannot protect a compromised host or keyboard.
 
 **Cloud provider compromised:** the provider can read server disk contents, including the app key, but the phrase is not uploaded.
 

@@ -15,7 +15,7 @@ Do not introduce payment credentials into the basic path.
 ## Safety rules
 
 - Never request, accept, print, or store a Farcaster recovery phrase in chat.
-- The account ceremony requires a human at the local terminal. It can create a disposable account or import one the human already controls.
+- A human must approve cloud spend and Optimism funding. For unattended local input, use an owner-only password file; never place the password or recovery phrase in chat, argv, or environment variables.
 - Use a new, empty Hetzner project and a restricted token.
 - State the recurring Hetzner cost before provisioning.
 - Quote the exact x402 request before paying.
@@ -28,7 +28,7 @@ Do not introduce payment credentials into the basic path.
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.7/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.8/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -53,7 +53,7 @@ The initial Snapchain sync may take hours. Report progress with:
 
 Do not restart the node during snapshot extraction.
 
-The local ceremony needs human input. The default CREATE path quotes and sends one Optimism account-registration transaction; IMPORT skips it when the account already has storage. App-key authorization is gasless.
+For agent-led setup, create an owner-only password file without printing it, then add `--password-file .state/client.password` to the third command. The default CREATE path makes an encrypted local recovery kit and quotes one Optimism account-registration transaction; IMPORT skips it when the account already has storage. App-key authorization is gasless. Stop for human approval before cloud provisioning, funding, or any paid action.
 
 ## Optional paid API
 

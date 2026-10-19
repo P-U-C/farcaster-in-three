@@ -133,11 +133,21 @@ wait_for_node_api() {
 
 create_client() {
   local agent_commerce="false"
-  case "${1:-}" in
-    "") ;;
-    --with-agent) agent_commerce="true" ;;
-    *) die "usage: $IN_THREE_COMMAND client create [--with-agent]" ;;
-  esac
+  local password_file=""
+  while (( $# > 0 )); do
+    case "$1" in
+      --with-agent)
+        agent_commerce="true"
+        shift
+        ;;
+      --password-file)
+        (( $# >= 2 )) || die "--password-file requires a path"
+        password_file="$2"
+        shift 2
+        ;;
+      *) die "usage: $IN_THREE_COMMAND client create [--with-agent] [--password-file PATH]" ;;
+    esac
+  done
   local requested_agent_commerce="$agent_commerce"
   local saved_agent_commerce
   local -a setup_args
@@ -168,6 +178,7 @@ create_client() {
   mkdir -p "$STATE_DIR"
   chmod 700 "$STATE_DIR"
   PENDING_CLIENT_ENV="$STATE_DIR/client.env.pending"
+  RECOVERY_KIT="$STATE_DIR/test-account.recovery.json"
   AGENT_ACCESS_ENV="$STATE_DIR/agent.env"
   archive="$(mktemp)"
   client_deploy_env="$(mktemp)"
@@ -211,8 +222,13 @@ create_client() {
       --read-node-url "http://snapchain:3381"
       --setup-node-url "$SETUP_NODE_URL"
       --public-origin "https://$CLIENT_DOMAIN"
+      --recovery-file "$RECOVERY_KIT"
       --cookie-secure
     )
+    if [[ -n "$password_file" ]]; then
+      [[ -f "$password_file" ]] || die "client password file not found: $password_file"
+      setup_args+=(--password-file "$password_file")
+    fi
     if [[ "$agent_commerce" == "true" ]]; then
       setup_args+=(--agent-commerce)
     fi
@@ -294,7 +310,11 @@ create_client() {
       fi
       printf '  read path     browser -> client service -> your Snapchain node\n'
       printf '  write path    authorized client -> your read node -> validator gossip\n'
-      printf '  custody key   not stored\n'
+      if [[ -f "$RECOVERY_KIT" ]]; then
+        printf '  recovery kit %s (encrypted locally; never uploaded)\n' "$RECOVERY_KIT"
+      else
+        printf '  custody key   not stored\n'
+      fi
       fid="$(pending_value FID)"
       key_add_hash="$(pending_value SIGNER_REGISTRATION_MESSAGE_HASH)"
       record_proof_event "client_live" "$(jq -cn \
@@ -339,9 +359,9 @@ logs() {
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   case "${1:-status}" in
-    create) create_client "${2:-}" ;;
+    create) shift; create_client "$@" ;;
     status) status ;;
     logs) logs ;;
-    *) die "usage: $IN_THREE_COMMAND client {create [--with-agent]|status|logs}" ;;
+    *) die "usage: $IN_THREE_COMMAND client {create [--with-agent] [--password-file PATH]|status|logs}" ;;
   esac
 fi

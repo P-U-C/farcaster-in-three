@@ -31,7 +31,7 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.7`;
+const RELEASE = `${REPO}/releases/tag/v0.1.8`;
 
 type InstallMethod = "npm" | "container";
 
@@ -50,7 +50,7 @@ const setupCommands: Record<InstallMethod, Array<{ number: string; label: string
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.7/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.8/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
 const navigation = [
@@ -87,7 +87,7 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">INSTALL <b>v0.1.7</b></span>
+        <span className="package-bar-label">INSTALL <b>v0.1.8</b></span>
         <div className="package-links">
           <PackageLink icon={<Package size={14} />} label="npm" detail="farcaster-in-three" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
@@ -117,7 +117,7 @@ export function App() {
             <div className="release-line">
               <span>OPEN-SOURCE FARCASTER STARTER</span>
               <i />
-              <span>v0.1.7</span>
+              <span>v0.1.8</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
             <p>Provision a server, start a Snapchain node, and open your own browser client. Reads and writes go through infrastructure you operate.</p>
@@ -153,7 +153,7 @@ export function App() {
           <SectionLabel number="00" text="START HERE" />
           <div className="section-heading">
             <h2>Before you run<br />anything.</h2>
-            <p>This starts real cloud infrastructure and costs about $265 per month. The final command can create the disposable Farcaster test account for you.</p>
+            <p>This starts real cloud infrastructure and costs about $324 per month at the 2026-10-19 quote. The final command can create the disposable Farcaster test account for you.</p>
           </div>
 
           <div className="prereq-grid">
@@ -222,7 +222,7 @@ export function App() {
 
           <div className="account-guide" id="account-setup">
             <header>
-              <span>COMMAND 2 / BEGINNER PATH</span>
+              <span>COMMAND 3 / BEGINNER PATH</span>
               <h3>No account? Make the test account here.</h3>
               <p>This happens inside <code>{usesNpm ? "in-three client create" : "./in-three-container client create"}</code>. It does not add a fourth command.</p>
             </header>
@@ -234,7 +234,7 @@ export function App() {
               </li>
               <li>
                 <b>2</b>
-                <div><strong>Save the 12 words</strong><p>Write them somewhere private, then type <code>I SAVED IT</code>. Never use these words for a valuable account.</p></div>
+                <div><strong>Keep the recovery kit</strong><p>In Three encrypts the 12 words inside <code>.state/</code> and never prints or uploads them. Back up that file and your password separately.</p></div>
               </li>
               <li>
                 <b>3</b>
@@ -382,7 +382,7 @@ export function App() {
             <h2>Common<br />questions.</h2>
             <div>
               <Details question="Do I need a Farcaster account first?">No. In the final command, press Enter to choose CREATE. The CLI generates a disposable account locally and walks you through funding and registering it. IMPORT remains available for an existing test account.</Details>
-              <Details question="What will this cost?">The default Hetzner server and 2 TiB volume are about $265 per month before tax, traffic, IPv4, or provider price changes. The script shows the plan before creating it.</Details>
+              <Details question="What will this cost?">The default plan quoted about $324 per month on 2026-10-19, or roughly $6.22 for 12 hours and $12.45 for 24 hours. Provider prices can change; the script shows the live plan before creating it.</Details>
               <Details question="Can the app key move funds?">No. It can sign Farcaster casts, follows, and reactions. It cannot transfer custody or sign wallet transactions.</Details>
               <Details question="What does a successful write mean?">Your node accepted the message for relay. Read it back from the synced node to confirm inclusion.</Details>
               <Details question="How do I stop the bill?">Run <code>in-three destroy</code> (or <code>./in-three-container destroy</code> with Docker), then confirm the server and volume are gone in Hetzner.</Details>
@@ -391,7 +391,7 @@ export function App() {
         </section>
 
         <section className="final-cta">
-          <span className="eyebrow">READ THE COST. CREATE A TEST ACCOUNT IN COMMAND 2. KEEP THE DIRECTORY.</span>
+          <span className="eyebrow">READ THE COST. CREATE A TEST ACCOUNT IN COMMAND 3. KEEP THE DIRECTORY.</span>
           <h2>Then run<br />the three.</h2>
           <div>
             <a href="#quickstart">Open the quickstart <Terminal size={18} /></a>
@@ -404,7 +404,7 @@ export function App() {
         <div><span className="wordmark compact"><i>III</i><strong>IN THREE</strong></span><p>Built in public by Permanent Upper Class.</p></div>
         <div><span>LICENSE</span><strong>MIT</strong></div>
         <div><span>SNAPCHAIN</span><strong>v0.14.3</strong></div>
-        <div><span>RELEASE</span><strong>v0.1.7</strong></div>
+        <div><span>RELEASE</span><strong>v0.1.8</strong></div>
       </footer>
     </>
   );

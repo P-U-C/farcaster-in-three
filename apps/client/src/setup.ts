@@ -1,7 +1,13 @@
-import { createHash, randomBytes } from "node:crypto";
-import { chmod, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  scrypt as scryptCallback,
+} from "node:crypto";
+import { chmod, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { generateJwt } from "@coinbase/cdp-sdk/auth";
-import { parseArgs } from "node:util";
+import { parseArgs, promisify } from "node:util";
 import * as ed from "@noble/ed25519";
 import {
   createPublicClient,
@@ -44,6 +50,9 @@ import {
 } from "./revenue.js";
 
 const operatorCommand = process.env.IN_THREE_COMMAND ?? "./farcaster";
+const recoveryKitFormat = "in-three-recovery-v1";
+const recoveryKitAad = Buffer.from(recoveryKitFormat, "utf8");
+const scryptAsync = promisify(scryptCallback);
 
 const idRegistryAbi = [
   {
@@ -102,6 +111,141 @@ function unwrapHub<T>(result: {
   return result._unsafeUnwrap();
 }
 
+export async function readClientPasswordFile(path: string): Promise<string> {
+  const metadata = await stat(path);
+  if (!metadata.isFile()) {
+    throw new Error(`Client password path is not a regular file: ${path}`);
+  }
+  if ((metadata.mode & 0o077) !== 0) {
+    throw new Error(`Client password file must not be accessible by group or others: chmod 600 ${path}`);
+  }
+  const raw = await readFile(path, "utf8");
+  const password = raw.endsWith("\r\n")
+    ? raw.slice(0, -2)
+    : raw.endsWith("\n")
+      ? raw.slice(0, -1)
+      : raw;
+  if (password.includes("\n") || password.includes("\r")) {
+    throw new Error("Client password file must contain exactly one line");
+  }
+  if (password.length < 12) {
+    throw new Error("Client password from file must be at least 12 characters");
+  }
+  return password;
+}
+
+type RecoveryKit = {
+  format: typeof recoveryKitFormat;
+  kdf: "scrypt";
+  salt: string;
+  iv: string;
+  tag: string;
+  ciphertext: string;
+};
+
+function isMissingFile(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
+}
+
+export async function writeRecoveryKit(
+  path: string,
+  mnemonic: string,
+  password: string,
+): Promise<void> {
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = (await scryptAsync(password, salt, 32)) as Buffer;
+  try {
+    const cipher = createCipheriv("aes-256-gcm", key, iv);
+    cipher.setAAD(recoveryKitAad);
+    const ciphertext = Buffer.concat([
+      cipher.update(mnemonic, "utf8"),
+      cipher.final(),
+    ]);
+    const kit: RecoveryKit = {
+      format: recoveryKitFormat,
+      kdf: "scrypt",
+      salt: salt.toString("base64"),
+      iv: iv.toString("base64"),
+      tag: cipher.getAuthTag().toString("base64"),
+      ciphertext: ciphertext.toString("base64"),
+    };
+    await writeFile(path, `${JSON.stringify(kit)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600,
+    });
+    await chmod(path, 0o600);
+  } finally {
+    key.fill(0);
+  }
+}
+
+export async function readRecoveryKit(
+  path: string,
+  password: string,
+): Promise<string> {
+  const metadata = await stat(path);
+  if (!metadata.isFile()) {
+    throw new Error(`Recovery kit path is not a regular file: ${path}`);
+  }
+  if ((metadata.mode & 0o077) !== 0) {
+    throw new Error(`Recovery kit must not be accessible by group or others: chmod 600 ${path}`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    if (isMissingFile(error)) throw error;
+    throw new Error(`Recovery kit at ${path} is not valid JSON`);
+  }
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    (parsed as Partial<RecoveryKit>).format !== recoveryKitFormat ||
+    (parsed as Partial<RecoveryKit>).kdf !== "scrypt" ||
+    typeof (parsed as Partial<RecoveryKit>).salt !== "string" ||
+    typeof (parsed as Partial<RecoveryKit>).iv !== "string" ||
+    typeof (parsed as Partial<RecoveryKit>).tag !== "string" ||
+    typeof (parsed as Partial<RecoveryKit>).ciphertext !== "string"
+  ) {
+    throw new Error(`Recovery kit at ${path} has an unsupported format`);
+  }
+
+  const kit = parsed as RecoveryKit;
+  const salt = Buffer.from(kit.salt, "base64");
+  const iv = Buffer.from(kit.iv, "base64");
+  const tag = Buffer.from(kit.tag, "base64");
+  const ciphertext = Buffer.from(kit.ciphertext, "base64");
+  if (salt.length !== 16 || iv.length !== 12 || tag.length !== 16 || ciphertext.length === 0) {
+    throw new Error(`Recovery kit at ${path} has invalid encrypted fields`);
+  }
+
+  const key = (await scryptAsync(password, salt, 32)) as Buffer;
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAAD(recoveryKitAad);
+    decipher.setAuthTag(tag);
+    const mnemonic = Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final(),
+    ]).toString("utf8");
+    mnemonicToAccount(mnemonic, { addressIndex: 0, accountIndex: 0 });
+    await chmod(path, 0o600);
+    return mnemonic;
+  } catch {
+    throw new Error(
+      `Could not decrypt recovery kit at ${path}; enter the same client password used when it was created`,
+    );
+  } finally {
+    key.fill(0);
+  }
+}
+
 async function main() {
   const { values } = parseArgs({
     options: {
@@ -112,6 +256,8 @@ async function main() {
       "celo-rpc-url": { type: "string" },
       "base-rpc-url": { type: "string" },
       "public-origin": { type: "string" },
+      "recovery-file": { type: "string" },
+      "password-file": { type: "string" },
       "cookie-secure": { type: "boolean", default: false },
       "agent-commerce": { type: "boolean", default: false },
       recover: { type: "boolean", default: false },
@@ -133,11 +279,17 @@ async function main() {
 
   const agentCommerce = values["agent-commerce"];
   printHeader(agentCommerce);
-  const password = await readHidden(
-    "Client password (12+ characters; protects the web interface): ",
-  );
-  const confirmation = await readHidden("Repeat client password: ");
-  if (password !== confirmation) throw new Error("Passwords did not match; no transaction was sent");
+  let password: string;
+  if (values["password-file"]) {
+    password = await readClientPasswordFile(values["password-file"]);
+    console.log(`Client password     read from owner-only file ${values["password-file"]}`);
+  } else {
+    password = await readHidden(
+      "Client password (12+ characters; protects the web interface): ",
+    );
+    const confirmation = await readHidden("Repeat client password: ");
+    if (password !== confirmation) throw new Error("Passwords did not match; no transaction was sent");
+  }
   const passwordHash = await hashPassword(password);
   const sessionSecret = randomBytes(32).toString("base64url");
   let facilitatorApiKey: string | undefined;
@@ -189,16 +341,24 @@ async function main() {
   }
 
   let mnemonic: string;
+  let usingRecoveryKit = false;
   if (accountMode === "CREATE") {
-    mnemonic = generateMnemonic(wordlist);
-    console.log("\nSAVE THESE 12 WORDS");
-    console.log("They are the only recovery method for this disposable test account.");
-    console.log("Do not use them for any wallet or account holding value.\n");
-    console.log(mnemonic);
-    console.log();
-    const saved = await readVisible("After saving them somewhere private, type I SAVED IT: ");
-    if (saved !== "I SAVED IT") {
-      throw new Error("Setup stopped before account creation; the phrase was not stored");
+    const recoveryFile = values["recovery-file"];
+    if (!recoveryFile) {
+      throw new Error("--recovery-file is required when creating a test account");
+    }
+    try {
+      mnemonic = await readRecoveryKit(recoveryFile, password);
+      usingRecoveryKit = true;
+      console.log(`\nResuming from encrypted recovery kit  ${recoveryFile}`);
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+      mnemonic = generateMnemonic(wordlist);
+      await writeRecoveryKit(recoveryFile, mnemonic, password);
+      usingRecoveryKit = true;
+      console.log(`\nEncrypted recovery kit  ${recoveryFile}`);
+      console.log("Keep this file and your client password private and backed up.");
+      console.log("The phrase was not printed and will never be sent to the server.");
     }
   } else {
     console.log("\nImport a disposable test account only.");
@@ -414,7 +574,11 @@ async function main() {
   console.log("\nGasless app key confirmed; deployment can continue.");
   console.log(`App-key message     ${registrationHash}`);
   if (agentCommerce) console.log("Payment rails       Celo USDC + Base USDC");
-  console.log("Custody phrase      discarded; it is not present in the output file");
+  console.log(
+    usingRecoveryKit
+      ? "Custody phrase      encrypted locally; never uploaded"
+      : "Custody phrase      discarded; it is not present in the output file",
+  );
   console.log("Next                deployment continues automatically");
 }
 
@@ -568,7 +732,7 @@ async function registerTestAccount<transport extends Transport>({
     }
 
     console.log("\nThis creates one FID with one storage unit.");
-    console.log("The 12 saved words remain the only recovery method for this test account.");
+    console.log("Keep this disposable test account's recovery method private.");
     const answer = await readVisible("Type CREATE FID to sign and send the transaction: ");
     if (answer !== "CREATE FID") {
       throw new Error("Setup cancelled before the account transaction was signed");

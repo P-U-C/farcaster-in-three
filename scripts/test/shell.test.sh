@@ -34,6 +34,35 @@ printf 'in-three' > "$checksum_file"
 [[ "$(sha256_file "$checksum_file")" == "b950ca17fbc859b40bedefcadc05c51383de4926292a2b842370764387987189" ]] ||
   fail "portable SHA-256 helper returned the wrong digest"
 
+if hcloud_error="$(
+  {
+    export HCLOUD_TOKEN="fixture-secret-token"
+    curl() {
+      local body_file=""
+      while (( $# > 0 )); do
+        case "$1" in
+          -o) body_file="$2"; shift 2 ;;
+          *) shift ;;
+        esac
+      done
+      printf '%s' '{"error":{"code":"resource_limit_exceeded","message":"volumes size limit exceeded"}}' > "$body_file"
+      printf '403'
+    }
+    hcloud_api POST /volumes '{"size":2048}'
+  } 2>&1
+)"; then
+  fail "Hetzner API helper accepted an HTTP 403"
+fi
+printf '%s\n' "$hcloud_error" | grep -F 'HTTP 403, resource_limit_exceeded): volumes size limit exceeded' >/dev/null ||
+  fail "Hetzner API helper hid the provider error"
+if printf '%s\n' "$hcloud_error" | grep -F 'fixture-secret-token' >/dev/null; then
+  fail "Hetzner API helper exposed its bearer token"
+fi
+volume_create_line="$(grep -n 'hcloud_api POST /volumes ' "$ROOT/scripts/provision.sh" | head -1 | cut -d: -f1)"
+ssh_key_create_line="$(grep -n 'hcloud_api POST /ssh_keys ' "$ROOT/scripts/provision.sh" | head -1 | cut -d: -f1)"
+[[ -n "$volume_create_line" && -n "$ssh_key_create_line" && "$volume_create_line" -lt "$ssh_key_create_line" ]] ||
+  fail "provisioning does not test billable volume quota before cloud SSH-key registration"
+
 if grep -R -n -E '\bmapfile\b|mktemp --suffix|sha256sum -c' "$ROOT/scripts" --exclude='shell.test.sh' >/dev/null; then
   fail "a GNU-only operator command remains"
 fi
@@ -273,7 +302,7 @@ case "$(uname -m)" in
 esac
 release_fixture="$container_fixture/release"
 mkdir -p "$release_fixture"
-release_asset="farcaster-in-three-container-0.1.7-linux-${release_arch}.tar.gz"
+release_asset="farcaster-in-three-container-0.1.8-linux-${release_arch}.tar.gz"
 printf 'container archive fixture' | gzip > "$release_fixture/$release_asset"
 if command -v sha256sum >/dev/null 2>&1; then
   release_checksum="$(sha256sum "$release_fixture/$release_asset" | awk '{print $1}')"
@@ -333,7 +362,7 @@ chmod +x "$container_fixture/bin/curl" "$container_fixture/bin/docker"
   fail "container launcher did not retain the versioned release archive"
 grep -Fx '<--pull=never>' "$DOCKER_CALL_LOG" >/dev/null ||
   fail "release-asset image can unexpectedly pull from a registry"
-grep -Fx '<puc/farcaster-in-three:0.1.7>' "$DOCKER_CALL_LOG" >/dev/null ||
+grep -Fx '<puc/farcaster-in-three:0.1.8>' "$DOCKER_CALL_LOG" >/dev/null ||
   fail "container launcher did not run the loaded versioned image"
 
 cat > "$container_fixture/bin/in-three" <<'EOF'
@@ -364,7 +393,7 @@ container_fixture=""
 
 package_fixture="$(mktemp -d)"
 package_version="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --version)"
-[[ "$package_version" == "0.1.7" ]] ||
+[[ "$package_version" == "0.1.8" ]] ||
   fail "prebuilt CLI does not report the package version"
 package_help="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --help)"
 printf '%s\n' "$package_help" | grep -F 'in-three provision' >/dev/null ||
@@ -390,6 +419,13 @@ node -e '
   fail "browser-only Caddy still requires the optional agent gateway"
 grep -F 'setup_args+=(--agent-commerce)' "$ROOT/scripts/client.sh" >/dev/null ||
   fail "client create does not keep agent commerce behind an explicit option"
+grep -F -- '--recovery-file "$RECOVERY_KIT"' "$ROOT/scripts/client.sh" >/dev/null ||
+  fail "client create does not keep generated phrases out of terminal output"
+if grep -F 'console.log(mnemonic)' "$ROOT/apps/client/src/setup.ts" >/dev/null; then
+  fail "generated recovery phrases are still printed to terminal output"
+fi
+grep -F 'setup_args+=(--password-file "$password_file")' "$ROOT/scripts/client.sh" >/dev/null ||
+  fail "client create does not support agent-safe password input"
 grep -F 'AGENT_COMMERCE_ENABLED=' "$ROOT/apps/client/src/setup.ts" >/dev/null ||
   fail "setup does not persist the selected browser or agent mode"
 
@@ -406,7 +442,9 @@ pricing_fixture="$(
 jq -e '
   ((.volumeMonthly - 81.92) | fabs) < 0.000001 and
   ((.totalMonthly - 142.42) | fabs) < 0.000001 and
-  ((.totalHourlyEstimate - 0.2373333333) | fabs) < 0.000001
+  ((.totalHourlyEstimate - 0.2373333333) | fabs) < 0.000001 and
+  ((.total12Hours - 2.848) | fabs) < 0.000001 and
+  ((.total24Hours - 5.696) | fabs) < 0.000001
 ' <<<"$pricing_fixture" >/dev/null ||
   fail "cloud cost estimate does not include compute, IPv4, and volume"
 
