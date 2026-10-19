@@ -38,17 +38,27 @@ if [[ -f "$STATE_FILE" ]]; then
   printf '\nProvisioned host\n'
   if wait_for_ssh 1; then
     success "SSH $SSH_USER@$SERVER_IP"
-    if remote "docker compose version" >/dev/null 2>&1; then
+    if remote "sudo -n docker compose version" >/dev/null 2>&1; then
       success "Docker Compose"
     else
       printf 'x Docker Compose is unavailable remotely\n'
       failures=$((failures + 1))
     fi
-    if remote "mountpoint -q /srv/in-three" >/dev/null 2>&1; then
-      success "data volume mounted"
+    if [[ "${PROVIDER:-}" == "hcloud" ]]; then
+      if remote "mountpoint -q /srv/in-three" >/dev/null 2>&1; then
+        success "data volume mounted"
+      else
+        printf 'x data volume is not mounted at /srv/in-three\n'
+        failures=$((failures + 1))
+      fi
     else
-      printf 'x data volume is not mounted at /srv/in-three\n'
-      failures=$((failures + 1))
+      available="$(remote "df -B1 --output=avail /srv/in-three | tail -1" 2>/dev/null | tr -d ' ')"
+      if [[ "$available" =~ ^[0-9]+$ ]] && (( available >= 2000000000000 )); then
+        success "at least 2 TB free"
+      else
+        printf 'x /srv/in-three needs at least 2 TB free\n'
+        failures=$((failures + 1))
+      fi
     fi
   else
     printf 'x SSH connection failed\n'

@@ -7,7 +7,7 @@ description: Safely deploy and use an In Three Farcaster node, browser client, o
 
 In Three has two modes:
 
-- **Basic:** provision a server, start Snapchain, and deploy a browser client.
+- **Basic:** prepare an existing machine or create an optional Hetzner server, start Snapchain, and deploy a browser client.
 - **Agent commerce:** add paid x402 reads, authorized writes, and one-payment deployment.
 
 Do not introduce payment credentials into the basic path.
@@ -16,8 +16,8 @@ Do not introduce payment credentials into the basic path.
 
 - Never request, accept, print, or store a Farcaster recovery phrase in chat.
 - A human must approve cloud spend and Optimism funding. For unattended local input, use an owner-only password file; never place the password or recovery phrase in chat, argv, or environment variables.
-- Use a new, empty Hetzner project and a restricted token.
-- State the recurring Hetzner cost before provisioning.
+- Prefer a suitable machine the user already owns.
+- If using Hetzner, use a new empty project, a restricted token, and state the recurring cost before provisioning.
 - Quote the exact x402 request before paying.
 - Use a dedicated low-balance payment wallet and exact spending ceiling.
 - Never expose the owner write capability.
@@ -28,7 +28,7 @@ Do not introduce payment credentials into the basic path.
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.14/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.15/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -38,12 +38,14 @@ The launcher uses the checksummed release image, runs without a Docker socket mo
 ## Basic deployment
 
 ```bash
-./in-three-container provision
+./in-three-container provision --host USER@HOST --ssh-key /work/node-key
 ./in-three-container node up
 ./in-three-container client create
 ```
 
-Stop before `provision` unless the user has approved the displayed cloud plan and recurring cost. If direct cloud SSH is filtered and the operator already has a jump host, use `provision --ssh-proxy user@jump-host`; the CLI will restrict SSH ingress to that route and reuse it for later commands.
+Non-interactive runs must choose `--host USER@HOST` or `--hetzner`. For an existing machine, use a dedicated SSH key inside the mounted working folder; the host must meet the displayed resource requirements and support passwordless `sudo`. Stop before connecting unless the user approved that machine and the changes under `/srv/in-three`.
+
+Use `provision --hetzner` only when the user approved the displayed cloud plan and recurring cost. If SSH is filtered and the operator has a jump host, add `--ssh-proxy user@jump-host`; the route is saved for later commands.
 
 The initial Snapchain sync may take hours. Report progress with:
 

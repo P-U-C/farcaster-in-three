@@ -12,7 +12,7 @@ This project has not received an independent security audit.
 - Do not reuse a phrase that controls valuable assets.
 - Prefer delegated wallet authorization for production clients.
 - Keep the working directory and `.state/` private.
-- Destroy cloud resources when the test ends.
+- If In Three created cloud resources, destroy them when the test ends.
 
 Setup defaults to `CREATE`, generates a fresh phrase, and writes only a password-encrypted recovery kit to the owner-only local `.state/` directory. It does not print the phrase. `IMPORT` uses hidden terminal input. These controls are not security guarantees. JavaScript strings cannot be reliably zeroized; process exit is the final memory boundary.
 
@@ -20,7 +20,7 @@ Setup defaults to `CREATE`, generates a fresh phrase, and writes only a password
 
 | Item | Where it exists | Authority |
 | --- | --- | --- |
-| Hetzner token | Local setup process | Resources in the selected Hetzner project |
+| Hetzner token (optional) | Local setup process | Resources in the selected Hetzner project |
 | Test-account phrase | Local process memory and AES-256-GCM encrypted recovery kit | Full custody account control |
 | Signed FID registration | Local owner-only recovery file until confirmed | Creates one FID and storage unit for the shown address |
 | App key | Local recovery file, then client container | Casts, reactions, follows, and public profile metadata for one FID |
@@ -75,7 +75,9 @@ Public:
 
 - 80/TCP and 443/TCP+UDP: HTTPS
 - 3382/UDP: Snapchain gossip
-- 22/TCP: SSH restricted to the detected operator CIDR
+- 22/TCP: SSH; Hetzner setup restricts it to the detected operator CIDR
+
+On an existing machine, the owner is responsible for matching those firewall rules before setup.
 
 Private:
 
@@ -104,7 +106,7 @@ The client uses:
 
 **Operator machine compromised:** malware can capture passwords, decrypt the local recovery kit, or read secrets from process memory. In Three cannot protect a compromised host or keyboard.
 
-**Cloud provider compromised:** the provider can read server disk contents, including the app key, but the phrase is not uploaded.
+**Host or cloud provider compromised:** the machine operator can read server disk contents, including the app key, but the phrase is not uploaded.
 
 **Read-node submission succeeds but the cast is absent:** success means accepted for relay, not final inclusion. Wait for sync and read the message back before retrying.
 
@@ -129,6 +131,6 @@ The client uses:
 4. Preserve logs, message hashes, and payment receipts.
 5. Destroy the host if compromise is suspected.
 6. Rebuild with a fresh app key and password.
-7. Rotate the Hetzner token.
+7. If Hetzner was used, rotate its API token.
 
 Report vulnerabilities through GitHub private security advisories. Never include phrases, private keys, tokens, capabilities, or complete environment files.

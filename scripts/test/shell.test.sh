@@ -123,6 +123,66 @@ grep -F -- '--ssh-proxy HOST' "$ROOT/scripts/provision.sh" >/dev/null ||
 grep -F 'SSH_PROXY_JUMP=$SSH_PROXY_JUMP' "$ROOT/scripts/provision.sh" >/dev/null ||
   fail "provisioning does not persist the SSH proxy"
 
+owned_fixture="$(mktemp -d)"
+mkdir -p "$owned_fixture/bin" "$owned_fixture/state"
+printf '%s\n' 'fixture-private-key' > "$owned_fixture/node-key"
+chmod 600 "$owned_fixture/node-key"
+export OWNED_SSH_LOG="$owned_fixture/ssh.log"
+cat > "$owned_fixture/bin/ssh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$OWNED_SSH_LOG"
+case "$*" in
+  *'getconf _NPROCESSORS_ONLN'*)
+    printf '%s\n' '8' '32000000'
+    ;;
+  *'df -B1 --output=size,avail'*)
+    printf '%s\n' '2200000000000 2100000000000'
+    ;;
+esac
+EOF
+cat > "$owned_fixture/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+exit 1
+EOF
+chmod +x "$owned_fixture/bin/ssh" "$owned_fixture/bin/curl"
+
+PATH="$owned_fixture/bin:$PATH" \
+IN_THREE_ROOT="$ROOT" \
+IN_THREE_STATE_DIR="$owned_fixture/state" \
+IN_THREE_COMMAND="in-three" \
+  "$ROOT/scripts/provision.sh" \
+    --host ubuntu@203.0.113.20 \
+    --ssh-key "$owned_fixture/node-key" \
+    --domain client.example.com \
+    --yes >/dev/null
+
+grep -Fx 'PROVIDER=existing' "$owned_fixture/state/config" >/dev/null ||
+  fail "owned-machine provisioning did not persist its provider"
+grep -Fx 'SERVER_IP=203.0.113.20' "$owned_fixture/state/config" >/dev/null ||
+  fail "owned-machine provisioning lost the SSH host"
+grep -Fx 'SSH_USER=ubuntu' "$owned_fixture/state/config" >/dev/null ||
+  fail "owned-machine provisioning lost the SSH user"
+grep -Fx 'CLIENT_DOMAIN=client.example.com' "$owned_fixture/state/config" >/dev/null ||
+  fail "owned-machine provisioning lost the client domain"
+[[ "$(jq -r 'select(.event == "provision_complete") | .details.provider' "$owned_fixture/state/proof/events.jsonl")" == "existing" ]] ||
+  fail "owned-machine proof did not identify its provider"
+
+: > "$OWNED_SSH_LOG"
+printf 'STOP\n' | \
+  PATH="$owned_fixture/bin:$PATH" \
+  IN_THREE_ROOT="$ROOT" \
+  IN_THREE_STATE_DIR="$owned_fixture/state" \
+  IN_THREE_COMMAND="in-three" \
+    "$ROOT/scripts/destroy.sh" >/dev/null
+[[ -f "$owned_fixture/state/config" ]] ||
+  fail "owned-machine stop deleted resumable local state"
+grep -F 'sudo -n docker compose down' "$OWNED_SSH_LOG" >/dev/null ||
+  fail "owned-machine stop did not remove the In Three services"
+[[ "$(jq -r 'select(.event == "destroy_complete") | .details.hostRetained' "$owned_fixture/state/proof/events.jsonl" | tail -1)" == "true" ]] ||
+  fail "owned-machine stop did not record host retention"
+rm -rf "$owned_fixture"
+owned_fixture=""
+
 if grep -R -n -E '\bmapfile\b|mktemp --suffix|sha256sum -c' "$ROOT/scripts" --exclude='shell.test.sh' >/dev/null; then
   fail "a GNU-only operator command remains"
 fi
@@ -646,6 +706,7 @@ grep -F '>Unfollow</button>' "$ROOT/apps/client/web/App.tsx" >/dev/null ||
 printf 'ok - generated cloud-init preserves remote variables\n'
 printf 'ok - provider cleanup retries asynchronous detach conflicts\n'
 printf 'ok - SSH jump hosts cover source detection and every remote operation\n'
+printf 'ok - owned-machine provisioning and non-destructive stop are resumable\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain config includes required fields and a native validation mode\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'

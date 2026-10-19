@@ -2,7 +2,7 @@
 
 This is the evidence behind the implementation, not a setup guide. Start with the [README](../README.md).
 
-Verified on 2026-10-18 UTC. Dates and versions are recorded because the protocol documentation changed shortly before this release.
+Verified on 2026-10-19 UTC. Dates and versions are recorded because the protocol documentation changed shortly before this release.
 
 ## Prize
 
@@ -34,7 +34,7 @@ Published resource guidance:
 
 - 4 CPU cores
 - 16 GB RAM
-- 1.5 TB free storage
+- 2 TB free storage
 - public IP
 - HTTP 3381
 - QUIC gossip 3382

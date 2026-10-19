@@ -49,19 +49,19 @@ Public report URL:
 ```bash
 mkdir in-three-test
 cd in-three-test
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.14/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.15/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
 
-Record the output. Confirm the downloaded launcher contains `VERSION="0.1.14"`.
+Record the output. Confirm the downloaded launcher contains `VERSION="0.1.15"`.
 
 The first operational command downloads the matching public amd64 or arm64 container release and checks its SHA-256 before loading it.
 
 ## 2. Run the three commands
 
 ```bash
-./in-three-container provision
+./in-three-container provision --hetzner
 ./in-three-container node up
 ./in-three-container client create
 ```
@@ -85,7 +85,7 @@ During client setup:
 - confirm no phrase is requested before the node is ready
 - confirm the password is entered twice before any signed action
 - read the test-account warning
-- choose CREATE, save the generated words privately, and record the quoted Optimism amount
+- choose CREATE, confirm the encrypted recovery kit is saved locally, and record the quoted Optimism amount
 - confirm the locally signed FID registration survives interruption, if recovery testing was agreed
 - confirm setup reports one account transaction and a separate gasless app-key authorization
 - record the final HTTPS URL

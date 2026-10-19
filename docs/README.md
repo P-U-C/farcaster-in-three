@@ -1,12 +1,12 @@
 # In Three documentation
 
-The [README](../README.md) is the complete beginner path. Start there.
+The [README](../README.md) is the short beginner path. Start there.
 
 Open another page only when you need it:
 
 | I need to... | Read |
 | --- | --- |
-| Check sync, resume setup, upgrade, or delete the server | [Operations](OPERATIONS.md) |
+| Check sync, resume setup, upgrade, or stop a deployment | [Operations](OPERATIONS.md) |
 | Understand what runs where | [Architecture](ARCHITECTURE.md) |
 | Handle keys and recovery files safely | [Security](../SECURITY.md) |
 | Create a redacted run receipt | [Proof](PROOF.md) |

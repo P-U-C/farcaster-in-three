@@ -12,7 +12,19 @@ in-three node up
 in-three client create
 ```
 
-Keep the working directory. Its private `.state/` folder contains the SSH key and the information needed to resume.
+Step one asks for an existing SSH host. To create a Hetzner machine instead, run `in-three provision --hetzner`.
+
+For non-interactive setup, choose the target explicitly:
+
+```bash
+in-three provision --host ubuntu@203.0.113.10 --ssh-key ~/.ssh/id_ed25519
+# or
+in-three provision --hetzner
+```
+
+An existing machine needs Ubuntu, 4 CPU cores, 16 GB RAM, 2 TB free, a public address, and passwordless `sudo`. In Three installs Docker when it is missing and stores its files under `/srv/in-three`.
+
+Keep the working directory. Its private `.state/` folder contains the SSH key path and the information needed to resume.
 
 Every command is resumable. If one stops, rerun that same command from the same folder.
 
@@ -112,9 +124,11 @@ The report is written under `.state/proof/`. It excludes tokens, phrases, passwo
 
 See [Proof](PROOF.md) for the evidence standard.
 
-## Cost
+## Optional Hetzner cost
 
-The default Ashburn plan quoted **$323.67/month** on 2026-10-19:
+Your own machine adds no In Three infrastructure charge. Its normal hosting, power, and traffic costs still apply.
+
+The default Hetzner Ashburn plan quoted **$323.67/month** on 2026-10-19:
 
 | Resource | Monthly quote |
 | --- | ---: |
@@ -139,7 +153,9 @@ A new test account also needs the IdGateway price and a small Optimism gas reser
 | HTTPS is pending | Check ports 80/443 and the hostname |
 | Login fails | Check the password, HTTPS hostname, and cookie scope |
 
-For direct SSH through an existing jump host, add `--ssh-proxy user@jump-host` to `provision`. The route is saved for later commands.
+For direct SSH through a jump host, add `--ssh-proxy user@jump-host` to `provision`. The route is saved for later commands.
+
+Docker users connecting an existing machine must place a dedicated SSH key inside the working folder and pass its container path, such as `--ssh-key /work/node-key`. The launcher intentionally mounts no other host directories.
 
 ## Optional features
 
@@ -152,10 +168,12 @@ For direct SSH through an existing jump host, add `--ssh-proxy user@jump-host` t
 
 Do not replace pinned images with `latest`. Review the Snapchain release, update the pinned tag and digest together, run the complete test suite, and verify shard delay after restart.
 
-## Stop the bill
+## Stop
 
 ```bash
 in-three destroy
 ```
 
-Then confirm in Hetzner that no server, volume, firewall, or IP labeled `managed-by=in-three` remains.
+For Hetzner, this deletes the server, volume, firewall, and generated SSH key. Confirm no resource labeled `managed-by=in-three` remains.
+
+For a machine you own, this stops and removes the In Three containers. It retains the machine, `/srv/in-three` data, local state, and recovery files.

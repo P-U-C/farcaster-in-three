@@ -4,16 +4,27 @@ Run your own Farcaster node and browser client in three commands.
 
 [Website](https://farcaster.permanentupperclass.com/) | [npm](https://www.npmjs.com/package/farcaster-in-three) | [Docker](https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three) | [Source](https://github.com/P-U-C/farcaster-in-three)
 
-## Before you start
-
-You need:
+## What you need
 
 - macOS or Linux with Node.js 22+
-- a new Hetzner Cloud project with 2,048 GiB of Volume quota
-- several hours for the first Snapchain sync
-- about $324/month for the default server and storage
+- an Ubuntu machine with 4 CPU cores, 16 GB RAM, 2 TB free, SSH, and passwordless `sudo`
+- several hours for the first sync
 
-You do **not** need a Farcaster account. Command three can create a disposable test account. The script shows the live cloud price before creating anything.
+Use a machine you already own. Add `--hetzner` if you want In Three to create one.
+
+You do not need a Farcaster account. It is handled in step 3.
+
+<details>
+<summary><strong>Need a Hetzner machine?</strong></summary>
+
+1. [Create a Hetzner account and an empty project](https://console.hetzner.cloud/).
+2. In the project, open **Security → API tokens**. Generate a **Read & Write** token and copy it.
+3. On your account's **Limits** page, choose **Request change → Limit increase**. Request at least **2,048 GiB** of total Volume storage.
+4. Run `in-three provision --hetzner` and paste the token when asked.
+
+Hetzner reviews quota increases manually. See its official [API-token guide](https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/) and [quota guide](https://docs.hetzner.com/cloud/general/faq/#are-there-limits-to-the-number-of-resources-i-can-get).
+
+</details>
 
 ## Install
 
@@ -33,30 +44,29 @@ in-three node up
 in-three client create
 ```
 
-1. `provision` shows the price and creates the server after you approve it.
-2. `node up` starts Snapchain. Leave it running while the first snapshot downloads.
-3. `client create` waits for the node, creates or imports a test account, and prints your client URL.
+1. **Machine:** enter the SSH address of a machine you own. Use `in-three provision --hetzner` instead to create one.
+2. **Snapchain:** starts the node. Leave it running while the first snapshot downloads.
+3. **Client:** creates your test Farcaster account and opens the client.
 
-Keep the `in-three-node` folder. If setup pauses, rerun the same command from that folder. It resumes from saved state.
+Keep the `in-three-node` folder. If setup pauses, rerun the same command from that folder.
 
-## When command three asks
+For a scripted owned-machine setup:
 
-For a new account:
+```bash
+in-three provision --host ubuntu@203.0.113.10 --ssh-key ~/.ssh/id_ed25519
+```
 
-1. Press Enter to choose `CREATE`.
-2. Choose a client password.
-3. Send the exact amount of ETH shown to the displayed address on **Optimism**.
-4. Return to the terminal and follow the two confirmation prompts.
+Add `--domain client.example.com` when the SSH host is not the public client hostname.
 
-The recovery phrase is encrypted locally and is never printed or uploaded. The server receives a revocable app key that can post, follow, react, and update the public profile. It cannot move funds.
+## Step 3 handles the Farcaster account
 
-> Use a new test account only. Never import a wallet that holds value.
+Choose `CREATE`, pick a password, and follow the funding prompt. In Three encrypts the new recovery phrase locally and sends only a revocable app key to the server.
 
-## Make the first cast
+Use a new test account. Never import a wallet that holds value.
 
-Open the HTTPS URL printed by command three, sign in, and publish a test cast. Read it back in your client to confirm your node has it.
+When setup finishes, open the printed HTTPS URL and publish a test cast.
 
-Useful commands:
+## Useful commands
 
 ```bash
 in-three node status
@@ -65,28 +75,26 @@ in-three proof
 in-three destroy
 ```
 
-Run `destroy` when finished, then confirm the server and volume are gone in Hetzner.
+On Hetzner, `destroy` deletes the server and volume. On a machine you own, it stops In Three and keeps the machine and its data.
 
 ## Prefer Docker?
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.14/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.15/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
 
-Then run the same three commands with `./in-three-container` instead of `in-three`.
+Run the same three commands with `./in-three-container` instead of `in-three`. For an existing machine, place its dedicated SSH key in this folder and pass its `/work/...` path to `--ssh-key`.
 
-## Need more detail?
+## Help
 
-- [Documentation index](docs/README.md)
 - [Operations](docs/OPERATIONS.md): sync, recovery, upgrades, and teardown
-- [Security](SECURITY.md): keys, recovery files, and exposure
-- [Architecture](docs/ARCHITECTURE.md): how reads and writes move
-- [Proof](docs/PROOF.md): run receipts and verification
-- [Optional agent API](docs/AGENT-API.md): x402 access using Celo or Base
-- [Independent test](VOUCHER.md): clean-machine checklist
+- [Security](SECURITY.md): keys and recovery files
+- [Architecture](docs/ARCHITECTURE.md): read and write paths
+- [Proof](docs/PROOF.md): run receipts
+- [All documentation](docs/README.md)
 
 ## Development
 
@@ -97,8 +105,8 @@ npm run build
 node scripts/visual-check.mjs
 ```
 
-Automated checks do not replace a paid cloud deployment, complete mainnet sync, real account registration, and public cast.
+Automated checks do not replace a complete mainnet sync, real account registration, public cast, and independent human test.
 
 ## License
 
-Original code and documentation are [MIT licensed](LICENSE). The official Snapchain image retains its upstream GPL-3.0 license.
+Original code and documentation are [MIT licensed](LICENSE). Snapchain retains its upstream GPL-3.0 license.

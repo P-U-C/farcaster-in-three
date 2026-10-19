@@ -26,26 +26,26 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.14`;
+const RELEASE = `${REPO}/releases/tag/v0.1.15`;
 
 type InstallMethod = "npm" | "container";
 
 const setupCommands: Record<InstallMethod, Array<{ number: string; label: string; command: string; detail: string }>> = {
   npm: [
-    { number: "0", label: "COMPUTE", command: "in-three provision", detail: "Review the price, then create the server." },
-    { number: "1", label: "SNAPCHAIN", command: "in-three node up", detail: "Start the node. The first sync takes hours." },
-    { number: "2", label: "CLIENT", command: "in-three client create", detail: "Create an account and open your client." },
+    { number: "1", label: "MACHINE", command: "in-three provision", detail: "Connect your machine, or add --hetzner to create one." },
+    { number: "2", label: "SNAPCHAIN", command: "in-three node up", detail: "Start the node. The first sync takes hours." },
+    { number: "3", label: "CLIENT", command: "in-three client create", detail: "Create your account and open the client." },
   ],
   container: [
-    { number: "0", label: "COMPUTE", command: "./in-three-container provision", detail: "Review the price, then create the server." },
-    { number: "1", label: "SNAPCHAIN", command: "./in-three-container node up", detail: "Start the node. The first sync takes hours." },
-    { number: "2", label: "CLIENT", command: "./in-three-container client create", detail: "Create an account and open your client." },
+    { number: "1", label: "MACHINE", command: "./in-three-container provision", detail: "Connect your machine, or add --hetzner to create one." },
+    { number: "2", label: "SNAPCHAIN", command: "./in-three-container node up", detail: "Start the node. The first sync takes hours." },
+    { number: "3", label: "CLIENT", command: "./in-three-container client create", detail: "Create your account and open the client." },
   ],
 };
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.14/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.15/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
 const navigation = [
@@ -80,7 +80,7 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">GET <b>v0.1.14</b></span>
+        <span className="package-bar-label">GET <b>v0.1.15</b></span>
         <div className="package-links">
           <PackageLink icon={<Package size={14} />} label="npm" detail="recommended" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
@@ -112,7 +112,7 @@ export function App() {
               <span>FARCASTER ON YOUR OWN NODE</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
-            <p>One server. One Snapchain node. One private browser client. Set it up in three commands.</p>
+            <p>One machine. One Snapchain node. One private browser client. Set it up in three commands.</p>
             <div className="hero-actions">
               <a className="primary-link" href="#start">Run the three <ArrowDown size={17} /></a>
               <a className="text-link" href={REPO} target="_blank" rel="noreferrer">View source <ArrowRight size={16} /></a>
@@ -133,17 +133,17 @@ export function App() {
         </section>
 
         <section className="plain-facts" aria-label="Before you begin">
-          <div><CheckCircle2 size={18} /><span><b>No account needed</b><small>Command 3 can create a test account.</small></span></div>
+          <div><Server size={18} /><span><b>Bring your machine</b><small>Use an Ubuntu host with 2 TB free.</small></span></div>
+          <div><CheckCircle2 size={18} /><span><b>No account needed</b><small>Step 3 can create a test account.</small></span></div>
           <div><Clock3 size={18} /><span><b>Allow several hours</b><small>Snapchain downloads its first snapshot.</small></span></div>
-          <div><Cloud size={18} /><span><b>About $324/month</b><small>You approve the live Hetzner price first.</small></span></div>
-          <div><ShieldCheck size={18} /><span><b>Use a test account</b><small>Never import a wallet holding value.</small></span></div>
+          <div><Cloud size={18} /><span><b>Hetzner is optional</b><small>Add --hetzner to create a machine.</small></span></div>
         </section>
 
         <section className="start section" id="start">
           <div className="section-intro">
             <span>START HERE</span>
             <h2>Install once. Run three.</h2>
-            <p>Use macOS or Linux. You need a new Hetzner project with 2 TiB Volume quota.</p>
+            <p>Use a machine you already own. Add <code>--hetzner</code> if you want In Three to create one.</p>
           </div>
 
           <div className="install-method-picker">
@@ -195,9 +195,9 @@ export function App() {
         <section className="guided section-band">
           <div className="section">
             <div className="section-intro light">
-              <span>COMMAND 3</span>
-              <h2>No Farcaster account? No extra step.</h2>
-              <p>Choose <code>CREATE</code>. The final command handles the rest.</p>
+              <span>STEP 3</span>
+              <h2>Your Farcaster account is handled in step 3.</h2>
+              <p>Choose <code>CREATE</code>. In Three makes a fresh test account before opening the client.</p>
             </div>
 
             <ol className="guided-steps">
@@ -245,20 +245,27 @@ export function App() {
 
         <section className="help section" id="help">
           <div className="section-intro">
-            <span>ONLY IF YOU NEED IT</span>
-            <h2>Help without the wall of text.</h2>
-            <p>Start with the short answer. Open the detailed reference only when something pauses or fails.</p>
+            <h2>FAQ</h2>
           </div>
 
           <div className="quick-answers">
+            <Details question="I need a Hetzner machine.">
+              <ol>
+                <li><a href="https://console.hetzner.cloud/" target="_blank" rel="noreferrer">Create a Hetzner account and an empty project.</a></li>
+                <li>Open <b>Security → API tokens</b>. Generate a <b>Read &amp; Write</b> token and copy it.</li>
+                <li>Open your account <b>Limits</b>, choose <b>Request change → Limit increase</b>, and request at least <b>2,048 GiB</b> of total Volume storage.</li>
+                <li>Run <code>{prefix} provision --hetzner</code> and paste the token when asked.</li>
+              </ol>
+              <p><a href="https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/" target="_blank" rel="noreferrer">API-token guide</a> · <a href="https://docs.hetzner.com/cloud/general/faq/#are-there-limits-to-the-number-of-resources-i-can-get" target="_blank" rel="noreferrer">quota guide</a></p>
+            </Details>
             <Details question="The node says it is still syncing.">
               Leave it running. Check <code>{prefix} node status</code>. Do not restart during snapshot extraction.
             </Details>
-            <Details question="Command 3 stopped.">
+            <Details question="Step 3 stopped.">
               Keep the folder and rerun <code>{prefix} client create</code>. Signed recovery data is saved before broadcast.
             </Details>
             <Details question="I want Docker instead.">
-              Select Docker above. The setup and three commands stay the same.
+              Select Docker above. For your own machine, put a dedicated SSH key in this folder and pass <code>--ssh-key /work/node-key</code> in step 1.
             </Details>
             <Details question="I want agent or x402 access.">
               Finish the normal browser setup first, then use the separate advanced agent guide.
@@ -327,7 +334,7 @@ function PackageLink({ icon, label, detail, href }: { icon: React.ReactNode; lab
 }
 
 function Details({ question, children }: { question: string; children: React.ReactNode }) {
-  return <details><summary>{question}<span>+</span></summary><p>{children}</p></details>;
+  return <details><summary>{question}<span>+</span></summary><div className="details-body">{children}</div></details>;
 }
 
 function DocLink({ icon, title, detail, href }: { icon: React.ReactNode; title: string; detail: string; href: string }) {

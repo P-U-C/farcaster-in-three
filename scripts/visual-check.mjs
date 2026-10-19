@@ -237,7 +237,7 @@ try {
   const expectedPackageHrefs = [
     "https://www.npmjs.com/package/farcaster-in-three",
     "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three",
-    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.14",
+    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.15",
     "https://github.com/P-U-C/farcaster-in-three",
   ];
   if (expectedPackageHrefs.some((href) => !packageHrefs.includes(href))) {
@@ -251,6 +251,30 @@ try {
   }
   if (!(await sitePage.locator(".install-block").innerText()).includes("npm install --global farcaster-in-three")) {
     throw new Error("website npm quickstart is missing");
+  }
+  const stepNumbers = await sitePage.locator(".three-steps article header b").allTextContents();
+  if (JSON.stringify(stepNumbers) !== JSON.stringify(["1", "2", "3"])) {
+    throw new Error(`website setup steps are not numbered 1-3: ${stepNumbers.join(",")}`);
+  }
+  if (!(await sitePage.getByRole("heading", { name: "Your Farcaster account is handled in step 3." }).isVisible())) {
+    throw new Error("website does not place account creation in step 3");
+  }
+  if (!(await sitePage.getByRole("heading", { name: "FAQ" }).isVisible())) {
+    throw new Error("website FAQ heading is missing");
+  }
+  const hetznerHelp = sitePage.locator(".quick-answers details").first();
+  if (await hetznerHelp.getAttribute("open") !== null) {
+    throw new Error("Hetzner help must be folded by default");
+  }
+  await hetznerHelp.locator("summary").click();
+  if (!(await hetznerHelp.innerText()).includes("2,048 GiB")) {
+    throw new Error("Hetzner help omits the required Volume quota");
+  }
+  const finalCtaColor = await sitePage.locator(".final-cta").evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  if (finalCtaColor !== "rgb(121, 80, 190)") {
+    throw new Error(`final call-to-action is not purple: ${finalCtaColor}`);
   }
   await dockerMethod.click();
   if (!(await sitePage.locator(".install-block").innerText()).includes("./in-three-container doctor")) {

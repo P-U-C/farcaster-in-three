@@ -32,8 +32,8 @@ up() {
   note "Checking the attached data disk"
   available="$(remote "df -B1 --output=avail /srv/in-three | tail -1" | tr -d ' ')"
   [[ "$available" =~ ^[0-9]+$ ]] || die "could not read remote disk capacity"
-  (( available >= 1500000000000 )) ||
-    die "only $((available / 1000000000)) GB is free; Snapchain requires at least 1.5 TB"
+  (( available >= 2000000000000 )) ||
+    die "only $((available / 1000000000)) GB is free; Snapchain requires at least 2 TB"
 
   validator_source="$IN_THREE_ROOT/deploy/validators.toml"
   note "Checking the vendored validator set from Snapchain $SNAPCHAIN_VERSION"
