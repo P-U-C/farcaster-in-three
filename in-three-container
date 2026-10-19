@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.1.10"
+VERSION="0.1.11"
 DEFAULT_IMAGE="puc/farcaster-in-three:${VERSION}"
 IMAGE="${IN_THREE_IMAGE:-$DEFAULT_IMAGE}"
 RELEASE_BASE="${IN_THREE_RELEASE_BASE:-https://github.com/P-U-C/farcaster-in-three/releases/download/v${VERSION}}"

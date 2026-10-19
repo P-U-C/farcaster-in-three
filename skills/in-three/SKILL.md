@@ -28,7 +28,7 @@ Do not introduce payment credentials into the basic path.
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.10/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.11/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -43,7 +43,7 @@ The launcher uses the checksummed release image, runs without a Docker socket mo
 ./in-three-container client create
 ```
 
-Stop before `provision` unless the user has approved the displayed cloud plan and recurring cost.
+Stop before `provision` unless the user has approved the displayed cloud plan and recurring cost. If direct cloud SSH is filtered and the operator already has a jump host, use `provision --ssh-proxy user@jump-host`; the CLI will restrict SSH ingress to that route and reuse it for later commands.
 
 The initial Snapchain sync may take hours. Report progress with:
 

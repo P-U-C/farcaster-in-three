@@ -102,6 +102,27 @@ ssh_key_create_line="$(grep -n 'hcloud_api POST /ssh_keys ' "$ROOT/scripts/provi
 [[ -n "$volume_create_line" && -n "$ssh_key_create_line" && "$volume_create_line" -lt "$ssh_key_create_line" ]] ||
   fail "provisioning does not test billable volume quota before cloud SSH-key registration"
 
+proxy_log="$(mktemp)"
+(
+  SSH_KEY="/tmp/fixture-key"
+  SSH_USER="inthree"
+  SERVER_IP="203.0.113.10"
+  SSH_PROXY_JUMP="fixture-jump"
+  export PROXY_LOG="$proxy_log"
+  ssh() { printf '<%s>\n' "$@" >> "$PROXY_LOG"; }
+  scp() { printf '<%s>\n' "$@" >> "$PROXY_LOG"; }
+  remote true
+  copy_to "/tmp/source" "/tmp/destination"
+  wait_for_ssh 1
+)
+[[ "$(grep -Fc '<ProxyJump=fixture-jump>' "$proxy_log")" == "3" ]] ||
+  fail "SSH proxy is not applied to remote, copy, and readiness operations"
+rm -f "$proxy_log"
+grep -F -- '--ssh-proxy HOST' "$ROOT/scripts/provision.sh" >/dev/null ||
+  fail "provisioning help does not expose the SSH proxy"
+grep -F 'SSH_PROXY_JUMP=$SSH_PROXY_JUMP' "$ROOT/scripts/provision.sh" >/dev/null ||
+  fail "provisioning does not persist the SSH proxy"
+
 if grep -R -n -E '\bmapfile\b|mktemp --suffix|sha256sum -c' "$ROOT/scripts" --exclude='shell.test.sh' >/dev/null; then
   fail "a GNU-only operator command remains"
 fi
@@ -610,6 +631,7 @@ grep -F '>Unfollow</button>' "$ROOT/apps/client/web/App.tsx" >/dev/null ||
 
 printf 'ok - generated cloud-init preserves remote variables\n'
 printf 'ok - provider cleanup retries asynchronous detach conflicts\n'
+printf 'ok - SSH jump hosts cover source detection and every remote operation\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain config includes required fields and a native validation mode\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'

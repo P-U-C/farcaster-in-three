@@ -49,12 +49,12 @@ Public report URL:
 ```bash
 mkdir in-three-test
 cd in-three-test
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.10/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.11/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
 
-Record the output. Confirm the downloaded launcher contains `VERSION="0.1.10"`.
+Record the output. Confirm the downloaded launcher contains `VERSION="0.1.11"`.
 
 The first operational command downloads the matching public amd64 or arm64 container release and checks its SHA-256 before loading it.
 
@@ -68,7 +68,8 @@ The first operational command downloads the matching public amd64 or arm64 conta
 
 During provisioning:
 
-- verify the displayed region, server, volume, and monthly estimate
+- use `--ssh-proxy user@jump-host` only if the test machine cannot reach cloud SSH directly
+- verify the displayed region, server, volume, SSH path, and monthly estimate
 - confirm no resource exists before the `PROVISION` prompt
 - record the server IP and generated client hostname after success
 

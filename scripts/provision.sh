@@ -11,6 +11,7 @@ SERVER_TYPE="ccx33"
 VOLUME_SIZE=2048
 NAME="in-three"
 SOURCE_CIDR=""
+SSH_PROXY_JUMP=""
 ASSUME_YES=false
 
 while [[ $# -gt 0 ]]; do
@@ -20,6 +21,7 @@ while [[ $# -gt 0 ]]; do
     --volume-size) VOLUME_SIZE="$2"; shift 2 ;;
     --name) NAME="$2"; shift 2 ;;
     --source-cidr) SOURCE_CIDR="$2"; shift 2 ;;
+    --ssh-proxy) SSH_PROXY_JUMP="$2"; shift 2 ;;
     --yes) ASSUME_YES=true; shift ;;
     -h|--help)
       cat <<EOF
@@ -29,7 +31,8 @@ Options:
   --location CODE       Hetzner location (default: ash)
   --server-type TYPE    Hetzner server type (default: ccx33)
   --volume-size GIB     Data volume size (default: 2048)
-  --source-cidr CIDR    CIDR allowed to SSH (default: your current public IP)
+  --source-cidr CIDR    CIDR allowed to SSH (default: detected from the SSH path)
+  --ssh-proxy HOST      Reach the server through this SSH jump host
   --name NAME           Resource name prefix (default: in-three)
   --yes                 Skip the confirmation prompt
 
@@ -47,6 +50,10 @@ done
 
 [[ "$VOLUME_SIZE" =~ ^[0-9]+$ ]] || die "--volume-size must be an integer"
 (( VOLUME_SIZE >= 1536 )) || die "Snapchain requires at least 1.5 TiB; use --volume-size 1536 or larger"
+if [[ -n "$SSH_PROXY_JUMP" ]]; then
+  [[ "$SSH_PROXY_JUMP" =~ ^[A-Za-z0-9][A-Za-z0-9._@:-]*$ ]] ||
+    die "--ssh-proxy must be an SSH host, alias, or user@host without spaces"
+fi
 
 mkdir -p "$STATE_DIR"
 chmod 700 "$STATE_DIR"
@@ -87,13 +94,16 @@ cleanup_partial() {
 trap cleanup_partial EXIT
 
 if [[ -z "$SOURCE_CIDR" ]]; then
-  public_ip="$(curl -fsS --max-time 10 https://api.ipify.org || true)"
-  [[ "$public_ip" =~ ^[0-9a-fA-F:.]+$ ]] || die "could not detect your public IP; pass --source-cidr"
-  if [[ "$public_ip" == *:* ]]; then
-    SOURCE_CIDR="$public_ip/128"
+  if [[ -n "$SSH_PROXY_JUMP" ]]; then
+    note "Detecting the SSH source address through $SSH_PROXY_JUMP"
+    public_ip="$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$SSH_PROXY_JUMP" \
+      "curl -4fsS --max-time 10 https://api.ipify.org" 2>/dev/null || true)"
   else
-    SOURCE_CIDR="$public_ip/32"
+    public_ip="$(curl -4fsS --max-time 10 https://api.ipify.org || true)"
   fi
+  [[ "$public_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+    die "could not detect the IPv4 SSH source address; pass --source-cidr"
+  SOURCE_CIDR="$public_ip/32"
 fi
 
 server_type_json="$(hcloud_api GET "/server_types?name=$SERVER_TYPE")" ||
@@ -113,6 +123,11 @@ printf '  region       %s\n' "$LOCATION"
 printf '  compute      %s (%s vCPU, %s GiB RAM)\n' "$SERVER_TYPE" "$cores" "$memory"
 printf '  data         %s GiB cloud block volume\n' "$VOLUME_SIZE"
 printf '  ingress      SSH from %s; HTTPS and gossip public\n' "$SOURCE_CIDR"
+if [[ -n "$SSH_PROXY_JUMP" ]]; then
+  printf '  SSH path     through %s\n' "$SSH_PROXY_JUMP"
+else
+  printf '  SSH path     direct\n'
+fi
 printf '  protocol     no hosted Farcaster API keys\n'
 printf '  estimate     ~%s %s/hour; %s / 12h; %s / 24h; %s / month gross\n\n' \
   "$(jq -r '.totalHourlyEstimate * 10000 | round / 10000' <<<"$cost_estimate_json")" \
@@ -200,6 +215,7 @@ SERVER_ID=$server_id
 SERVER_IP=$server_ip
 SSH_USER=inthree
 SSH_KEY=$ssh_key
+SSH_PROXY_JUMP=$SSH_PROXY_JUMP
 SSH_KEY_ID=$ssh_key_id
 VOLUME_ID=$volume_id
 FIREWALL_ID=$firewall_id

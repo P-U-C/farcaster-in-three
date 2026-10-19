@@ -2,7 +2,7 @@ name: in-three-operator
 
 services:
   in-three:
-    image: puc/farcaster-in-three:0.1.10
+    image: puc/farcaster-in-three:0.1.11
     pull_policy: never
     init: true
     user: "${IN_THREE_UID:-1000}:${IN_THREE_GID:-1000}"

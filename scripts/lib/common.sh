@@ -76,41 +76,51 @@ load_state() {
   : "${SERVER_IP:?missing SERVER_IP in state}"
   : "${SSH_KEY:?missing SSH_KEY in state}"
   : "${SSH_USER:=inthree}"
+  : "${SSH_PROXY_JUMP:=}"
 }
 
 remote() {
+  local -a options=(
+    -i "$SSH_KEY"
+    -o IdentitiesOnly=yes
+    -o StrictHostKeyChecking=accept-new
+    -o ConnectTimeout=10
+  )
+  [[ -z "$SSH_PROXY_JUMP" ]] || options+=(-o "ProxyJump=$SSH_PROXY_JUMP")
   # Commands are assembled locally from trusted state and fixed script inputs.
   # shellcheck disable=SC2029
-  ssh \
-    -i "$SSH_KEY" \
-    -o IdentitiesOnly=yes \
-    -o StrictHostKeyChecking=accept-new \
-    -o ConnectTimeout=10 \
-    "$SSH_USER@$SERVER_IP" "$@"
+  ssh "${options[@]}" "$SSH_USER@$SERVER_IP" "$@"
 }
 
 copy_to() {
   local source="$1"
   local destination="$2"
-  scp \
-    -i "$SSH_KEY" \
-    -o IdentitiesOnly=yes \
-    -o StrictHostKeyChecking=accept-new \
-    -o ConnectTimeout=10 \
-    "$source" "$SSH_USER@$SERVER_IP:$destination"
+  local -a options=(
+    -i "$SSH_KEY"
+    -o IdentitiesOnly=yes
+    -o StrictHostKeyChecking=accept-new
+    -o ConnectTimeout=10
+  )
+  [[ -z "$SSH_PROXY_JUMP" ]] || options+=(-o "ProxyJump=$SSH_PROXY_JUMP")
+  scp "${options[@]}" "$source" "$SSH_USER@$SERVER_IP:$destination"
 }
 
 wait_for_ssh() {
   local attempts="${1:-60}"
   local i
+  local -a options=(
+    -i "$SSH_KEY"
+    -o IdentitiesOnly=yes
+    -o StrictHostKeyChecking=accept-new
+    -o ConnectTimeout=10
+  )
+  [[ -z "$SSH_PROXY_JUMP" ]] || options+=(-o "ProxyJump=$SSH_PROXY_JUMP")
   for ((i = 1; i <= attempts; i++)); do
-    if ssh \
-      -i "$SSH_KEY" \
-      -o IdentitiesOnly=yes \
-      -o StrictHostKeyChecking=accept-new \
-      -o ConnectTimeout=10 \
-      "$SSH_USER@$SERVER_IP" true >/dev/null 2>&1; then
+    if ssh "${options[@]}" "$SSH_USER@$SERVER_IP" true >/dev/null 2>&1; then
       return 0
+    fi
+    if (( i % 6 == 0 )); then
+      note "SSH is not ready after $i attempts; still waiting"
     fi
     sleep 5
   done

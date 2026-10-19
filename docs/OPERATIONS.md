@@ -11,7 +11,7 @@ Install once:
 ```bash
 mkdir in-three-node
 cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.10/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.11/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -35,6 +35,14 @@ client create  waits for Snapchain, registers an app key, prints HTTPS URL
 ```
 
 Every command is resumable. Do not delete `.state/` while an operation is incomplete or uncertain.
+
+If your network filters direct SSH to the server and you already operate a reachable jump host, keep the first command but add the route:
+
+```bash
+./in-three-container provision --ssh-proxy user@jump-host
+```
+
+The provisioner detects the jump host's public address, limits port 22 to that exact CIDR, and persists the route for node setup, client deployment, proofs, and teardown. Use `--source-cidr CIDR` as well only when automatic detection from the jump host is unavailable.
 
 ## Node sync
 
