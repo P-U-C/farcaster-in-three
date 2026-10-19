@@ -14,6 +14,7 @@ import {
   Repeat2,
   Send,
   Server,
+  UserMinus,
   UserPlus,
   Users,
   X,
@@ -363,20 +364,24 @@ function CastRow({
   onNotice: (message: string) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [activeReactions, setActiveReactions] = useState({ like: false, recast: false });
 
   async function react(type: "like" | "recast") {
+    const remove = activeReactions[type];
     setBusy(type);
     try {
-      await api("/api/reactions", {
+      const result = await api<{ hash: string }>("/api/reactions", {
         method: "POST",
         body: JSON.stringify({
           type,
           targetFid: cast.fid,
           targetHash: cast.hash,
-          remove: false,
+          remove,
         }),
       });
-      onNotice(type === "like" ? "Like accepted for relay" : "Recast accepted for relay");
+      setActiveReactions((current) => ({ ...current, [type]: !remove }));
+      const label = type === "like" ? "Like" : "Recast";
+      onNotice(`${label}${remove ? " removed" : ""} · ${result.hash.slice(0, 10)}`);
     } catch (error) {
       onNotice(errorMessage(error));
     } finally {
@@ -405,10 +410,24 @@ function CastRow({
           ) : null,
         )}
         <footer>
-          <button type="button" title="Like" onClick={() => void react("like")} disabled={busy !== null}>
+          <button
+            className={activeReactions.like ? "active" : ""}
+            type="button"
+            title={activeReactions.like ? "Remove like" : "Like"}
+            aria-pressed={activeReactions.like}
+            onClick={() => void react("like")}
+            disabled={busy !== null}
+          >
             {busy === "like" ? <LoaderCircle className="spin" size={17} /> : <Heart size={17} />}
           </button>
-          <button type="button" title="Recast" onClick={() => void react("recast")} disabled={busy !== null}>
+          <button
+            className={activeReactions.recast ? "active" : ""}
+            type="button"
+            title={activeReactions.recast ? "Remove recast" : "Recast"}
+            aria-pressed={activeReactions.recast}
+            onClick={() => void react("recast")}
+            disabled={busy !== null}
+          >
             {busy === "recast" ? <LoaderCircle className="spin" size={17} /> : <Repeat2 size={17} />}
           </button>
           <code>{cast.hash.slice(0, 8)}</code>
@@ -551,19 +570,20 @@ function FollowSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
 
 function FollowPanel({ inputId, onDone }: { inputId: string; onDone: (message: string) => void }) {
   const [fid, setFid] = useState("");
+  const [remove, setRemove] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function follow(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     try {
-      await api("/api/follows", {
+      const result = await api<{ hash: string }>("/api/follows", {
         method: "POST",
-        body: JSON.stringify({ targetFid: Number(fid), remove: false }),
+        body: JSON.stringify({ targetFid: Number(fid), remove }),
       });
-      const followedFid = fid;
+      const targetFid = fid;
       setFid("");
-      onDone(`Follow accepted for relay · FID ${followedFid}`);
+      onDone(`${remove ? "Unfollow" : "Follow"} · FID ${targetFid} · ${result.hash.slice(0, 10)}`);
     } catch (error) {
       onDone(errorMessage(error));
     } finally {
@@ -575,9 +595,15 @@ function FollowPanel({ inputId, onDone }: { inputId: string; onDone: (message: s
     <section className="rail-section follow-panel">
       <header><div><span className="eyebrow">NETWORK</span><h2>Follow an FID</h2></div><Users size={18} /></header>
       <form onSubmit={follow}>
+        <div className="follow-mode" aria-label="Follow action">
+          <button type="button" className={!remove ? "active" : ""} aria-pressed={!remove} onClick={() => setRemove(false)}>Follow</button>
+          <button type="button" className={remove ? "active" : ""} aria-pressed={remove} onClick={() => setRemove(true)}>Unfollow</button>
+        </div>
         <label htmlFor={inputId}>FID</label>
         <input id={inputId} inputMode="numeric" pattern="[0-9]*" value={fid} onChange={(event) => setFid(event.target.value)} placeholder="e.g. 37" />
-        <button type="submit" title="Follow FID" disabled={!fid || busy}>{busy ? <LoaderCircle className="spin" size={17} /> : <UserPlus size={17} />}</button>
+        <button className="follow-submit" type="submit" title={`${remove ? "Unfollow" : "Follow"} FID`} disabled={!fid || busy}>
+          {busy ? <LoaderCircle className="spin" size={17} /> : remove ? <UserMinus size={17} /> : <UserPlus size={17} />}
+        </button>
       </form>
     </section>
   );

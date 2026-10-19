@@ -49,12 +49,12 @@ Public report URL:
 ```bash
 mkdir in-three-test
 cd in-three-test
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.6/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.7/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
 
-Record the output. Confirm the downloaded launcher contains `VERSION="0.1.6"`.
+Record the output. Confirm the downloaded launcher contains `VERSION="0.1.7"`.
 
 The first operational command downloads the matching public amd64 or arm64 container release and checks its SHA-256 before loading it.
 
@@ -108,7 +108,17 @@ Record message hashes and screenshots without secrets.
 
 A successful submit response means accepted for relay. Reading the message back from synced state is the confirmation.
 
-## 4. Check the boundaries
+## 4. Capture the receipt
+
+```bash
+./in-three-container proof
+```
+
+Inspect `.state/proof/latest.json` and `.state/proof/report.md`. Confirm they contain the release, plan, node metrics, FID, gasless app-key hash, and every accepted write hash. Confirm they do not contain the cloud token, phrase, private keys, password, server IDs, or IP address.
+
+Keep these files for the public report. The destroy command updates the same receipt with teardown evidence.
+
+## 5. Check the boundaries
 
 On the server, confirm:
 
@@ -131,19 +141,19 @@ Expected:
 
 Do not publish raw command output containing secrets.
 
-## 5. Test recovery
+## 6. Test recovery
 
 Choose one safe interruption before final deployment, such as stopping `client create` while it waits for Snapchain. Rerun the same command and confirm it resumes.
 
 If an interruption occurs after signing, preserve `.state/client.env.pending`. Confirm the rerun checks existing signer state and does not ask you to authorize another key blindly.
 
-## 6. Destroy everything
+## 7. Destroy everything
 
 ```bash
 ./in-three-container destroy
 ```
 
-Then inspect the Hetzner project and confirm the server, volume, firewall, SSH key, and related IP resources are gone.
+Then inspect the Hetzner project and confirm the server, volume, firewall, SSH key, and related IP resources are gone. Open `.state/proof/report.md` again and confirm it now includes the teardown timestamp.
 
 ## Public report
 

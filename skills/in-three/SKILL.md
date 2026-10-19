@@ -28,7 +28,7 @@ Do not introduce payment credentials into the basic path.
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.6/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.7/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -107,6 +107,16 @@ buy curl --max-amount '<quoted USDC amount>' \
 With MCP, pass the quote's atomic amount unchanged to `buy_curl.maxAmount`.
 
 Keep the response, receipt, settlement transaction, Farcaster message hash, and submitting node. A successful submit means accepted for relay until the message appears in synced node state.
+
+## Capture proof
+
+After the node or client changes state, refresh the redacted receipt:
+
+```bash
+./in-three-container proof
+```
+
+Inspect `.state/proof/latest.json` and `.state/proof/report.md` before sharing them. They include the provider quote, lifecycle timestamps, sync observations, and accepted message hashes while excluding credentials, keys, phrases, passwords, resource IDs, and addresses. Do not claim a live deployment from fixture or CI results.
 
 ## Buy a deployment
 

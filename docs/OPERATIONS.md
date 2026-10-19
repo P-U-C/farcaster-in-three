@@ -11,7 +11,7 @@ Install once:
 ```bash
 mkdir in-three-node
 cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.6/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.7/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -86,6 +86,18 @@ Check it later with:
 ```
 
 A successful `POST /v1/submitMessage` means the node accepted the message for relay. Read it back from the synced node to confirm inclusion.
+
+## Run receipt
+
+After exercising the client, capture a redacted receipt:
+
+```bash
+./in-three-container proof
+```
+
+The command writes `.state/proof/latest.json` and `.state/proof/report.md`. It reads node metrics through the private SSH path and collects only public-safe client message receipts. It excludes cloud credentials, recovery phrases, passwords, private keys, provider resource IDs, IP addresses, and raw environment files.
+
+Run it before teardown. `destroy` captures it again automatically and adds the provider-deletion timestamp. Inspect both files before publishing them. See [PROOF.md](PROOF.md) for the evidence standard.
 
 ## Optional paid agent access
 

@@ -7,6 +7,7 @@ load_state
 
 [[ "${PROVIDER:-}" == "hcloud" ]] || die "automatic destroy only supports Hetzner"
 require_command curl
+require_command jq
 
 if [[ -z "${HCLOUD_TOKEN:-}" ]]; then
   [[ -t 0 ]] || die "HCLOUD_TOKEN is required in non-interactive mode"
@@ -17,6 +18,10 @@ fi
 printf 'This deletes server %s and its entire Snapchain database.\n' "$SERVER_ID"
 read -r -p "Type DESTROY to continue: " confirmation
 [[ "$confirmation" == "DESTROY" ]] || die "destroy cancelled"
+
+record_proof_event "destroy_started" '{}'
+"$IN_THREE_ROOT/scripts/proof.sh" --quiet ||
+  note "Could not refresh the pre-teardown receipt; deletion will continue"
 
 api_delete() {
   local path="$1"
@@ -41,4 +46,7 @@ api_delete "/firewalls/$FIREWALL_ID"
 api_delete "/ssh_keys/$SSH_KEY_ID"
 
 rm -f "$SSH_KEY" "$SSH_KEY.pub" "$STATE_FILE" /tmp/in-three-delete-response
+record_proof_event "destroy_complete" '{"providerResourcesDeleted":true}'
+"$IN_THREE_ROOT/scripts/proof.sh" --quiet || true
 success "All provisioned resources were deleted"
+printf '  proof receipt  %s\n' "$PROOF_REPORT_FILE"

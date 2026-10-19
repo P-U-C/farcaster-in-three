@@ -273,7 +273,7 @@ case "$(uname -m)" in
 esac
 release_fixture="$container_fixture/release"
 mkdir -p "$release_fixture"
-release_asset="farcaster-in-three-container-0.1.6-linux-${release_arch}.tar.gz"
+release_asset="farcaster-in-three-container-0.1.7-linux-${release_arch}.tar.gz"
 printf 'container archive fixture' | gzip > "$release_fixture/$release_asset"
 if command -v sha256sum >/dev/null 2>&1; then
   release_checksum="$(sha256sum "$release_fixture/$release_asset" | awk '{print $1}')"
@@ -333,7 +333,7 @@ chmod +x "$container_fixture/bin/curl" "$container_fixture/bin/docker"
   fail "container launcher did not retain the versioned release archive"
 grep -Fx '<--pull=never>' "$DOCKER_CALL_LOG" >/dev/null ||
   fail "release-asset image can unexpectedly pull from a registry"
-grep -Fx '<puc/farcaster-in-three:0.1.6>' "$DOCKER_CALL_LOG" >/dev/null ||
+grep -Fx '<puc/farcaster-in-three:0.1.7>' "$DOCKER_CALL_LOG" >/dev/null ||
   fail "container launcher did not run the loaded versioned image"
 
 cat > "$container_fixture/bin/in-three" <<'EOF'
@@ -364,7 +364,7 @@ container_fixture=""
 
 package_fixture="$(mktemp -d)"
 package_version="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --version)"
-[[ "$package_version" == "0.1.6" ]] ||
+[[ "$package_version" == "0.1.7" ]] ||
   fail "prebuilt CLI does not report the package version"
 package_help="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --help)"
 printf '%s\n' "$package_help" | grep -F 'in-three provision' >/dev/null ||
@@ -393,6 +393,126 @@ grep -F 'setup_args+=(--agent-commerce)' "$ROOT/scripts/client.sh" >/dev/null ||
 grep -F 'AGENT_COMMERCE_ENABLED=' "$ROOT/apps/client/src/setup.ts" >/dev/null ||
   fail "setup does not persist the selected browser or agent mode"
 
+pricing_fixture="$(
+  source "$ROOT/scripts/lib/common.sh"
+  hcloud_cost_estimate \
+    '{"server_types":[{"prices":[{"location":"ash","price_hourly":{"gross":"0.10"},"price_monthly":{"gross":"60.00"}}]}]}' \
+    '{"pricing":{"currency":"EUR","primary_ips":[{"type":"ipv4","prices":[{"location":"ash","price_hourly":{"gross":"0.0008"},"price_monthly":{"gross":"0.50"}}]}],"volume":{"price_per_gb_month":{"gross":"0.04"}}}}' \
+    "ash" \
+    2048
+)"
+[[ "$(jq -r '.currency' <<<"$pricing_fixture")" == "EUR" ]] ||
+  fail "cloud cost estimate lost its currency"
+jq -e '
+  ((.volumeMonthly - 81.92) | fabs) < 0.000001 and
+  ((.totalMonthly - 142.42) | fabs) < 0.000001 and
+  ((.totalHourlyEstimate - 0.2373333333) | fabs) < 0.000001
+' <<<"$pricing_fixture" >/dev/null ||
+  fail "cloud cost estimate does not include compute, IPv4, and volume"
+
+proof_fixture="$(mktemp -d)"
+(
+  export IN_THREE_ROOT="$ROOT"
+  export IN_THREE_STATE_DIR="$proof_fixture"
+  source "$ROOT/scripts/lib/common.sh"
+  record_proof_event "provision_started" '{"location":"ash","serverType":"ccx33","volumeGiB":2048}'
+  record_proof_event "provision_complete" "$(jq -cn \
+    --argjson costEstimate "$pricing_fixture" \
+    '{location:"ash",serverType:"ccx33",volumeGiB:2048,costEstimate:$costEstimate}')"
+  record_proof_event_once "node_ready" '{"version":"0.14.3","maxBlockDelay":3}'
+  record_proof_event_once "node_ready" '{"version":"should-not-duplicate","maxBlockDelay":9}'
+  record_proof_event "client_live" '{"fid":37,"keyAddMessageHash":"0x1111111111111111111111111111111111111111","agentCommerce":false}'
+  record_proof_event "destroy_complete" '{"providerResourcesDeleted":true}'
+)
+mkdir -p "$proof_fixture/proof"
+jq -n '{
+  node:{
+    observed:true,
+    version:"0.14.3",
+    dbApproxBytes:600000000000,
+    shardStatus:[{shardId:0,blockDelay:3}],
+    disk:{sizeBytes:2000000000000,usedBytes:700000000000,availableBytes:1300000000000,usedPercent:"35%"}
+  },
+  client:{observed:true,fid:37,keyAddMessageHash:"0x1111111111111111111111111111111111111111"},
+  writes:[{event:"message_submitted",at:"2026-10-19T00:00:00.000Z",action:"cast",fid:37,hash:"0x2222222222222222222222222222222222222222"}]
+}' > "$proof_fixture/proof/latest.json"
+IN_THREE_ROOT="$ROOT" IN_THREE_STATE_DIR="$proof_fixture" IN_THREE_COMMAND="in-three" \
+  "$ROOT/scripts/proof.sh" --quiet
+[[ "$(jq -r '.release' "$proof_fixture/proof/latest.json")" == "$(jq -r '.version' "$ROOT/package.json")" ]] ||
+  fail "proof receipt lost the package release"
+[[ "$(jq '[.timeline[] | select(.event == "node_ready")] | length' "$proof_fixture/proof/latest.json")" == "1" ]] ||
+  fail "proof lifecycle duplicated a one-time node event"
+[[ "$(jq -r '.lifecycle.destroyedAt != null' "$proof_fixture/proof/latest.json")" == "true" ]] ||
+  fail "proof receipt did not preserve teardown evidence"
+[[ "$(jq -r '.writes[0].hash' "$proof_fixture/proof/latest.json")" == "0x2222222222222222222222222222222222222222" ]] ||
+  fail "proof receipt lost accepted message hashes"
+grep -F 'Provider quote: ~0.2373 EUR/hour; 142.42 EUR/month gross' "$proof_fixture/proof/report.md" >/dev/null ||
+  fail "proof report lost the provider cost estimate"
+if grep -R -E 'HCLOUD_TOKEN|SIGNER_PRIVATE_KEY|SERVER_IP=' "$proof_fixture/proof" >/dev/null; then
+  fail "proof receipt contains a forbidden secret field"
+fi
+[[ "$(node -e 'console.log((require("node:fs").statSync(process.argv[1]).mode & 0o777).toString(8))' "$proof_fixture/proof/latest.json")" == "600" ]] ||
+  fail "proof receipt is not owner-readable only"
+rm -rf "$proof_fixture"
+proof_fixture=""
+
+proof_live_fixture="$(mktemp -d)"
+mkdir -p "$proof_live_fixture/bin" "$proof_live_fixture/state"
+printf '%s\n' 'fixture-key' > "$proof_live_fixture/key"
+cat > "$proof_live_fixture/state/config" <<EOF
+PROVIDER=hcloud
+SERVER_IP=203.0.113.99
+SSH_USER=inthree
+SSH_KEY=$proof_live_fixture/key
+CLIENT_DOMAIN=203-0-113-99.sslip.io
+LOCATION=ash
+SERVER_TYPE=ccx33
+VOLUME_SIZE=2048
+EOF
+cat > "$proof_live_fixture/bin/ssh" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+  *'/v1/info'*)
+    printf '%s\n' '{"version":"0.14.3","numShards":2,"dbStats":{"approxSize":600000000000},"shardInfos":[{"shardId":0,"blockDelay":2,"maxBlockHeight":100},{"shardId":1,"blockDelay":4,"maxBlockHeight":200}]}'
+    ;;
+  *'df -B1'*)
+    printf '%s\n' '2000000000000 700000000000 1300000000000 35%'
+    ;;
+  *'docker compose logs'*)
+    printf '%s\n' '{"event":"message_submitted","at":"2026-10-19T00:00:00.000Z","action":"follow","fid":37,"hash":"0x3333333333333333333333333333333333333333","targetFid":3}'
+    ;;
+  *) exit 0 ;;
+esac
+EOF
+cat > "$proof_live_fixture/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$proof_live_fixture/bin/ssh" "$proof_live_fixture/bin/curl"
+PATH="$proof_live_fixture/bin:$PATH" \
+IN_THREE_ROOT="$ROOT" \
+IN_THREE_STATE_DIR="$proof_live_fixture/state" \
+IN_THREE_COMMAND="in-three" \
+  "$ROOT/scripts/proof.sh" --quiet
+[[ "$(jq -r '.node.currentlyReachable' "$proof_live_fixture/state/proof/latest.json")" == "true" ]] ||
+  fail "live proof capture did not record owned-node readiness"
+[[ "$(jq -r '.node.shardStatus | map(.blockDelay) | max' "$proof_live_fixture/state/proof/latest.json")" == "4" ]] ||
+  fail "live proof capture lost shard-delay evidence"
+[[ "$(jq -r '.writes[0].action' "$proof_live_fixture/state/proof/latest.json")" == "follow" ]] ||
+  fail "live proof capture lost a client write receipt"
+if grep -R -F '203.0.113.99' "$proof_live_fixture/state/proof" >/dev/null; then
+  fail "live proof capture leaked the server IP"
+fi
+rm -rf "$proof_live_fixture"
+proof_live_fixture=""
+
+grep -F 'IN_THREE_RECEIPT' "$ROOT/apps/client/src/server.ts" >/dev/null ||
+  fail "client writes are not recorded for redacted receipts"
+grep -F 'aria-pressed={activeReactions.like}' "$ROOT/apps/client/web/App.tsx" >/dev/null ||
+  fail "the client cannot remove a like after adding it"
+grep -F '>Unfollow</button>' "$ROOT/apps/client/web/App.tsx" >/dev/null ||
+  fail "the client has no visible unfollow control"
+
 printf 'ok - generated cloud-init preserves remote variables\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'
@@ -404,3 +524,4 @@ printf 'ok - gasless signer setup and read-node write relay are wired\n'
 printf 'ok - container launcher is isolated and credential values stay out of argv\n'
 printf 'ok - prebuilt CLI isolates state and skips compilation\n'
 printf 'ok - browser-only setup does not depend on agent commerce\n'
+printf 'ok - proof receipts are redacted, durable, and include reversible client actions\n'

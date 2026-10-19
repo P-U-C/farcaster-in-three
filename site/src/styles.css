@@ -2366,6 +2366,112 @@ code {
   margin: 0;
 }
 
+.proof-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  border-top: 1px solid var(--ink);
+  border-left: 1px solid var(--ink);
+}
+
+.proof-command,
+.proof-status {
+  min-width: 0;
+  padding: 26px;
+  border-right: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  background: var(--white);
+}
+
+.proof-command > span {
+  display: block;
+  margin-bottom: 14px;
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.proof-command > p {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.proof-command > p code {
+  color: var(--ink);
+}
+
+.proof-status {
+  display: grid;
+  align-content: center;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.proof-status > div {
+  display: grid;
+  min-height: 66px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.proof-status > div:last-child {
+  border-bottom: 0;
+}
+
+.proof-status .verified svg {
+  color: #21824b;
+}
+
+.proof-status .pending svg {
+  color: var(--orange);
+}
+
+.proof-status span,
+.proof-status b,
+.proof-status small {
+  display: block;
+}
+
+.proof-status b {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+}
+
+.proof-status small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.proof-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 26px;
+  margin-top: 24px;
+}
+
+.proof-links a {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.proof-links a:hover,
+.proof-links a:focus-visible {
+  border-color: var(--purple);
+  color: var(--purple);
+  outline: 0;
+}
+
 .agent-summary .section {
   padding-top: 86px;
   padding-bottom: 86px;
@@ -2519,6 +2625,7 @@ code {
   }
 
   .first-run-grid,
+  .proof-board,
   .agent-summary-grid {
     grid-template-columns: 1fr;
   }

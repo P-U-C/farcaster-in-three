@@ -6,6 +6,10 @@ IN_THREE_ROOT="${IN_THREE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && p
 IN_THREE_COMMAND="${IN_THREE_COMMAND:-./farcaster}"
 STATE_DIR="${IN_THREE_STATE_DIR:-$IN_THREE_ROOT/.state}"
 STATE_FILE="$STATE_DIR/config"
+PROOF_DIR="$STATE_DIR/proof"
+PROOF_EVENTS_FILE="$PROOF_DIR/events.jsonl"
+PROOF_JSON_FILE="$PROOF_DIR/latest.json"
+PROOF_REPORT_FILE="$PROOF_DIR/report.md"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -22,6 +26,46 @@ success() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+utc_now() {
+  date -u '+%Y-%m-%dT%H:%M:%SZ'
+}
+
+in_three_release() {
+  jq -r '.version' "$IN_THREE_ROOT/package.json"
+}
+
+record_proof_event() {
+  local event="$1"
+  local details="${2-}"
+  local line
+  [[ -n "$details" ]] || details='{}'
+
+  require_command jq
+  jq -e 'type == "object"' <<<"$details" >/dev/null ||
+    die "proof event details must be a JSON object"
+  mkdir -p "$PROOF_DIR"
+  chmod 700 "$PROOF_DIR"
+  line="$(jq -cn \
+    --arg at "$(utc_now)" \
+    --arg event "$event" \
+    --arg release "$(in_three_release)" \
+    --argjson details "$details" \
+    '{at:$at,event:$event,release:$release,details:$details}')"
+  (umask 077; printf '%s\n' "$line" >> "$PROOF_EVENTS_FILE")
+  chmod 600 "$PROOF_EVENTS_FILE"
+}
+
+record_proof_event_once() {
+  local event="$1"
+  local details="${2-}"
+  [[ -n "$details" ]] || details='{}'
+  if [[ -f "$PROOF_EVENTS_FILE" ]] &&
+    jq -e --arg event "$event" 'select(.event == $event)' "$PROOF_EVENTS_FILE" >/dev/null 2>&1; then
+    return
+  fi
+  record_proof_event "$event" "$details"
 }
 
 load_state() {
@@ -71,6 +115,46 @@ wait_for_ssh() {
     sleep 5
   done
   return 1
+}
+
+hcloud_cost_estimate() {
+  local server_type_json="$1"
+  local pricing_json="$2"
+  local location="$3"
+  local volume_gib="$4"
+
+  jq -cn \
+    --argjson serverTypes "$server_type_json" \
+    --argjson pricing "$pricing_json" \
+    --arg location "$location" \
+    --argjson volumeGiB "$volume_gib" '
+      ($serverTypes.server_types[0].prices[] | select(.location == $location)) as $serverPrice
+      | ($serverPrice.price_hourly.gross | tonumber) as $serverHourly
+      | ($serverPrice.price_monthly.gross | tonumber) as $serverMonthly
+      | ($serverMonthly / $serverHourly) as $billingRatio
+      | ([
+          $pricing.pricing.primary_ips[]?
+          | select(.type == "ipv4")
+          | .prices[]?
+          | select(.location == $location)
+        ] | first // {}) as $ipPrice
+      | (($ipPrice.price_hourly.gross // "0") | tonumber) as $ipHourly
+      | (($ipPrice.price_monthly.gross // "0") | tonumber) as $ipMonthly
+      | (($pricing.pricing.volume.price_per_gb_month.gross | tonumber) * $volumeGiB) as $volumeMonthly
+      | ($volumeMonthly / $billingRatio) as $volumeHourlyEstimate
+      | {
+          currency:$pricing.pricing.currency,
+          gross:true,
+          serverHourly:$serverHourly,
+          serverMonthly:$serverMonthly,
+          ipv4Hourly:$ipHourly,
+          ipv4Monthly:$ipMonthly,
+          volumeMonthly:$volumeMonthly,
+          volumeHourlyEstimate:$volumeHourlyEstimate,
+          totalHourlyEstimate:($serverHourly + $ipHourly + $volumeHourlyEstimate),
+          totalMonthly:($serverMonthly + $ipMonthly + $volumeMonthly)
+        }
+    '
 }
 
 sha256_file() {

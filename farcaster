@@ -13,6 +13,7 @@ usage() {
   printf '  %s client create         Register an app key and deploy the browser client\n' "$IN_THREE_COMMAND"
   printf '  %s node status           Show sync state and recent logs\n' "$IN_THREE_COMMAND"
   printf '  %s client status         Check the deployed client\n' "$IN_THREE_COMMAND"
+  printf '  %s proof                 Write a redacted run receipt\n' "$IN_THREE_COMMAND"
   printf '  %s destroy               Delete provisioned Hetzner resources\n' "$IN_THREE_COMMAND"
   printf '  %s doctor                Check local prerequisites\n\n' "$IN_THREE_COMMAND"
   printf 'Three-command setup:\n'
@@ -42,6 +43,9 @@ case "$command" in
     subcommand="${1:-status}"
     shift || true
     exec "$IN_THREE_ROOT/scripts/client.sh" "$subcommand" "$@"
+    ;;
+  proof)
+    exec "$IN_THREE_ROOT/scripts/proof.sh" "$@"
     ;;
   destroy)
     exec "$IN_THREE_ROOT/scripts/destroy.sh" "$@"

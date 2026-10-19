@@ -125,6 +125,23 @@ export function createApp(config: AppConfig = loadConfig()) {
     return { casts: latestFeed };
   }
 
+  function recordMessageReceipt(
+    action: string,
+    hash: string,
+    target: Record<string, string | number> = {},
+  ) {
+    console.log(
+      `IN_THREE_RECEIPT ${JSON.stringify({
+        event: "message_submitted",
+        at: new Date().toISOString(),
+        action,
+        fid: config.FID,
+        hash,
+        ...target,
+      })}`,
+    );
+  }
+
   async function loadSources() {
     if (latestFeed.length === 0) latestFeed = await reader.feed(config.FID);
     const pairs = [
@@ -173,6 +190,7 @@ export function createApp(config: AppConfig = loadConfig()) {
     app.post(path, async (context) => {
       const input = castSchema.parse(await context.req.json());
       const result = await writer.cast(input);
+      recordMessageReceipt("cast", result.hash);
       return context.json({ ok: true, ...result }, 201);
     });
   }
@@ -181,6 +199,9 @@ export function createApp(config: AppConfig = loadConfig()) {
     app.post(path, async (context) => {
       const input = followSchema.parse(await context.req.json());
       const result = await writer.follow(input.targetFid, input.remove);
+      recordMessageReceipt(input.remove ? "unfollow" : "follow", result.hash, {
+        targetFid: input.targetFid,
+      });
       return context.json({ ok: true, ...result }, 201);
     });
   }
@@ -189,6 +210,11 @@ export function createApp(config: AppConfig = loadConfig()) {
     app.post(path, async (context) => {
       const input = reactionSchema.parse(await context.req.json());
       const result = await writer.react(input);
+      recordMessageReceipt(
+        input.remove ? `${input.type}_remove` : input.type,
+        result.hash,
+        { targetFid: input.targetFid, targetHash: input.targetHash },
+      );
       return context.json({ ok: true, ...result }, 201);
     });
   }

@@ -491,9 +491,14 @@ a {
   cursor: pointer;
 }
 
-.cast-content > footer button:hover {
+.cast-content > footer button:hover,
+.cast-content > footer button.active {
   background: var(--purple-soft);
   color: var(--purple);
+}
+
+.cast-content > footer button.active:first-child svg {
+  fill: currentColor;
 }
 
 .cast-content > footer code {
@@ -625,12 +630,38 @@ a {
 
 .follow-panel form {
   display: grid;
-  grid-template-columns: 30px 1fr 38px;
+  grid-template-columns: 30px 1fr 42px;
   align-items: center;
   overflow: hidden;
   border: 1px solid #cec9c2;
   border-radius: 5px;
   background: var(--white);
+}
+
+.follow-mode {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid #cec9c2;
+}
+
+.follow-mode button {
+  min-height: 34px;
+  border: 0;
+  background: #f4f1ed;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.follow-mode button + button {
+  border-left: 1px solid #cec9c2;
+}
+
+.follow-mode button.active {
+  background: var(--purple-soft);
+  color: var(--purple-dark);
 }
 
 .follow-panel label {
@@ -642,23 +673,28 @@ a {
 
 .follow-panel input {
   width: 100%;
-  height: 38px;
+  height: 42px;
   border: 0;
   outline: 0;
   background: transparent;
   font-size: 11px;
 }
 
-.follow-panel button {
+.follow-panel .follow-submit {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   place-items: center;
   border: 0;
   border-left: 1px solid #cec9c2;
   background: var(--ink);
   color: white;
   cursor: pointer;
+}
+
+.follow-panel .follow-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .protocol-panel {

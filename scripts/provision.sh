@@ -76,6 +76,7 @@ cleanup_partial() {
     [[ -z "$firewall_id" ]] || curl -sS --max-time 30 -X DELETE       -H "Authorization: Bearer $HCLOUD_TOKEN"       "https://api.hetzner.cloud/v1/firewalls/$firewall_id" >/dev/null 2>&1 || true
     [[ -z "$ssh_key_id" ]] || curl -sS --max-time 30 -X DELETE       -H "Authorization: Bearer $HCLOUD_TOKEN"       "https://api.hetzner.cloud/v1/ssh_keys/$ssh_key_id" >/dev/null 2>&1 || true
     rm -f "$STATE_FILE" "$STATE_DIR/id_ed25519" "$STATE_DIR/id_ed25519.pub"
+    record_proof_event "provision_failed" "$(jq -cn --argjson exitCode "$status" '{exitCode:$exitCode,partialResourcesRemoved:true}')" || true
   fi
   exit "$status"
 }
@@ -111,18 +112,41 @@ server_type_json="$(api GET "/server_types?name=$SERVER_TYPE")" ||
 cores="$(jq -r '.server_types[0].cores // empty' <<<"$server_type_json")"
 memory="$(jq -r '.server_types[0].memory // empty' <<<"$server_type_json")"
 [[ -n "$cores" && -n "$memory" ]] || die "server type $SERVER_TYPE was not found"
+pricing_json="$(api GET /pricing)" || die "could not read the Hetzner price list"
+cost_estimate_json="$(hcloud_cost_estimate \
+  "$server_type_json" \
+  "$pricing_json" \
+  "$LOCATION" \
+  "$VOLUME_SIZE")" || die "could not price $SERVER_TYPE in $LOCATION"
 
 printf '\nIN THREE / COMPUTE PLAN\n'
 printf '  region       %s\n' "$LOCATION"
 printf '  compute      %s (%s vCPU, %s GiB RAM)\n' "$SERVER_TYPE" "$cores" "$memory"
 printf '  data         %s GiB cloud block volume\n' "$VOLUME_SIZE"
 printf '  ingress      SSH from %s; HTTPS and gossip public\n' "$SOURCE_CIDR"
-printf '  protocol     no hosted Farcaster API keys\n\n'
+printf '  protocol     no hosted Farcaster API keys\n'
+printf '  estimate     ~%s %s/hour; %s %s/month gross\n\n' \
+  "$(jq -r '.totalHourlyEstimate * 10000 | round / 10000' <<<"$cost_estimate_json")" \
+  "$(jq -r '.currency' <<<"$cost_estimate_json")" \
+  "$(jq -r '.totalMonthly * 100 | round / 100' <<<"$cost_estimate_json")" \
+  "$(jq -r '.currency' <<<"$cost_estimate_json")"
 
 if [[ "$ASSUME_YES" != true ]]; then
   read -r -p "Type PROVISION to create billable resources: " confirmation
   [[ "$confirmation" == "PROVISION" ]] || die "provisioning cancelled"
 fi
+
+record_proof_event "provision_started" "$(jq -cn \
+  --arg location "$LOCATION" \
+  --arg serverType "$SERVER_TYPE" \
+  --argjson volumeGiB "$VOLUME_SIZE" \
+  --argjson costEstimate "$cost_estimate_json" \
+  '{
+    location:$location,
+    serverType:$serverType,
+    volumeGiB:$volumeGiB,
+    costEstimate:$costEstimate
+  }')"
 
 suffix="$(openssl rand -hex 3)"
 resource_name="$NAME-$suffix"
@@ -188,6 +212,7 @@ FIREWALL_ID=$firewall_id
 CLIENT_DOMAIN=$domain
 LOCATION=$LOCATION
 SERVER_TYPE=$SERVER_TYPE
+VOLUME_SIZE=$VOLUME_SIZE
 EOF
 chmod 600 "$STATE_FILE"
 
@@ -204,6 +229,19 @@ remote "sudo test -f /var/lib/cloud/instance/in-three-ready" ||
   die "cloud-init did not finish; partial resources will be removed"
 
 completed=true
+record_proof_event "provision_complete" "$(jq -cn \
+  --arg location "$LOCATION" \
+  --arg serverType "$SERVER_TYPE" \
+  --argjson volumeGiB "$VOLUME_SIZE" \
+  --argjson costEstimate "$cost_estimate_json" \
+  --arg sourceCidrRestricted "true" \
+  '{
+    location:$location,
+    serverType:$serverType,
+    volumeGiB:$volumeGiB,
+    sourceCidrRestricted:($sourceCidrRestricted == "true"),
+    costEstimate:$costEstimate
+  }')"
 success "Compute is ready at $server_ip"
 printf '  client URL   https://%s (activated by command 2)\n' "$domain"
 printf '  local state  %s\n' "$STATE_FILE"

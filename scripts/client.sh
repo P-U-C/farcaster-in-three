@@ -143,9 +143,10 @@ create_client() {
   local -a setup_args
 
   load_state
-  for command in node npm tar scp ssh curl awk; do
+  for command in node npm tar scp ssh curl awk jq; do
     require_command "$command"
   done
+  record_proof_event_once "client_setup_started" '{}'
 
   wait_for_node_api
 
@@ -294,6 +295,14 @@ create_client() {
       printf '  read path     browser -> client service -> your Snapchain node\n'
       printf '  write path    authorized client -> your read node -> validator gossip\n'
       printf '  custody key   not stored\n'
+      fid="$(pending_value FID)"
+      key_add_hash="$(pending_value SIGNER_REGISTRATION_MESSAGE_HASH)"
+      record_proof_event "client_live" "$(jq -cn \
+        --arg fid "$fid" \
+        --arg keyAddMessageHash "$key_add_hash" \
+        --arg agentCommerce "$agent_commerce" \
+        '{fid:($fid | tonumber),keyAddMessageHash:$keyAddMessageHash,agentCommerce:($agentCommerce == "true")}')"
+      printf '  proof         %s proof\n' "$IN_THREE_COMMAND"
       secure_delete "$PENDING_CLIENT_ENV"
       return
     fi

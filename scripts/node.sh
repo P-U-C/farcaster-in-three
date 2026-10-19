@@ -27,6 +27,7 @@ up() {
   for command in jq scp ssh; do
     require_command "$command"
   done
+  record_proof_event_once "node_started" "$(jq -cn --arg snapchainVersion "$SNAPCHAIN_VERSION" '{snapchainVersion:$snapchainVersion}')"
 
   note "Checking the attached data disk"
   available="$(remote "df -B1 --output=avail /srv/in-three | tail -1" | tr -d ' ')"
@@ -72,6 +73,7 @@ up() {
     die "Snapchain stopped during startup; inspect the logs above"
   fi
 
+  record_proof_event_once "node_bootstrap_running" "$(jq -cn --arg snapchainVersion "$SNAPCHAIN_VERSION" '{snapchainVersion:$snapchainVersion}')"
   success "Snapchain bootstrap is running on the server"
   printf 'The API stays offline while the initial snapshot downloads and loads.\n'
   printf 'This commonly takes hours; closing this terminal will not stop it.\n'
@@ -108,6 +110,10 @@ status() {
     max_delay="$(jq -r '[.. | objects | .blockDelay? | tonumber?] | max // 999999' <<<"$info")"
     if (( max_delay < 30 )); then
       printf 'sync          READY\n'
+      record_proof_event_once "node_ready" "$(jq -cn \
+        --arg version "$version" \
+        --argjson maxBlockDelay "$max_delay" \
+        '{version:$version,maxBlockDelay:$maxBlockDelay}')"
     else
       printf 'sync          CATCHING UP\n'
     fi

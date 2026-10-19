@@ -80,6 +80,12 @@ const mock = createServer((request, response) => {
       })),
     });
   }
+  if (url.pathname === "/v1/submitMessage" && request.method === "POST") {
+    const chunks = [];
+    request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    request.on("end", () => json(response, { accepted: true, bytes: Buffer.concat(chunks).length }));
+    return;
+  }
   if (url.pathname === "/v1/signersByFid") {
     return json(response, {
       signers: [
@@ -104,9 +110,10 @@ const salt = Buffer.from("visual-check-salt");
 const hash = scryptSync(password, salt, 32);
 const passwordHash = `scrypt$${salt.toString("base64url")}$${hash.toString("base64url")}`;
 
+const clientLogs = [];
 const client = spawn("node", ["dist/server/server.js"], {
   cwd: `${root}apps/client`,
-  stdio: "ignore",
+  stdio: ["ignore", "pipe", "pipe"],
   env: {
     ...process.env,
     PORT: "3333",
@@ -120,6 +127,8 @@ const client = spawn("node", ["dist/server/server.js"], {
     COOKIE_SECURE: "false",
   },
 });
+client.stdout.on("data", (chunk) => clientLogs.push(chunk.toString()));
+client.stderr.on("data", (chunk) => clientLogs.push(chunk.toString()));
 
 const site = spawn("npm", ["run", "dev", "--workspace", "@in-three/site", "--", "--port", "4173"], {
   cwd: root,
@@ -169,6 +178,17 @@ try {
   if (sourceCount !== followedFids.length + 1) {
     throw new Error(`source controls: expected ${followedFids.length + 1}, received ${sourceCount}`);
   }
+
+  const firstCast = page.locator(".cast-row").first();
+  await firstCast.getByTitle("Like").click();
+  await firstCast.getByTitle("Remove like").waitFor();
+  await firstCast.getByTitle("Remove like").click();
+  await firstCast.getByTitle("Like").waitFor();
+  await firstCast.getByTitle("Recast").click();
+  await firstCast.getByTitle("Remove recast").waitFor();
+  await firstCast.getByTitle("Remove recast").click();
+  await firstCast.getByTitle("Recast").waitFor();
+
   await page.screenshot({ path: "/tmp/in-three-client-desktop.png", fullPage: true });
   await assertNoOverflow(page, "client desktop");
 
@@ -181,8 +201,17 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload({ waitUntil: "networkidle" });
   await page.locator('.mobile-nav button[title="Follow an FID"]').click();
-  await page.getByRole("dialog", { name: "Follow an FID" }).waitFor();
-  await page.getByRole("dialog", { name: "Follow an FID" }).getByTitle("Close").click();
+  const followDialog = page.getByRole("dialog", { name: "Follow an FID" });
+  await followDialog.waitFor();
+  await followDialog.getByLabel("FID").fill(String(followedFids[0]));
+  await followDialog.getByTitle("Follow FID").click();
+  await followDialog.waitFor({ state: "hidden" });
+  await page.locator('.mobile-nav button[title="Follow an FID"]').click();
+  await followDialog.waitFor();
+  await followDialog.getByRole("button", { name: "Unfollow" }).click();
+  await followDialog.getByLabel("FID").fill(String(followedFids[0]));
+  await followDialog.getByTitle("Unfollow FID").click();
+  await followDialog.waitFor({ state: "hidden" });
   await page.screenshot({ path: "/tmp/in-three-client-mobile.png", fullPage: true });
   await assertNoOverflow(page, "client mobile");
 
@@ -208,7 +237,7 @@ try {
   const expectedPackageHrefs = [
     "https://www.npmjs.com/package/farcaster-in-three",
     "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three",
-    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.6",
+    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.7",
     "https://github.com/P-U-C/farcaster-in-three",
   ];
   if (expectedPackageHrefs.some((href) => !packageHrefs.includes(href))) {
@@ -251,6 +280,14 @@ try {
   await sitePage.screenshot({ path: "/tmp/in-three-site-mobile.png", fullPage: true });
   await assertNoOverflow(sitePage, "site mobile");
 
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const receiptLog = clientLogs.join("");
+  for (const action of ["like", "like_remove", "recast", "recast_remove", "follow", "unfollow"]) {
+    if (!receiptLog.includes(`\"action\":\"${action}\"`)) {
+      throw new Error(`missing redacted client receipt for ${action}`);
+    }
+  }
+
   await browser.close();
   if (errors.length) {
     throw new Error(`browser errors:\n${errors.join("\n")}`);
@@ -261,6 +298,9 @@ try {
   console.log("/tmp/in-three-client-mobile.png");
   console.log("/tmp/in-three-site-desktop.png");
   console.log("/tmp/in-three-site-mobile.png");
+} catch (error) {
+  console.error(clientLogs.join(""));
+  throw error;
 } finally {
   await cleanup();
 }

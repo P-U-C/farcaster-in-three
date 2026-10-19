@@ -1,6 +1,6 @@
 {
   "name": "farcaster-in-three",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Run a self-hosted Farcaster Snapchain node and client in three commands.",
   "keywords": [
     "farcaster",

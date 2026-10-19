@@ -31,7 +31,7 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.6`;
+const RELEASE = `${REPO}/releases/tag/v0.1.7`;
 
 type InstallMethod = "npm" | "container";
 
@@ -50,12 +50,13 @@ const setupCommands: Record<InstallMethod, Array<{ number: string; label: string
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.6/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.7/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
 const navigation = [
   { id: "quickstart", label: "Start" },
   { id: "first-cast", label: "First cast" },
+  { id: "proof", label: "Proof" },
   { id: "learn", label: "Understand" },
   { id: "help", label: "Help" },
 ];
@@ -86,7 +87,7 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">INSTALL <b>v0.1.6</b></span>
+        <span className="package-bar-label">INSTALL <b>v0.1.7</b></span>
         <div className="package-links">
           <PackageLink icon={<Package size={14} />} label="npm" detail="farcaster-in-three" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
@@ -116,7 +117,7 @@ export function App() {
             <div className="release-line">
               <span>OPEN-SOURCE FARCASTER STARTER</span>
               <i />
-              <span>v0.1.6</span>
+              <span>v0.1.7</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
             <p>Provision a server, start a Snapchain node, and open your own browser client. Reads and writes go through infrastructure you operate.</p>
@@ -300,8 +301,33 @@ export function App() {
           </div>
         </section>
 
+        <section className="proof-section section" id="proof">
+          <SectionLabel number="03" text="EVIDENCE" />
+          <div className="section-heading">
+            <h2>Receipts,<br />not claims.</h2>
+            <p>Every real run can produce a redacted record of the release, infrastructure, node state, app key, client writes, and teardown.</p>
+          </div>
+
+          <div className="proof-board">
+            <div className="proof-command">
+              <span>CAPTURE THE CURRENT RUN</span>
+              <CodeBlock code={`${usesNpm ? "in-three" : "./in-three-container"} proof`} />
+              <p>Writes owner-readable JSON and Markdown under <code>.state/proof/</code>. Tokens, phrases, passwords, private keys, server IDs, and IP addresses are excluded.</p>
+            </div>
+            <div className="proof-status" aria-label="Verification status">
+              <div className="verified"><CheckCircle2 size={18} /><span><b>PASSING</b><small>package, unit, shell, Compose, and browser checks</small></span></div>
+              <div className="pending"><Clock3 size={18} /><span><b>PENDING</b><small>published paid-cloud mainnet receipt</small></span></div>
+              <div className="pending"><UserRound size={18} /><span><b>PENDING</b><small>independent clean-machine endorsement</small></span></div>
+            </div>
+          </div>
+
+          <div className="proof-links">
+            <a href={`${DOCS}/docs/PROOF.md`} target="_blank" rel="noreferrer">Read the proof ledger and test protocol <ArrowRight size={15} /></a>
+          </div>
+        </section>
+
         <section className="protocol section" id="learn">
-          <SectionLabel number="03" text="SIX USEFUL TERMS" />
+          <SectionLabel number="04" text="SIX USEFUL TERMS" />
           <div className="section-heading">
             <h2>Enough protocol<br />to read the output.</h2>
             <p>You do not need to memorize Farcaster before starting. These are the terms used by the setup and recovery messages.</p>
@@ -318,7 +344,7 @@ export function App() {
 
         <section className="agent-summary section-band">
           <div className="section narrow">
-            <SectionLabel number="04" text="OPTIONAL: AGENT ACCESS" light />
+            <SectionLabel number="05" text="OPTIONAL: AGENT ACCESS" light />
             <div className="agent-summary-grid">
               <div>
                 <h2>Keep the first run simple.</h2>
@@ -337,13 +363,14 @@ export function App() {
         </section>
 
         <section className="faq section" id="help">
-          <SectionLabel number="05" text="HELP AND REFERENCE" />
+          <SectionLabel number="06" text="HELP AND REFERENCE" />
           <div className="section-heading">
             <h2>Go deeper only<br />when you need to.</h2>
             <p>The quickstart is enough for a clean first run. These references cover recovery, security, architecture, and advanced operation.</p>
           </div>
           <div className="docs-grid">
             <DocLink icon={<BookOpen size={22} />} title="Operations" detail="Expected output, sync status, recovery, upgrades, and teardown." href={`${DOCS}/docs/OPERATIONS.md`} />
+            <DocLink icon={<FileCheck2 size={22} />} title="Proof" detail="Verification status, redacted receipts, and independent evidence." href={`${DOCS}/docs/PROOF.md`} />
             <DocLink icon={<Network size={22} />} title="Architecture" detail="What runs where and how reads and writes move." href={`${DOCS}/docs/ARCHITECTURE.md`} />
             <DocLink icon={<ShieldCheck size={22} />} title="Security" detail="Phrase handling, app keys, secrets, and incident response." href={`${DOCS}/SECURITY.md`} />
             <DocLink icon={<Bot size={22} />} title="Agent API" detail="Optional x402 setup, routes, prices, and payment safety." href={`${DOCS}/docs/AGENT-API.md`} />
@@ -377,7 +404,7 @@ export function App() {
         <div><span className="wordmark compact"><i>III</i><strong>IN THREE</strong></span><p>Built in public by Permanent Upper Class.</p></div>
         <div><span>LICENSE</span><strong>MIT</strong></div>
         <div><span>SNAPCHAIN</span><strong>v0.14.3</strong></div>
-        <div><span>RELEASE</span><strong>v0.1.6</strong></div>
+        <div><span>RELEASE</span><strong>v0.1.7</strong></div>
       </footer>
     </>
   );

@@ -23,7 +23,9 @@ const required = [
   "scripts/provision.sh",
   "scripts/node.sh",
   "scripts/client.sh",
+  "scripts/proof.sh",
   "scripts/destroy.sh",
+  "docs/PROOF.md",
 ];
 
 await Promise.all(
