@@ -31,7 +31,7 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.9`;
+const RELEASE = `${REPO}/releases/tag/v0.1.10`;
 
 type InstallMethod = "npm" | "container";
 
@@ -50,7 +50,7 @@ const setupCommands: Record<InstallMethod, Array<{ number: string; label: string
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.9/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.10/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
 const navigation = [
@@ -87,7 +87,7 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">INSTALL <b>v0.1.9</b></span>
+        <span className="package-bar-label">INSTALL <b>v0.1.10</b></span>
         <div className="package-links">
           <PackageLink icon={<Package size={14} />} label="npm" detail="farcaster-in-three" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
@@ -117,7 +117,7 @@ export function App() {
             <div className="release-line">
               <span>OPEN-SOURCE FARCASTER STARTER</span>
               <i />
-              <span>v0.1.9</span>
+              <span>v0.1.10</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
             <p>Provision a server, start a Snapchain node, and open your own browser client. Reads and writes go through infrastructure you operate.</p>
@@ -404,7 +404,7 @@ export function App() {
         <div><span className="wordmark compact"><i>III</i><strong>IN THREE</strong></span><p>Built in public by Permanent Upper Class.</p></div>
         <div><span>LICENSE</span><strong>MIT</strong></div>
         <div><span>SNAPCHAIN</span><strong>v0.14.3</strong></div>
-        <div><span>RELEASE</span><strong>v0.1.9</strong></div>
+        <div><span>RELEASE</span><strong>v0.1.10</strong></div>
       </footer>
     </>
   );

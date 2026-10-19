@@ -1,12 +1,12 @@
 {
   "name": "farcaster-in-three",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "lockfileVersion": 3,
   "requires": true,
   "packages": {
     "": {
       "name": "farcaster-in-three",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "license": "MIT",
       "os": [
         "darwin",
@@ -46,7 +46,7 @@
     },
     "apps/client": {
       "name": "@in-three/client",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "dependencies": {
         "@0xsplits/splits-sdk": "6.7.0",
         "@coinbase/cdp-sdk": "1.59.0",
@@ -6865,7 +6865,7 @@
     },
     "site": {
       "name": "@in-three/site",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "dependencies": {
         "@fontsource-variable/manrope": "5.2.8",
         "@fontsource-variable/newsreader": "5.2.8",

@@ -106,6 +106,23 @@ if grep -R -n -E '\bmapfile\b|mktemp --suffix|sha256sum -c' "$ROOT/scripts" --ex
   fail "a GNU-only operator command remains"
 fi
 
+entrypoint="$ROOT/deploy/snapchain-entrypoint.sh"
+grep -A2 -F '[statsd]' "$entrypoint" | grep -F 'prefix="snapchain"' >/dev/null ||
+  fail "Snapchain config omits the required statsd prefix"
+grep -F 'IN_THREE_CHECK_CONFIG' "$entrypoint" >/dev/null ||
+  fail "Snapchain config cannot be validated by the pinned binary"
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  snapchain_image="$(awk '/^[[:space:]]+image: farcasterxyz\/snapchain:/{print $2; exit}' "$ROOT/deploy/docker-compose.yml")"
+  config_check="$(docker run --rm \
+    -e IN_THREE_CHECK_CONFIG=1 \
+    --entrypoint /bin/bash \
+    -v "$entrypoint:/opt/in-three/snapchain-entrypoint.sh:ro" \
+    -v "$ROOT/deploy/validators.toml:/opt/in-three/validators.toml:ro" \
+    "$snapchain_image" /opt/in-three/snapchain-entrypoint.sh)"
+  printf '%s\n' "$config_check" | grep -Fx 'config OK' >/dev/null ||
+    fail "pinned Snapchain binary rejected the generated config"
+fi
+
 healthcheck="$(awk '/healthcheck:/{inside=1} inside{print} /start_period:/{exit}' "$ROOT/deploy/docker-compose.yml")"
 printf '%s\n' "$healthcheck" | grep -F '/usr/bin/bash' >/dev/null ||
   fail "Snapchain healthcheck does not use an executable from the pinned image"
@@ -594,6 +611,7 @@ grep -F '>Unfollow</button>' "$ROOT/apps/client/web/App.tsx" >/dev/null ||
 printf 'ok - generated cloud-init preserves remote variables\n'
 printf 'ok - provider cleanup retries asynchronous detach conflicts\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
+printf 'ok - Snapchain config includes required fields and a native validation mode\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'
 printf 'ok - client create waits and continues after node bootstrap\n'
 printf 'ok - deployment separates client, payment, and local agent secrets\n'

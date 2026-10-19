@@ -11,7 +11,7 @@ Install once:
 ```bash
 mkdir in-three-node
 cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.9/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.10/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
