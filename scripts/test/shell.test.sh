@@ -333,6 +333,10 @@ grep -F 'makeKeyAdd(' "$ROOT/apps/client/src/setup.ts" >/dev/null ||
   fail "setup does not create a gasless KEY_ADD message"
 grep -F 'SIGNER_REGISTRATION_MODE=gasless' "$ROOT/apps/client/src/setup.ts" >/dev/null ||
   fail "setup does not persist the gasless signer mode"
+grep -F 'MessageType.USER_DATA_ADD' "$ROOT/apps/client/src/setup.ts" >/dev/null ||
+  fail "app key cannot maintain public profile metadata"
+grep -F 'makeUserDataAdd' "$ROOT/apps/client/src/protocol.ts" >/dev/null ||
+  fail "client cannot publish profile metadata"
 grep -F 'this.writeNodeUrl}/v1/submitMessage' "$ROOT/apps/client/src/protocol.ts" >/dev/null ||
   fail "client writes do not enter through the owned read node"
 if grep -R -n 'VALIDATOR_URLS' "$ROOT/apps/client/src" "$ROOT/scripts/client.sh" >/dev/null; then

@@ -6,9 +6,11 @@ import {
   makeLinkRemove,
   makeReactionAdd,
   makeReactionRemove,
+  makeUserDataAdd,
   Message,
   NobleEd25519Signer,
   ReactionType,
+  UserDataType,
   type HubAsyncResult,
   type HubMessage,
   type HubSigner,
@@ -26,6 +28,14 @@ interface ReactionInput {
   targetFid: number;
   targetHash: string;
   remove?: boolean;
+}
+
+export interface ProfileInput {
+  displayName?: string;
+  bio?: string;
+  pfpUrl?: string;
+  url?: string;
+  username?: string;
 }
 
 export class FarcasterWriter {
@@ -98,6 +108,27 @@ export class FarcasterWriter {
     }
     const result = await makeReactionAdd(body, this.dataOptions, this.signer);
     return this.submit(unwrap(result));
+  }
+
+  async updateProfile(input: ProfileInput) {
+    const fields = [
+      ["displayName", UserDataType.DISPLAY, input.displayName],
+      ["bio", UserDataType.BIO, input.bio],
+      ["pfpUrl", UserDataType.PFP, input.pfpUrl],
+      ["url", UserDataType.URL, input.url],
+      ["username", UserDataType.USERNAME, input.username],
+    ] as const;
+    const receipts = [];
+    for (const [field, type, value] of fields) {
+      if (value === undefined) continue;
+      const result = await makeUserDataAdd(
+        { type, value },
+        this.dataOptions,
+        this.signer,
+      );
+      receipts.push({ field, ...(await this.submit(unwrap(result))) });
+    }
+    return receipts;
   }
 
   private async submit(message: HubMessage) {

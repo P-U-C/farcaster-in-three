@@ -33,10 +33,12 @@ export const {
   makeLinkRemove,
   makeReactionAdd,
   makeReactionRemove,
+  makeUserDataAdd,
   Message,
   MessageType,
   NobleEd25519Signer,
   ReactionType,
+  UserDataType,
   ViemLocalEip712Signer,
 } = sdk;
 

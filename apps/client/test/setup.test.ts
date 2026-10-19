@@ -55,6 +55,7 @@ async function writeGaslessFixture(output: string) {
           MessageType.REACTION_REMOVE,
           MessageType.LINK_ADD,
           MessageType.LINK_REMOVE,
+          MessageType.USER_DATA_ADD,
         ],
         ttl: 90 * 24 * 60 * 60,
         nonce: 1,

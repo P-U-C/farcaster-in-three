@@ -10,6 +10,34 @@ import { SnapchainReader } from "./snapchain.js";
 import type { FeedCast, Source } from "./types.js";
 
 const loginSchema = z.object({ password: z.string().min(1).max(256) });
+const byteLimited = (maximum: number) =>
+  z.string().refine((value) => Buffer.byteLength(value, "utf8") <= maximum, {
+    message: `Must be at most ${maximum} UTF-8 bytes`,
+  });
+const httpsUrlOrEmpty = byteLimited(256).refine((value) => {
+  if (value === "") return true;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}, "Must be empty or an HTTPS URL");
+const profileSchema = z
+  .object({
+    displayName: byteLimited(32).optional(),
+    bio: byteLimited(256).optional(),
+    pfpUrl: httpsUrlOrEmpty.optional(),
+    url: httpsUrlOrEmpty.optional(),
+    username: byteLimited(16)
+      .refine(
+        (value) => value === "" || /^[a-z0-9](?:[a-z0-9-]{0,14}[a-z0-9])?$/.test(value),
+        "Must be empty or a valid fname",
+      )
+      .optional(),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: "Provide at least one profile field",
+  });
 const castSchema = z.object({
   text: z.string().trim().min(1).max(1024),
   embedUrl: z.string().url().max(2048).optional(),
@@ -194,6 +222,15 @@ export function createApp(config: AppConfig = loadConfig()) {
       return context.json({ ok: true, ...result }, 201);
     });
   }
+
+  app.patch("/api/profile", async (context) => {
+    const input = profileSchema.parse(await context.req.json());
+    const updates = await writer.updateProfile(input);
+    for (const update of updates) {
+      recordMessageReceipt(`profile_${update.field}`, update.hash);
+    }
+    return context.json({ ok: true, updates });
+  });
 
   for (const path of ["/api/follows", "/agent/v1/follows"] as const) {
     app.post(path, async (context) => {

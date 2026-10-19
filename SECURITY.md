@@ -23,7 +23,7 @@ Setup defaults to `CREATE`, generates a fresh phrase, and writes only a password
 | Hetzner token | Local setup process | Resources in the selected Hetzner project |
 | Test-account phrase | Local process memory and AES-256-GCM encrypted recovery kit | Full custody account control |
 | Signed FID registration | Local owner-only recovery file until confirmed | Creates one FID and storage unit for the shown address |
-| App key | Local recovery file, then client container | Casts, reactions, and follows for one FID |
+| App key | Local recovery file, then client container | Casts, reactions, follows, and public profile metadata for one FID |
 | Signed `KEY_ADD` | Local recovery file until confirmed | Authorizes one exact app key |
 | Browser password | User memory or optional owner-only local password file | Opens the web client and encrypts the generated-account recovery kit |
 | Password hash and session secret | Client container | Login and cookies |

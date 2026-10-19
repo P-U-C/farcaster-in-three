@@ -1,10 +1,10 @@
 {
   "name": "@in-three/client",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && tsup src/server.ts src/setup.ts src/agent-gateway.ts src/deployment-service.ts --format esm --out-dir dist/server --clean --sourcemap",
+    "build": "vite build && tsup src/server.ts src/setup.ts src/profile.ts src/agent-gateway.ts src/deployment-service.ts --format esm --out-dir dist/server --clean --sourcemap",
     "dev": "concurrently -n api,web -c magenta,cyan \"tsx watch src/server.ts\" \"vite\"",
     "start": "node dist/server/server.js",
     "typecheck": "tsc --noEmit",

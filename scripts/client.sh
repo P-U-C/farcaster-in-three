@@ -335,6 +335,121 @@ create_client() {
   die "the containers started but HTTPS did not become healthy"
 }
 
+profile() {
+  local password_file=""
+  local recovery_file=""
+  local display_name=""
+  local bio=""
+  local pfp_url=""
+  local profile_url=""
+  local username=""
+  local set_display="false"
+  local set_bio="false"
+  local set_pfp="false"
+  local set_url="false"
+  local set_username="false"
+  local claim_name="false"
+
+  while (( $# > 0 )); do
+    case "$1" in
+      --password-file) (( $# >= 2 )) || die "--password-file requires a path"; password_file="$2"; shift 2 ;;
+      --recovery-file) (( $# >= 2 )) || die "--recovery-file requires a path"; recovery_file="$2"; shift 2 ;;
+      --display-name) (( $# >= 2 )) || die "--display-name requires a value"; display_name="$2"; set_display="true"; shift 2 ;;
+      --bio) (( $# >= 2 )) || die "--bio requires a value"; bio="$2"; set_bio="true"; shift 2 ;;
+      --pfp-url) (( $# >= 2 )) || die "--pfp-url requires a value"; pfp_url="$2"; set_pfp="true"; shift 2 ;;
+      --url) (( $# >= 2 )) || die "--url requires a value"; profile_url="$2"; set_url="true"; shift 2 ;;
+      --username) (( $# >= 2 )) || die "--username requires a value"; username="$2"; set_username="true"; shift 2 ;;
+      --claim-name) claim_name="true"; shift ;;
+      *) die "usage: $IN_THREE_COMMAND client profile --password-file PATH [--display-name TEXT] [--bio TEXT] [--pfp-url HTTPS_URL] [--url HTTPS_URL] [--username NAME [--claim-name --recovery-file PATH]]" ;;
+    esac
+  done
+
+  [[ -n "$password_file" ]] || die "--password-file is required"
+  [[ -f "$password_file" ]] || die "client password file not found: $password_file"
+  if [[ "$claim_name" == "true" && "$set_username" != "true" ]]; then
+    die "--claim-name requires --username"
+  fi
+  if [[ "$set_display" != "true" && "$set_bio" != "true" && "$set_pfp" != "true" && "$set_url" != "true" && "$set_username" != "true" ]]; then
+    die "provide at least one profile field"
+  fi
+
+  load_state
+  for command in node curl jq mktemp; do
+    require_command "$command"
+  done
+  [[ -r "$IN_THREE_ROOT/apps/client/dist/server/profile.js" ]] ||
+    die "profile utility is missing; reinstall farcaster-in-three"
+
+  local cookie_jar login_payload profile_payload me_payload response_payload fid
+  cookie_jar="$(mktemp)"
+  login_payload="$(mktemp)"
+  profile_payload="$(mktemp)"
+  me_payload="$(mktemp)"
+  response_payload="$(mktemp)"
+  cleanup_profile() {
+    secure_delete "$cookie_jar"
+    secure_delete "$login_payload"
+    secure_delete "$profile_payload"
+    secure_delete "$me_payload"
+    secure_delete "$response_payload"
+  }
+  trap cleanup_profile EXIT
+  chmod 600 "$cookie_jar" "$login_payload" "$profile_payload" "$me_payload" "$response_payload"
+
+  node -e '
+    const fs = require("node:fs");
+    const raw = fs.readFileSync(process.argv[1], "utf8");
+    const password = raw.endsWith("\r\n") ? raw.slice(0, -2) : raw.endsWith("\n") ? raw.slice(0, -1) : raw;
+    process.stdout.write(JSON.stringify({ password }));
+  ' "$password_file" > "$login_payload"
+  curl -fsS --cookie-jar "$cookie_jar" \
+    -H "content-type: application/json" \
+    --data-binary "@$login_payload" \
+    "https://$CLIENT_DOMAIN/api/login" >/dev/null ||
+    die "client login failed"
+  curl -fsS --cookie "$cookie_jar" "https://$CLIENT_DOMAIN/api/me" > "$me_payload" ||
+    die "could not read the deployed profile"
+  fid="$(jq -er '.fid | select(type == "number" and . > 0)' "$me_payload")" ||
+    die "deployed client returned an invalid FID"
+
+  if [[ "$claim_name" == "true" ]]; then
+    recovery_file="${recovery_file:-$STATE_DIR/test-account.recovery.json}"
+    [[ -f "$recovery_file" ]] || die "recovery kit not found: $recovery_file"
+    node "$IN_THREE_ROOT/apps/client/dist/server/profile.js" \
+      --fid "$fid" \
+      --username "$username" \
+      --recovery-file "$recovery_file" \
+      --password-file "$password_file"
+  fi
+
+  jq -n \
+    --arg displayName "$display_name" \
+    --arg bio "$bio" \
+    --arg pfpUrl "$pfp_url" \
+    --arg url "$profile_url" \
+    --arg username "$username" \
+    --argjson setDisplay "$set_display" \
+    --argjson setBio "$set_bio" \
+    --argjson setPfp "$set_pfp" \
+    --argjson setUrl "$set_url" \
+    --argjson setUsername "$set_username" \
+    '{}
+      + (if $setDisplay then {displayName:$displayName} else {} end)
+      + (if $setBio then {bio:$bio} else {} end)
+      + (if $setPfp then {pfpUrl:$pfpUrl} else {} end)
+      + (if $setUrl then {url:$url} else {} end)
+      + (if $setUsername then {username:$username} else {} end)' > "$profile_payload"
+
+  curl -fsS --cookie "$cookie_jar" \
+    -X PATCH \
+    -H "content-type: application/json" \
+    --data-binary "@$profile_payload" \
+    "https://$CLIENT_DOMAIN/api/profile" > "$response_payload" ||
+    die "profile update was rejected; no local secret was changed"
+  jq '{ok,updates:[.updates[] | {field,hash,relay}]}' "$response_payload"
+  success "Profile messages were accepted by your Snapchain node"
+}
+
 status() {
   load_state
   printf 'IN THREE / CLIENT STATUS\n\n'
@@ -360,8 +475,9 @@ logs() {
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   case "${1:-status}" in
     create) shift; create_client "$@" ;;
+    profile) shift; profile "$@" ;;
     status) status ;;
     logs) logs ;;
-    *) die "usage: $IN_THREE_COMMAND client {create [--with-agent] [--password-file PATH]|status|logs}" ;;
+    *) die "usage: $IN_THREE_COMMAND client {create [--with-agent] [--password-file PATH]|profile --password-file PATH [options]|status|logs}" ;;
   esac
 fi

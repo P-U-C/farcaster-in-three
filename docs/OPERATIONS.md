@@ -11,7 +11,7 @@ Install once:
 ```bash
 mkdir in-three-node
 cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.12/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.13/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -75,7 +75,7 @@ It asks for:
 
 A new account requires one Optimism transaction. App-key authorization is gasless. Existing test accounts with active storage skip the account transaction.
 
-For `CREATE`, the phrase is encrypted with the client password in `.state/test-account.recovery.json`. It is never printed or uploaded. The server receives only the revocable app key. That key can cast, follow, and react; it cannot move wallet funds.
+For `CREATE`, the phrase is encrypted with the client password in `.state/test-account.recovery.json`. It is never printed or uploaded. The server receives only the revocable app key. That key can cast, follow, react, and update public profile metadata; it cannot move funds, transfer custody, or authorize another key.
 
 When setup finishes:
 
@@ -131,6 +131,31 @@ In addition to the normal client inputs, this asks for a Celo x402 facilitator k
 Choosing the normal browser setup avoids all payment credentials. To add agent commerce later, rerun with `--with-agent`; it creates a replacement app key, so revoke the previous key after confirming the new deployment.
 
 See [AGENT-API.md](AGENT-API.md) for prices, routes, capabilities, receipts, and the one-payment deployment service.
+
+## Maintain the account profile
+
+The deployed app key can update public profile metadata but cannot move funds, transfer custody, or authorize another key. Use the same owner-only password file used during setup:
+
+```bash
+in-three client profile \\
+  --password-file .state/client.password \\
+  --display-name "In Three" \\
+  --bio "Farcaster from your own node in three commands." \\
+  --pfp-url https://farcaster.permanentupperclass.com/profile.png \\
+  --url https://farcaster.permanentupperclass.com/
+```
+
+A newly created FID can claim one available Farcaster name. This signs the fname request locally with the encrypted recovery kit, then publishes the preferred name through the scoped app key:
+
+```bash
+in-three client profile \\
+  --password-file .state/client.password \\
+  --recovery-file .state/test-account.recovery.json \\
+  --username in-three \\
+  --claim-name
+```
+
+The recovery phrase is decrypted only in local process memory and is never printed or uploaded to the server. Fname availability and policy are controlled by Farcaster; an existing name is never replaced automatically.
 
 ## Recovery
 

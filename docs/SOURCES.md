@@ -70,7 +70,7 @@ Current app-key registration uses a gasless `KEY_ADD` Snapchain message:
 - nonce is per FID;
 - `GET /v1/signersByFid` returns unified onchain and gasless signer records.
 
-App-key authorization requires no Optimism transaction or OP ETH. This release scopes the signer to cast add/remove, reaction add/remove, and link add/remove.
+App-key authorization requires no Optimism transaction or OP ETH. This release scopes the signer to cast add/remove, reaction add/remove, link add/remove, and public profile metadata via user-data add. It does not authorize custody transfer, funds, or key management.
 
 Creating a new test account is separate: it calls IdGateway `register(address recovery)` once on OP Mainnet. The payable registration includes an FID and one storage unit. Setup reads the live `price()`, adds an explicit gas reserve, signs locally, and persists the exact transaction before broadcast.
 

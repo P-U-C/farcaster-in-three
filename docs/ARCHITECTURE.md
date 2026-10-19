@@ -82,7 +82,7 @@ CREATE (default)                    IMPORT
 
 New-account registration is one Optimism transaction. The generated phrase is stored only in a local, password-encrypted recovery kit; the exact signed transaction bytes are also saved before broadcast so an uncertain RPC response can be resumed. Existing accounts skip that transaction.
 
-The app key is limited to casts, reactions, and follows. It has a 90-day sliding lifetime, and its authorization is a gasless Snapchain message.
+The app key is limited to casts, reactions, follows, and public profile metadata. It cannot move funds, transfer custody, or authorize another key. It has a 90-day sliding lifetime, and its authorization is a gasless Snapchain message.
 
 If submission is uncertain, setup retains the exact signed message and app key. A rerun checks signer state first and resubmits only the saved bytes. It does not create another key while the first authorization may be live.
 

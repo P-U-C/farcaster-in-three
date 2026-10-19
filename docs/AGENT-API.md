@@ -27,7 +27,7 @@ Setup validates payment credentials before starting the account ceremony. It cre
 - 5% to P-U-C
 - 0.1% permissionless distribution incentive
 
-The app key remains limited to casts, reactions, and follows. Payment credentials stay in `/srv/in-three/agent-gateway.env`; the Farcaster key stays in the client container.
+The app key remains limited to casts, reactions, follows, and public profile metadata. It cannot move funds, transfer custody, or authorize another key. Payment credentials stay in `/srv/in-three/agent-gateway.env`; the Farcaster key stays in the client container.
 
 After setup, owner-only `.state/agent.env` contains:
 

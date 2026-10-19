@@ -94,6 +94,7 @@ const GASLESS_SIGNER_SCOPES = [
   MessageType.REACTION_REMOVE,
   MessageType.LINK_ADD,
   MessageType.LINK_REMOVE,
+  MessageType.USER_DATA_ADD,
 ];
 
 function unwrapHub<T>(result: {
@@ -538,7 +539,7 @@ async function main() {
   );
 
   console.log("\nOne gasless Snapchain message will authorize the revocable app key.");
-  console.log("Signer scopes       casts, reactions, and follows only");
+  console.log("Signer scopes       casts, reactions, follows, and profile metadata");
   console.log("Signer lifetime     90-day sliding window, refreshed by use");
   if (agentCommerce && revenueInspection && preparedRevenue) {
     const transactionCount = Object.values(preparedRevenue).filter(
