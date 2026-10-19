@@ -58,6 +58,45 @@ printf '%s\n' "$hcloud_error" | grep -F 'HTTP 403, resource_limit_exceeded): vol
 if printf '%s\n' "$hcloud_error" | grep -F 'fixture-secret-token' >/dev/null; then
   fail "Hetzner API helper exposed its bearer token"
 fi
+
+delete_calls="$(mktemp)"
+if ! (
+  export HCLOUD_TOKEN="fixture-secret-token"
+  export DELETE_CALLS="$delete_calls"
+  curl() {
+    local calls
+    calls="$(wc -l < "$DELETE_CALLS")"
+    printf 'call\n' >> "$DELETE_CALLS"
+    if (( calls < 2 )); then
+      printf '409'
+    else
+      printf '204'
+    fi
+  }
+  sleep() { :; }
+  hcloud_delete_with_retry "/firewalls/33" 3 0
+); then
+  fail "provider cleanup did not recover from a transient detach conflict"
+fi
+[[ "$(wc -l < "$delete_calls")" == "3" ]] ||
+  fail "provider cleanup did not retry the transient delete"
+: > "$delete_calls"
+if (
+  export HCLOUD_TOKEN="fixture-secret-token"
+  export DELETE_CALLS="$delete_calls"
+  curl() {
+    printf 'call\n' >> "$DELETE_CALLS"
+    printf '403'
+  }
+  sleep() { :; }
+  hcloud_delete_with_retry "/firewalls/33" 3 0
+) 2>/dev/null; then
+  fail "provider cleanup accepted a permanent authorization failure"
+fi
+[[ "$(wc -l < "$delete_calls")" == "1" ]] ||
+  fail "provider cleanup retried a permanent authorization failure"
+rm -f "$delete_calls"
+
 volume_create_line="$(grep -n 'hcloud_api POST /volumes ' "$ROOT/scripts/provision.sh" | head -1 | cut -d: -f1)"
 ssh_key_create_line="$(grep -n 'hcloud_api POST /ssh_keys ' "$ROOT/scripts/provision.sh" | head -1 | cut -d: -f1)"
 [[ -n "$volume_create_line" && -n "$ssh_key_create_line" && "$volume_create_line" -lt "$ssh_key_create_line" ]] ||
@@ -300,9 +339,10 @@ case "$(uname -m)" in
   arm64|aarch64) release_arch="arm64" ;;
   *) fail "test host has an unsupported architecture" ;;
 esac
+release_version="$(jq -r '.version' "$ROOT/package.json")"
 release_fixture="$container_fixture/release"
 mkdir -p "$release_fixture"
-release_asset="farcaster-in-three-container-0.1.8-linux-${release_arch}.tar.gz"
+release_asset="farcaster-in-three-container-${release_version}-linux-${release_arch}.tar.gz"
 printf 'container archive fixture' | gzip > "$release_fixture/$release_asset"
 if command -v sha256sum >/dev/null 2>&1; then
   release_checksum="$(sha256sum "$release_fixture/$release_asset" | awk '{print $1}')"
@@ -362,7 +402,7 @@ chmod +x "$container_fixture/bin/curl" "$container_fixture/bin/docker"
   fail "container launcher did not retain the versioned release archive"
 grep -Fx '<--pull=never>' "$DOCKER_CALL_LOG" >/dev/null ||
   fail "release-asset image can unexpectedly pull from a registry"
-grep -Fx '<puc/farcaster-in-three:0.1.8>' "$DOCKER_CALL_LOG" >/dev/null ||
+grep -Fx "<puc/farcaster-in-three:${release_version}>" "$DOCKER_CALL_LOG" >/dev/null ||
   fail "container launcher did not run the loaded versioned image"
 
 cat > "$container_fixture/bin/in-three" <<'EOF'
@@ -393,7 +433,7 @@ container_fixture=""
 
 package_fixture="$(mktemp -d)"
 package_version="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --version)"
-[[ "$package_version" == "0.1.8" ]] ||
+[[ "$package_version" == "$release_version" ]] ||
   fail "prebuilt CLI does not report the package version"
 package_help="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --help)"
 printf '%s\n' "$package_help" | grep -F 'in-three provision' >/dev/null ||
@@ -552,6 +592,7 @@ grep -F '>Unfollow</button>' "$ROOT/apps/client/web/App.tsx" >/dev/null ||
   fail "the client has no visible unfollow control"
 
 printf 'ok - generated cloud-init preserves remote variables\n'
+printf 'ok - provider cleanup retries asynchronous detach conflicts\n'
 printf 'ok - operator scripts avoid reviewed GNU-only commands\n'
 printf 'ok - Snapchain healthcheck matches the pinned image toolset\n'
 printf 'ok - client create waits and continues after node bootstrap\n'

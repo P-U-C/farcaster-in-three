@@ -67,16 +67,20 @@ completed=false
 
 cleanup_partial() {
   local status=$?
+  local cleanup_ok=true
   trap - EXIT
   if [[ "$completed" != true && $status -ne 0 ]]; then
     note "Provisioning failed; removing partial billable resources"
-    [[ -z "$server_id" ]] || curl -sS --max-time 30 -X DELETE       -H "Authorization: Bearer $HCLOUD_TOKEN"       "https://api.hetzner.cloud/v1/servers/$server_id" >/dev/null 2>&1 || true
-    sleep 2
-    [[ -z "$volume_id" ]] || curl -sS --max-time 30 -X DELETE       -H "Authorization: Bearer $HCLOUD_TOKEN"       "https://api.hetzner.cloud/v1/volumes/$volume_id" >/dev/null 2>&1 || true
-    [[ -z "$firewall_id" ]] || curl -sS --max-time 30 -X DELETE       -H "Authorization: Bearer $HCLOUD_TOKEN"       "https://api.hetzner.cloud/v1/firewalls/$firewall_id" >/dev/null 2>&1 || true
-    [[ -z "$ssh_key_id" ]] || curl -sS --max-time 30 -X DELETE       -H "Authorization: Bearer $HCLOUD_TOKEN"       "https://api.hetzner.cloud/v1/ssh_keys/$ssh_key_id" >/dev/null 2>&1 || true
+    [[ -z "$server_id" ]] || hcloud_delete_with_retry "/servers/$server_id" || cleanup_ok=false
+    [[ -z "$volume_id" ]] || hcloud_delete_with_retry "/volumes/$volume_id" || cleanup_ok=false
+    [[ -z "$firewall_id" ]] || hcloud_delete_with_retry "/firewalls/$firewall_id" || cleanup_ok=false
+    [[ -z "$ssh_key_id" ]] || hcloud_delete_with_retry "/ssh_keys/$ssh_key_id" || cleanup_ok=false
     rm -f "$STATE_FILE" "$STATE_DIR/id_ed25519" "$STATE_DIR/id_ed25519.pub"
-    record_proof_event "provision_failed" "$(jq -cn --argjson exitCode "$status" '{exitCode:$exitCode,partialResourcesRemoved:true}')" || true
+    [[ "$cleanup_ok" == true ]] || note "One or more partial resources could not be removed; inspect the provider console"
+    record_proof_event "provision_failed" "$(jq -cn \
+      --argjson exitCode "$status" \
+      --argjson partialResourcesRemoved "$cleanup_ok" \
+      '{exitCode:$exitCode,partialResourcesRemoved:$partialResourcesRemoved}')" || true
   fi
   exit "$status"
 }

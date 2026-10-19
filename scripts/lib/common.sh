@@ -157,6 +157,34 @@ hcloud_api() {
   return 1
 }
 
+hcloud_delete_with_retry() {
+  local path="$1"
+  local attempts="${2:-30}"
+  local delay_seconds="${3:-2}"
+  local attempt
+  local http_code="000"
+
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
+    if http_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 -X DELETE \
+      -H "Authorization: Bearer $HCLOUD_TOKEN" \
+      "https://api.hetzner.cloud/v1$path")"; then
+      case "$http_code" in
+        200|204|404) return 0 ;;
+        409|423|500|502|503|504) ;;
+        *)
+          printf 'error: delete %s failed with HTTP %s\n' "$path" "$http_code" >&2
+          return 1
+          ;;
+      esac
+    fi
+    (( attempt == attempts )) || sleep "$delay_seconds"
+  done
+
+  printf 'error: delete %s did not complete after %s attempts (last HTTP %s)\n' \
+    "$path" "$attempts" "$http_code" >&2
+  return 1
+}
+
 hcloud_cost_estimate() {
   local server_type_json="$1"
   local pricing_json="$2"

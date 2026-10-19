@@ -25,10 +25,7 @@ record_proof_event "destroy_started" '{}'
 
 api_delete() {
   local path="$1"
-  local status
-  status="$(curl -sS -o /tmp/in-three-delete-response -w '%{http_code}'     --max-time 45 -X DELETE     -H "Authorization: Bearer $HCLOUD_TOKEN"     "https://api.hetzner.cloud/v1$path")"
-  [[ "$status" == "204" || "$status" == "200" || "$status" == "404" ]] ||
-    die "delete $path failed with HTTP $status"
+  hcloud_delete_with_retry "$path" || die "delete $path did not complete"
 }
 
 note "Deleting server"
@@ -45,7 +42,7 @@ api_delete "/volumes/$VOLUME_ID"
 api_delete "/firewalls/$FIREWALL_ID"
 api_delete "/ssh_keys/$SSH_KEY_ID"
 
-rm -f "$SSH_KEY" "$SSH_KEY.pub" "$STATE_FILE" /tmp/in-three-delete-response
+rm -f "$SSH_KEY" "$SSH_KEY.pub" "$STATE_FILE"
 record_proof_event "destroy_complete" '{"providerResourcesDeleted":true}'
 "$IN_THREE_ROOT/scripts/proof.sh" --quiet || true
 success "All provisioned resources were deleted"
