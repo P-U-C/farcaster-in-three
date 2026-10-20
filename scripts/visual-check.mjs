@@ -228,6 +228,13 @@ try {
   });
   await sitePage.setViewportSize({ width: 1440, height: 1000 });
   await sitePage.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
+  if (await sitePage.title() !== "In Three — The three-command Farcaster tutorial") {
+    throw new Error(`website title does not identify the tutorial: ${await sitePage.title()}`);
+  }
+  const siteDescription = await sitePage.locator('meta[name="description"]').getAttribute("content");
+  if (!siteDescription?.includes("three-command developer tutorial")) {
+    throw new Error(`website metadata does not identify the tutorial: ${siteDescription}`);
+  }
   const heroText = await sitePage.locator(".hero-copy > p").innerText();
   if (
     !heroText.includes("Reads and signed writes go through your node") ||
