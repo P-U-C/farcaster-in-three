@@ -91,7 +91,7 @@ const mock = createServer((request, response) => {
     return json(response, {
       signers: [
         {
-          source: "SIGNER_SOURCE_GASLESS",
+          source: "SIGNER_SOURCE_OFFCHAIN",
           key: fid === ownerFid ? signer : `0x${fid.toString(16).padStart(64, "0")}`,
           requestFid: fid,
         },
@@ -245,7 +245,7 @@ try {
   const expectedPackageHrefs = [
     "https://www.npmjs.com/package/farcaster-in-three",
     "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three",
-    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.18",
+    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.19",
     "https://github.com/P-U-C/farcaster-in-three",
   ];
   if (expectedPackageHrefs.some((href) => !packageHrefs.includes(href))) {

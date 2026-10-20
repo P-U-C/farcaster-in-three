@@ -902,7 +902,7 @@ export async function submitSavedGaslessRegistration({
     const state = await readSignerState(nodeUrl, fid, fetchImpl);
     return state.signers.some(
       (signer) =>
-        signer.source === "SIGNER_SOURCE_GASLESS" &&
+        signer.source === "SIGNER_SOURCE_OFFCHAIN" &&
         signer.key?.toLowerCase() === publicKey,
     );
   };

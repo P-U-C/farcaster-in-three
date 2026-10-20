@@ -280,7 +280,7 @@ test("an uncertain gasless submission confirms from the owned read node", async 
       if (url.includes("/v1/signersByFid")) {
         return Response.json({
           signers: signerVisible
-            ? [{ source: "SIGNER_SOURCE_GASLESS", key: fixture.publicKeyHex }]
+            ? [{ source: "SIGNER_SOURCE_OFFCHAIN", key: fixture.publicKeyHex }]
             : [],
           gaslessSignerCount: signerVisible ? 1 : 0,
           gaslessSignerLimit: 1000,

@@ -91,7 +91,7 @@ test("feed data and client attribution come only from the configured read node",
             },
           },
           {
-            source: "SIGNER_SOURCE_GASLESS",
+            source: "SIGNER_SOURCE_OFFCHAIN",
             key: `0x${"33".repeat(32)}`,
             requestFid: 77,
           },

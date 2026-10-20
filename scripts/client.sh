@@ -9,17 +9,24 @@ pending_value() {
   awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$PENDING_CLIENT_ENV"
 }
 
+escape_compose_env() {
+  # Compose interpolates dollars in env_file values; $$ reaches the container as a literal $.
+  sed 's/\$/$$/g'
+}
+
 write_client_env() {
   local source_env="$1"
   local deployment_env="$2"
-  awk '!/^(SIGNER_REGISTRATION_|REVENUE_|AGENT_|BUY_|CDP_)/' "$source_env" > "$deployment_env"
+  awk '!/^(SIGNER_REGISTRATION_|REVENUE_|AGENT_|BUY_|CDP_)/' "$source_env" |
+    escape_compose_env > "$deployment_env"
   chmod 600 "$deployment_env"
 }
 
 write_agent_gateway_env() {
   local source_env="$1"
   local gateway_env="$2"
-  awk '/^(AGENT_|BUY_|CDP_)/' "$source_env" > "$gateway_env"
+  awk '/^(AGENT_|BUY_|CDP_)/' "$source_env" |
+    escape_compose_env > "$gateway_env"
   chmod 600 "$gateway_env"
 }
 

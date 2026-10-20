@@ -285,8 +285,9 @@ trap 'rm -f "$checksum_file" "$pending_env" "$fixture_client_env" "$fixture_gate
 cat > "$pending_env" <<'EOF'
 FID=37
 SIGNER_PRIVATE_KEY=delegated-key
+PASSWORD_HASH=scrypt$fixture-salt$fixture-hash
 AGENT_PUBLIC_ORIGIN=https://client.example
-AGENT_WRITE_TOKEN=agent-capability
+AGENT_WRITE_TOKEN=agent$capability
 BUY_OPERATOR_PAY_TO=0x1111111111111111111111111111111111111111
 BUY_PAY_TO=0x000000000000000000000000000000000000c0Fe
 BUY_ROYALTY_PAY_TO=0xd240A74c8766cbe9Fc0ba2B242C089aAE164D5dF
@@ -310,18 +311,22 @@ EOF
 )
 grep -F 'SIGNER_PRIVATE_KEY=delegated-key' "$fixture_client_env" >/dev/null ||
   fail "client environment lost the delegated app key"
+grep -F 'PASSWORD_HASH=scrypt$$fixture-salt$$fixture-hash' "$fixture_client_env" >/dev/null ||
+  fail "client environment did not protect dollar signs from Compose interpolation"
 if grep -E '^(SIGNER_REGISTRATION_|REVENUE_|AGENT_|BUY_|CDP_)' "$fixture_client_env" >/dev/null; then
   fail "payment or recovery secrets would be copied to the client container"
 fi
 grep -F 'BUY_FACILITATOR_API_KEY=x402_facilitator-secret' "$fixture_gateway_env" >/dev/null ||
   fail "gateway environment lost the Celo facilitator key"
+grep -F 'AGENT_WRITE_TOKEN=agent$$capability' "$fixture_gateway_env" >/dev/null ||
+  fail "gateway environment did not protect dollar signs from Compose interpolation"
 grep -F 'CDP_API_KEY_ID=organizations/test/apiKeys/test' "$fixture_gateway_env" >/dev/null ||
   fail "gateway environment lost the Base facilitator key"
 if grep -E '^(SIGNER_PRIVATE_KEY|SIGNER_REGISTRATION_)' "$fixture_gateway_env" >/dev/null; then
   fail "Farcaster signer or recovery state would be copied to the payment container"
 fi
-grep -F 'AGENT_WRITE_TOKEN=agent-capability' "$fixture_access_env" >/dev/null ||
-  fail "local agent access file lost the write capability"
+grep -F 'AGENT_WRITE_TOKEN=agent$capability' "$fixture_access_env" >/dev/null ||
+  fail "local agent access file changed the write capability"
 if grep -E '^(SIGNER_|REVENUE_|BUY_|CDP_)' "$fixture_access_env" >/dev/null; then
   fail "local agent access file contains server secrets"
 fi

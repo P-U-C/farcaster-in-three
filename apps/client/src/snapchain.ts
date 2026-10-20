@@ -164,7 +164,7 @@ export class SnapchainReader {
     if (!signerInfo) return null;
 
     if (
-      signerInfo.source === "SIGNER_SOURCE_GASLESS" &&
+      signerInfo.source === "SIGNER_SOURCE_OFFCHAIN" &&
       signerInfo.requestFid &&
       signerInfo.requestFid > 0
     ) {
