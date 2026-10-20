@@ -684,7 +684,7 @@ cat > "$proof_live_fixture/bin/ssh" <<'EOF'
 #!/usr/bin/env bash
 case "$*" in
   *'/v1/info'*)
-    printf '%s\n' '{"version":"0.14.3","numShards":2,"dbStats":{"approxSize":600000000000},"shardInfos":[{"shardId":0,"blockDelay":2,"maxBlockHeight":100},{"shardId":1,"blockDelay":4,"maxBlockHeight":200}]}'
+    printf '%s\n' '{"version":"0.14.3","numShards":2,"dbStats":{"approxSize":600000000000},"shardInfos":[{"shardId":0,"blockDelay":2,"maxHeight":100},{"shardId":1,"blockDelay":4,"maxHeight":200},{"shardId":2,"blockDelay":3,"maxHeight":300}]}'
     ;;
   *'df -B1'*)
     printf '%s\n' '2000000000000 700000000000 1300000000000 35%'
@@ -707,6 +707,12 @@ IN_THREE_COMMAND="in-three" \
   "$ROOT/scripts/proof.sh" --quiet
 [[ "$(jq -r '.node.currentlyReachable' "$proof_live_fixture/state/proof/latest.json")" == "true" ]] ||
   fail "live proof capture did not record owned-node readiness"
+[[ "$(jq -r '.node.operationallyReady' "$proof_live_fixture/state/proof/latest.json")" == "true" ]] ||
+  fail "live proof capture rejected a complete three-shard node"
+[[ "$(jq -r '.node.observedShardCount' "$proof_live_fixture/state/proof/latest.json")" == "3" ]] ||
+  fail "live proof capture reported the protocol data-shard count instead of observed shards"
+[[ "$(jq -r '.node | has("numShards")' "$proof_live_fixture/state/proof/latest.json")" == "false" ]] ||
+  fail "live proof capture retained the ambiguous upstream numShards field"
 [[ "$(jq -r '.node.shardStatus | map(.blockDelay) | max' "$proof_live_fixture/state/proof/latest.json")" == "4" ]] ||
   fail "live proof capture lost shard-delay evidence"
 [[ "$(jq -r '.writes[0].action' "$proof_live_fixture/state/proof/latest.json")" == "follow" ]] ||

@@ -82,7 +82,7 @@ if [[ -f "$STATE_FILE" ]]; then
         missingShards:($readiness.missingShards // [0,1,2]),
         recoveryShards:($readiness.recoveryShards // []),
         version:(.version // "unknown"),
-        numShards:(.numShards // null),
+        observedShardCount:((.shardInfos // []) | map(.shardId) | unique | length),
         dbApproxBytes:(.dbStats.approxSize // null),
         shardStatus:[
           (.shardInfos // [])[] |
