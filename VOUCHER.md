@@ -49,12 +49,12 @@ Public report URL:
 ```bash
 mkdir in-three-test
 cd in-three-test
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.15/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.16/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
 
-Record the output. Confirm the downloaded launcher contains `VERSION="0.1.15"`.
+Record the output. Confirm the downloaded launcher contains `VERSION="0.1.16"`.
 
 The first operational command downloads the matching public amd64 or arm64 container release and checks its SHA-256 before loading it.
 
@@ -77,8 +77,10 @@ During node startup:
 
 - confirm the node uses no hosted Farcaster API key
 - run `node status` periodically
-- record snapshot size, database size, disk use, and time until ready
-- do not restart during snapshot extraction
+- record active shard, chunk count, database size, disk use, and time until ready
+- confirm READY appears only when shards 0, 1, and 2 are each below 30 seconds
+- if status prints RECOVERY REQUIRED, run only the exact `node recover --shard N` command shown and record the result
+- leave the detached snapshot manager running during download and extraction
 
 During client setup:
 

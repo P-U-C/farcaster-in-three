@@ -28,7 +28,7 @@ Do not introduce payment credentials into the basic path.
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.15/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.16/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
@@ -47,13 +47,13 @@ Non-interactive runs must choose `--host USER@HOST` or `--hetzner`. For an exist
 
 Use `provision --hetzner` only when the user approved the displayed cloud plan and recurring cost. If SSH is filtered and the operator has a jump host, add `--ssh-proxy user@jump-host`; the route is saved for later commands.
 
-The initial Snapchain sync may take hours. Report progress with:
+Allow up to a day for the initial Snapchain sync. Report progress with:
 
 ```bash
 ./in-three-container node status
 ```
 
-Do not restart the node during snapshot extraction.
+Ready means shards 0, 1, and 2 each report valid heights and delays below 30 seconds. Leave the detached snapshot manager running. If status prints `RECOVERY REQUIRED`, run only the exact `./in-three-container node recover --shard N` command shown; it preserves healthy shards and validates the replacement before continuing. Command three can perform the same recovery before requesting account secrets.
 
 For agent-led setup, create an owner-only password file without printing it, then add `--password-file .state/client.password` to the third command. The default CREATE path makes an encrypted local recovery kit and quotes one Optimism account-registration transaction; IMPORT skips it when the account already has storage. App-key authorization is gasless. Stop for human approval before cloud provisioning, funding, or any paid action.
 

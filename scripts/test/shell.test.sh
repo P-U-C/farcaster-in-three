@@ -122,6 +122,8 @@ grep -F -- '--ssh-proxy HOST' "$ROOT/scripts/provision.sh" >/dev/null ||
   fail "provisioning help does not expose the SSH proxy"
 grep -F 'SSH_PROXY_JUMP=$SSH_PROXY_JUMP' "$ROOT/scripts/provision.sh" >/dev/null ||
   fail "provisioning does not persist the SSH proxy"
+sed -n '/^start_setup_tunnel()/,/^}/p' "$ROOT/scripts/client.sh" | grep -F 'ProxyJump=$SSH_PROXY_JUMP' >/dev/null ||
+  fail "client setup tunnel does not use the saved SSH proxy"
 
 owned_fixture="$(mktemp -d)"
 mkdir -p "$owned_fixture/bin" "$owned_fixture/state"
@@ -211,28 +213,43 @@ if printf '%s\n' "$healthcheck" | grep -F 'curl' >/dev/null; then
   fail "Snapchain healthcheck still requires curl"
 fi
 
-progress_command="$(
-  source "$ROOT/scripts/client.sh"
-  remote() { printf '%s\n' "$*"; }
-  node_bootstrap_progress
-)"
-printf '%s\n' "$progress_command" | grep -F '$3 " used / " $2 " total"' >/dev/null ||
+grep -F '\$3 \" used / \" \$2 \" total\"' "$ROOT/scripts/client.sh" >/dev/null ||
   fail "client bootstrap progress expands remote disk fields locally"
 
+wait_counter="$(mktemp)"
+recovery_log="$(mktemp)"
+printf '0\n' > "$wait_counter"
 wait_output="$(
   source "$ROOT/scripts/client.sh"
-  api_attempts=0
+  run_shard_recovery() {
+    printf '%s\n' "$1" >> "$recovery_log"
+  }
   remote() {
+    local api_attempts
     case "$*" in
       *"/v1/info"*)
+        api_attempts="$(cat "$wait_counter")"
         api_attempts=$((api_attempts + 1))
-        (( api_attempts >= 3 ))
+        printf '%s\n' "$api_attempts" > "$wait_counter"
+        if (( api_attempts >= 4 )); then
+          printf '%s\n' '{"shardInfos":[{"shardId":0,"maxHeight":100,"blockDelay":2},{"shardId":1,"maxHeight":200,"blockDelay":3},{"shardId":2,"maxHeight":300,"blockDelay":4}]}'
+        elif (( api_attempts >= 2 )); then
+          printf '%s\n' '{"shardInfos":[{"shardId":0,"maxHeight":100,"blockDelay":120},{"shardId":1,"maxHeight":200,"blockDelay":3},{"shardId":2,"maxHeight":300,"blockDelay":4}]}'
+        else
+          printf '%s\n' '{"shardInfos":[{"shardId":0,"maxHeight":100,"blockDelay":2},{"shardId":1,"maxHeight":200,"blockDelay":3}]}'
+        fi
+        ;;
+      *"test -s '/srv/in-three/data/rocks/shard-2/CURRENT'"*)
+        return 1
         ;;
       *"ps --status running"*)
         printf 'fixture-container-id\n'
         ;;
-      *"snapshot"*)
-        printf '  snapshot  120G\n  database  8.0K\n  disk      121G used / 2.0T total\n  network   3266/5691 chunks (57%%) | ETA 10h35m\n'
+      *"systemctl is-active"*)
+        printf 'inactive\n'
+        ;;
+      *"database"*)
+        printf '  database   520G\n  disk       600G used / 2.0T total\n'
         ;;
       *)
         return 1
@@ -246,15 +263,19 @@ wait_output="$(
   IN_THREE_NODE_POLL_SECONDS=1
   # shellcheck disable=SC2030
   IN_THREE_NODE_REPORT_SECONDS=1
-  wait_for_node_api
-  (( api_attempts == 3 ))
-)" || fail "client create did not wait and continue when the node API became ready"
-printf '%s\n' "$wait_output" | grep -F 'Client setup will continue automatically' >/dev/null ||
-  fail "client wait flow does not explain automatic continuation"
-printf '%s\n' "$wait_output" | grep -F '3266/5691 chunks (57%) | ETA 10h35m' >/dev/null ||
-  fail "client wait flow hides exact chunk progress"
+  wait_for_node_ready
+)" || fail "client create did not wait for all shards and continue at real readiness"
+[[ "$(cat "$wait_counter")" == "4" ]] ||
+  fail "client readiness fixture did not progress from missing to lagging to ready"
+[[ "$(cat "$recovery_log")" == "2" ]] ||
+  fail "client create did not recover a locally missing shard"
+rm -f "$wait_counter" "$recovery_log"
+printf '%s\n' "$wait_output" | grep -F 'waits for all three Snapchain shards' >/dev/null ||
+  fail "client wait flow does not explain all-shard readiness"
+printf '%s\n' "$wait_output" | grep -F 'shard 0      delay 120s' >/dev/null ||
+  fail "client wait flow hides per-shard progress"
 printf '%s\n' "$wait_output" | grep -F 'ready' >/dev/null ||
-  fail "client wait flow did not continue after readiness"
+  fail "client wait flow did not continue after all shards were ready"
 
 pending_env="$(mktemp)"
 fixture_client_env="$(mktemp)"

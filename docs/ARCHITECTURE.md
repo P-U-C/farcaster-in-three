@@ -27,7 +27,7 @@ A successful submission means **accepted for relay**, not final inclusion. Readi
 
 ## What runs on the server
 
-The normal setup starts three services:
+The normal setup uses one transient snapshot manager, then starts three long-running services:
 
 | Service | Job |
 | --- | --- |
@@ -36,6 +36,14 @@ The normal setup starts three services:
 | Snapchain | Protocol data, validation, and peer relay |
 
 Snapchain's HTTP and gRPC APIs stay private. HTTPS is public. Snapchain gossip uses UDP 3382. SSH is restricted to the operator's detected address.
+
+## Bootstrap and shard recovery
+
+The host-side snapshot manager fetches fresh metadata immediately before downloading each shard. It verifies every gzip chunk, rechecks that the generation did not rotate, validates archive paths, extracts away from the live database, and installs the shard atomically.
+
+A recovery stages only the stale shard while Snapchain keeps running. The node stops for the final swap, restarts, and must report a plausible recovered height; otherwise the previous shard is restored. The official digest-pinned Snapchain image remains unchanged.
+
+Readiness is stricter than HTTP availability or Docker health: shard IDs 0, 1, and 2 must each report a valid height and a delay below 30 seconds.
 
 ## Account and app key
 

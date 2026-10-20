@@ -20,6 +20,8 @@ const required = [
   "apps/client/dist/server/deployment-service.js",
   "apps/client/dist/web/index.html",
   "deploy/docker-compose.yml",
+  "deploy/snapchain-healthcheck.sh",
+  "deploy/snapshot-manager.sh",
   "scripts/provision.sh",
   "scripts/node.sh",
   "scripts/client.sh",

@@ -26,26 +26,26 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.15`;
+const RELEASE = `${REPO}/releases/tag/v0.1.16`;
 
 type InstallMethod = "npm" | "container";
 
 const setupCommands: Record<InstallMethod, Array<{ number: string; label: string; command: string; detail: string }>> = {
   npm: [
     { number: "1", label: "MACHINE", command: "in-three provision", detail: "Connect your machine, or add --hetzner to create one." },
-    { number: "2", label: "SNAPCHAIN", command: "in-three node up", detail: "Start the node. The first sync takes hours." },
-    { number: "3", label: "CLIENT", command: "in-three client create", detail: "Create your account and open the client." },
+    { number: "2", label: "SNAPCHAIN", command: "in-three node up", detail: "Start your node. Leave it running during the first sync." },
+    { number: "3", label: "CLIENT", command: "in-three client create", detail: "Create or connect a test account, then open your client." },
   ],
   container: [
     { number: "1", label: "MACHINE", command: "./in-three-container provision", detail: "Connect your machine, or add --hetzner to create one." },
-    { number: "2", label: "SNAPCHAIN", command: "./in-three-container node up", detail: "Start the node. The first sync takes hours." },
-    { number: "3", label: "CLIENT", command: "./in-three-container client create", detail: "Create your account and open the client." },
+    { number: "2", label: "SNAPCHAIN", command: "./in-three-container node up", detail: "Start your node. Leave it running during the first sync." },
+    { number: "3", label: "CLIENT", command: "./in-three-container client create", detail: "Create or connect a test account, then open your client." },
   ],
 };
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.15/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.16/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
 const navigation = [
@@ -87,7 +87,7 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">GET <b>v0.1.15</b></span>
+        <span className="package-bar-label">GET <b>v0.1.16</b></span>
         <div className="package-links">
           <PackageLink icon={<Package size={14} />} label="npm" detail="recommended" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
@@ -119,7 +119,7 @@ export function App() {
               <span>FARCASTER ON YOUR OWN NODE</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
-            <p>One machine. One Snapchain node. One private browser client. Set it up in three commands.</p>
+            <p>Run a Snapchain node and browser client from your own machine in three commands. No hosted Farcaster data API.</p>
             <div className="hero-actions">
               <a className="primary-link" href="#start">Run the three <ArrowDown size={17} /></a>
               <a className="text-link" href={REPO} target="_blank" rel="noreferrer">View source <ArrowRight size={16} /></a>
@@ -142,7 +142,7 @@ export function App() {
         <section className="plain-facts" aria-label="Before you begin">
           <div><Server size={18} /><span><b>Bring your machine</b><small>Use an Ubuntu host with 2 TB free.</small></span></div>
           <div><CheckCircle2 size={18} /><span><b>No account needed</b><small>Step 3 can create a test account.</small></span></div>
-          <div><Clock3 size={18} /><span><b>Allow several hours</b><small>Snapchain downloads its first snapshot.</small></span></div>
+          <div><Clock3 size={18} /><span><b>Allow up to a day</b><small>The first sync runs unattended.</small></span></div>
           <div><Cloud size={18} /><span><b>Hetzner is optional</b><small>Add --hetzner to create a machine.</small></span></div>
         </section>
 
@@ -271,7 +271,7 @@ export function App() {
               <p><a href="https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/" target="_blank" rel="noreferrer">API-token guide</a> · <a href="https://docs.hetzner.com/cloud/general/faq/#are-there-limits-to-the-number-of-resources-i-can-get" target="_blank" rel="noreferrer">quota guide</a></p>
             </Details>
             <Details question="The node says it is still syncing.">
-              Leave it running. Check <code>{prefix} node status</code>. Do not restart during snapshot extraction.
+              Leave it running and check <code>{prefix} node status</code>. Ready means all three shards are within 30 seconds. If it prints <code>RECOVERY REQUIRED</code>, run the exact recovery command shown; step 3 can also repair it before account setup.
             </Details>
             <Details question="Step 3 stopped.">
               Keep the folder and rerun <code>{prefix} client create</code>. Signed recovery data is saved before broadcast.

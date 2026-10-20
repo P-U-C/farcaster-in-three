@@ -8,8 +8,8 @@ In Three separates automated checks from evidence produced by a real deployment.
 | --- | --- |
 | npm and container packages install and run | Verified |
 | Unit, shell, package, Compose, and browser checks | Passing |
-| Paid cloud provisioning and teardown | Live audit in progress |
-| Complete Snapchain sync and public writes | Live audit in progress |
+| Paid cloud provisioning and targeted shard recovery | Verified in live audit |
+| Complete Snapchain sync, public writes, and teardown | Live audit in progress |
 | Independent clean-machine endorsement | Pending |
 
 Passing tests do not prove that a real node synced or that a cast reached Farcaster.

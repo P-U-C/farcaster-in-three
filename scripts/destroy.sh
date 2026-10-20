@@ -14,7 +14,7 @@ if [[ "${PROVIDER:-}" == "existing" ]]; then
   "$IN_THREE_ROOT/scripts/proof.sh" --quiet ||
     note "Could not refresh the pre-stop receipt; shutdown will continue"
   note "Stopping In Three services"
-  remote "cd /srv/in-three && sudo -n docker compose down"
+  remote "sudo -n systemctl stop in-three-snapshot-bootstrap.service in-three-snapshot-recover-{0,1,2}.service >/dev/null 2>&1 || true; cd /srv/in-three && sudo -n docker compose down"
   record_proof_event "destroy_complete" \
     '{"providerResourcesDeleted":false,"servicesStopped":true,"hostRetained":true,"dataRetained":true}'
   "$IN_THREE_ROOT/scripts/proof.sh" --quiet || true

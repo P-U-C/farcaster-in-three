@@ -2,7 +2,7 @@
 
 This is the evidence behind the implementation, not a setup guide. Start with the [README](../README.md).
 
-Verified on 2026-10-19 UTC. Dates and versions are recorded because the protocol documentation changed shortly before this release.
+Verified through 2026-10-20 UTC. Dates and versions are recorded because the protocol documentation changed shortly before this release.
 
 ## Prize
 
@@ -41,6 +41,21 @@ Published resource guidance:
 - gRPC 3383
 
 The deployment keeps HTTP/gRPC private and exposes gossip.
+
+## Snapshot rotation evidence
+
+The live audit reproduced an upstream bootstrap defect on 2026-10-20. Snapchain v0.14.3 captured all shard manifests before a long sequential download. The shard-0 generation rotated before its turn, its first chunk returned HTTP 404, Snapchain panicked, Docker restarted it, and the nonempty database caused shard 0 to begin from genesis while the HTTP API appeared healthy.
+
+Official upstream tracking, checked 2026-10-20:
+
+- issue [#1044](https://github.com/farcasterxyz/snapchain/issues/1044), fresh node syncs a shard from genesis after rotation: open
+- PR [#1045](https://github.com/farcasterxyz/snapchain/pull/1045), refetch per-shard metadata: open
+- PR [#1046](https://github.com/farcasterxyz/snapchain/pull/1046), reclaim per-shard staging: open
+- PR [#1050](https://github.com/farcasterxyz/snapchain/pull/1050), restore missing shards on startup: open
+
+No official fixed rotation schedule is documented. In Three therefore does not guess one. It fetches metadata immediately before each shard, validates timestamp and paths, verifies every gzip chunk, re-fetches the manifest before installation, and retries if the generation changed. Fresh bootstrap installs shards individually and starts Snapchain only after all three exist.
+
+The same audit recovered shard 0 independently without redownloading healthy shards 1 and 2. The replacement was fully downloaded and verified while Snapchain ran, then installed during a brief stop with rollback protection. After restart, shard 0 reported height 48,375,889 and a 77,160-second delay instead of its previous near-genesis state and approximately 49.8-million-second delay. All shards resumed ordinary catch-up with 1.4 TiB free on the 2 TiB volume.
 
 ## Read-node write behavior
 

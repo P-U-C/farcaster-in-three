@@ -49,25 +49,30 @@ pending_has_agent_config() {
   [[ "$(pending_value REVENUE_BASE_STATUS)" == "confirmed" ]] || return 1
 }
 
-node_api_ready() {
-  remote "curl -fsS --max-time 8 http://127.0.0.1:3381/v1/info" >/dev/null 2>&1
+node_readiness_remote() {
+  local info
+  info="$(remote "curl -fsS --max-time 8 http://127.0.0.1:3381/v1/info" 2>/dev/null)" || return 1
+  snapchain_readiness_json "$info"
 }
 
 start_setup_tunnel() {
   local local_port
+  local -a options
   local_port="$(node -e 'const net=require("node:net"); const server=net.createServer(); server.listen(0,"127.0.0.1",()=>{console.log(server.address().port);server.close()})')"
   SETUP_NODE_URL="http://127.0.0.1:$local_port"
+  options=(
+    -N
+    -L "127.0.0.1:$local_port:127.0.0.1:3381"
+    -i "$SSH_KEY"
+    -o IdentitiesOnly=yes
+    -o StrictHostKeyChecking=accept-new
+    -o ExitOnForwardFailure=yes
+    -o ServerAliveInterval=15
+    -o ServerAliveCountMax=3
+  )
+  [[ -z "$SSH_PROXY_JUMP" ]] || options+=(-o "ProxyJump=$SSH_PROXY_JUMP")
 
-  ssh \
-    -N \
-    -L "127.0.0.1:$local_port:127.0.0.1:3381" \
-    -i "$SSH_KEY" \
-    -o IdentitiesOnly=yes \
-    -o StrictHostKeyChecking=accept-new \
-    -o ExitOnForwardFailure=yes \
-    -o ServerAliveInterval=15 \
-    -o ServerAliveCountMax=3 \
-    "$SSH_USER@$SERVER_IP" &
+  ssh "${options[@]}" "$SSH_USER@$SERVER_IP" &
   SETUP_TUNNEL_PID=$!
 
   local attempt
@@ -84,51 +89,104 @@ start_setup_tunnel() {
 }
 
 node_bootstrap_progress() {
-  remote "printf '  snapshot  '; du -sh /srv/in-three/data/snapshot 2>/dev/null | awk '{print \$1}' || printf 'not created'; printf '\n  database  '; du -sh /srv/in-three/data/rocks 2>/dev/null | awk '{print \$1}' || printf 'not created'; printf '\n  disk      '; df -h /srv/in-three | tail -1 | awk '{print \$3 \" used / \" \$2 \" total\"}'; printf '\n'; progress=\$(cd /srv/in-three && sudo docker compose logs --tail=240 snapchain 2>&1 | sed -nE 's/^.*Progress: ([0-9]+\\/[0-9]+ chunks \\([0-9]+%\\)) \\(ETA: ([^)]+)\\).*$/\\1 | ETA \\2/p' | tail -1 || true); if [ -n \"\$progress\" ]; then printf '  network   %s\n' \"\$progress\"; else printf '  network   waiting for chunk report\n'; fi"
+  local info readiness progress shard expected downloaded
+
+  info="$(remote "curl -fsS --max-time 8 http://127.0.0.1:3381/v1/info" 2>/dev/null || true)"
+  if [[ -n "$info" ]] && readiness="$(snapchain_readiness_json "$info" 2>/dev/null)"; then
+    snapchain_readiness_lines "$readiness" | sed 's/^/  /'
+  else
+    progress="$(remote "sudo cat /srv/in-three/data/snapshot-manager/progress.json 2>/dev/null || true")"
+    if jq -e 'type == "object"' <<<"$progress" >/dev/null 2>&1; then
+      printf '  phase      %s\n' "$(jq -r '.phase // "unknown"' <<<"$progress")"
+      shard="$(jq -r '.shard // empty' <<<"$progress")"
+      expected="$(jq -r '.expectedChunks // 0' <<<"$progress")"
+      if [[ -n "$shard" ]]; then
+        printf '  shard      %s\n' "$shard"
+        if [[ "$expected" =~ ^[0-9]+$ && "$expected" -gt 0 ]]; then
+          downloaded="$(remote "sudo find '/srv/in-three/data/snapshot-manager/work/shard-$shard/chunks' -maxdepth 1 -type f -name 'chunk_*.bin' 2>/dev/null | wc -l" | tr -d ' ')"
+          printf '  chunks     %s/%s\n' "$downloaded" "$expected"
+        fi
+      fi
+      printf '  detail     %s\n' "$(jq -r '.detail // ""' <<<"$progress")"
+    else
+      printf '  phase      waiting for snapshot manager\n'
+    fi
+  fi
+  remote "printf '  database   '; sudo du -sh /srv/in-three/data/rocks 2>/dev/null | awk '{print \$1}' || printf 'not created'; printf '\n  disk       '; df -h /srv/in-three | tail -1 | awk '{print \$3 \" used / \" \$2 \" total\"}'; printf '\n'"
 }
 
-wait_for_node_api() {
+run_shard_recovery() {
+  "$IN_THREE_ROOT/scripts/node.sh" recover --shard "$1"
+}
+
+wait_for_node_ready() {
   local poll_seconds="${IN_THREE_NODE_POLL_SECONDS:-30}"
   local report_seconds="${IN_THREE_NODE_REPORT_SECONDS:-300}"
   local started_at=$SECONDS
   local next_report=$SECONDS
-  local running_id
+  local readiness recovery_shards missing_shards recovered_missing shard running_id bootstrap_state
 
   [[ "$poll_seconds" =~ ^[1-9][0-9]*$ ]] ||
     die "IN_THREE_NODE_POLL_SECONDS must be a positive integer"
   [[ "$report_seconds" =~ ^[1-9][0-9]*$ ]] ||
     die "IN_THREE_NODE_REPORT_SECONDS must be a positive integer"
 
-  if node_api_ready; then
-    success "Snapchain HTTP API is online"
-    return
-  fi
-
-  printf 'Snapchain is still downloading or loading its initial snapshot.\n'
-  printf 'Client setup will continue automatically when the API is online.\n'
+  printf 'Client setup waits for all three Snapchain shards to be within %s seconds.\n' "$SNAPCHAIN_READY_DELAY_SECONDS"
   printf 'No app key is registered and no custody phrase is requested while waiting.\n'
   printf 'Press Ctrl-C to stop waiting; rerunning this command is safe.\n'
 
-  while ! node_api_ready; do
-    if running_id="$(remote "cd /srv/in-three && sudo docker compose ps --status running -q snapchain" 2>/dev/null)"; then
-      if [[ -z "$running_id" ]]; then
-        remote "cd /srv/in-three && sudo docker compose logs --tail=120 snapchain" >&2 || true
-        die "Snapchain stopped during bootstrap; inspect the logs above"
+  while true; do
+    readiness="$(node_readiness_remote 2>/dev/null || true)"
+    if [[ -n "$readiness" ]]; then
+      if [[ "$(jq -r '.ready' <<<"$readiness")" == "true" ]]; then
+        success "All three Snapchain shards are ready; continuing client setup"
+        return
       fi
-    else
-      note "Could not reach the server; retrying without changing node state"
+
+      missing_shards="$(jq -r '.missingShards | map(tostring) | join(" ")' <<<"$readiness")"
+      recovered_missing=false
+      for shard in $missing_shards; do
+        if ! remote "sudo test -s '/srv/in-three/data/rocks/shard-$shard/CURRENT'" >/dev/null 2>&1; then
+          if [[ "${IN_THREE_AUTO_RECOVER:-1}" != "1" ]]; then
+            die "run $IN_THREE_COMMAND node recover --shard $shard"
+          fi
+          note "Recovering missing shard $shard before requesting any account secret"
+          run_shard_recovery "$shard"
+          recovered_missing=true
+        fi
+      done
+      [[ "$recovered_missing" != "true" ]] || continue
+
+      recovery_shards="$(jq -r '.recoveryShards | map(tostring) | join(" ")' <<<"$readiness")"
+      if [[ -n "$recovery_shards" ]]; then
+        printf '\nA shard missed its snapshot and cannot catch up on a useful timeline.\n'
+        snapchain_readiness_lines "$readiness"
+        if [[ "${IN_THREE_AUTO_RECOVER:-1}" == "1" ]]; then
+          for shard in $recovery_shards; do
+            note "Recovering shard $shard before requesting any account secret"
+            run_shard_recovery "$shard"
+          done
+          continue
+        fi
+        die "run $IN_THREE_COMMAND node recover --shard $(awk '{print $1}' <<<"$recovery_shards")"
+      fi
+    fi
+
+    running_id="$(remote "cd /srv/in-three && sudo docker compose ps --status running -q snapchain" 2>/dev/null || true)"
+    bootstrap_state="$(remote "sudo systemctl is-active in-three-snapshot-bootstrap.service 2>/dev/null || true" | tr -d '\r\n')"
+    if [[ -z "$running_id" && "$bootstrap_state" != "active" ]]; then
+      remote "sudo tail -n 80 /srv/in-three/data/snapshot-manager/bootstrap.log 2>/dev/null || cd /srv/in-three && sudo docker compose logs --tail=120 snapchain" >&2 || true
+      die "Snapchain and its snapshot manager are not running"
     fi
 
     if (( SECONDS >= next_report )); then
-      printf '\nBootstrap progress\n'
+      printf '\nNode progress\n'
       node_bootstrap_progress || printf '  temporarily unavailable\n'
-      printf '  elapsed   %dm\n' "$(((SECONDS - started_at) / 60))"
+      printf '  elapsed    %dm\n' "$(((SECONDS - started_at) / 60))"
       next_report=$((SECONDS + report_seconds))
     fi
     sleep "$poll_seconds"
   done
-
-  success "Snapchain HTTP API is online; continuing client setup"
 }
 
 create_client() {
@@ -158,7 +216,7 @@ create_client() {
   done
   record_proof_event_once "client_setup_started" '{}'
 
-  wait_for_node_api
+  wait_for_node_ready
 
   if [[ "${IN_THREE_PREBUILT:-0}" == "1" ]]; then
     [[ -r "$IN_THREE_ROOT/apps/client/dist/server/setup.js" ]] ||

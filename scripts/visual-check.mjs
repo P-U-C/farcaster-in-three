@@ -237,7 +237,7 @@ try {
   const expectedPackageHrefs = [
     "https://www.npmjs.com/package/farcaster-in-three",
     "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three",
-    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.15",
+    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.16",
     "https://github.com/P-U-C/farcaster-in-three",
   ];
   if (expectedPackageHrefs.some((href) => !packageHrefs.includes(href))) {

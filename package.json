@@ -1,6 +1,6 @@
 {
   "name": "farcaster-in-three",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Run a self-hosted Farcaster Snapchain node and client in three commands.",
   "keywords": [
     "farcaster",
@@ -64,7 +64,7 @@
     "dev:site": "npm run dev --workspace @in-three/site",
     "prepack": "npm run build && node scripts/verify-package.mjs",
     "test": "npm test --workspace @in-three/client",
-    "test:scripts": "bash scripts/test/shell.test.sh"
+    "test:scripts": "bash scripts/test/shell.test.sh && bash scripts/test/snapshot-manager.test.sh"
   },
   "engines": {
     "node": ">=22"

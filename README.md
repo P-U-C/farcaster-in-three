@@ -1,6 +1,6 @@
 # In Three
 
-Run your own Farcaster node and browser client in three commands.
+Run a Snapchain node and browser client from your own machine in three commands. Reads and writes go through your node, with no hosted Farcaster data API.
 
 [Website](https://farcaster.permanentupperclass.com/) | [npm](https://www.npmjs.com/package/farcaster-in-three) | [Docker](https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three) | [Source](https://github.com/P-U-C/farcaster-in-three)
 
@@ -8,7 +8,7 @@ Run your own Farcaster node and browser client in three commands.
 
 - macOS or Linux with Node.js 22+
 - an Ubuntu machine with 4 CPU cores, 16 GB RAM, 2 TB free, SSH, and passwordless `sudo`
-- several hours for the first sync
+- up to a day for the first sync
 
 Use a machine you already own. Add `--hetzner` if you want In Three to create one.
 
@@ -45,8 +45,8 @@ in-three client create
 ```
 
 1. **Machine:** enter the SSH address of a machine you own. Use `in-three provision --hetzner` instead to create one.
-2. **Snapchain:** starts the node. Leave it running while the first snapshot downloads.
-3. **Client:** creates your test Farcaster account and opens the client.
+2. **Snapchain:** starts your node. Leave it running during the first sync.
+3. **Client:** creates a test account or connects an existing one, then opens your client.
 
 Keep the `in-three-node` folder. If setup pauses, rerun the same command from that folder.
 
@@ -75,13 +75,15 @@ in-three proof
 in-three destroy
 ```
 
+`node status` checks all three shards. If it prints `RECOVERY REQUIRED`, run the exact `in-three node recover --shard N` command it shows. The recovery keeps healthy shards and verifies a fresh snapshot before a brief restart.
+
 On Hetzner, `destroy` deletes the server and volume. On a machine you own, it stops In Three and keeps the machine and its data.
 
 ## Prefer Docker?
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.15/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.16/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```

@@ -108,6 +108,8 @@ The client uses:
 
 **Host or cloud provider compromised:** the machine operator can read server disk contents, including the app key, but the phrase is not uploaded.
 
+**Snapshot rotates or one shard is stale:** the snapshot manager retries a rotated generation before installation. Run the exact recovery command printed by `node status`; it stages and verifies the replacement before stopping Snapchain, swaps only that shard, and restores the previous shard if validation fails.
+
 **Read-node submission succeeds but the cast is absent:** success means accepted for relay, not final inclusion. Wait for sync and read the message back before retrying.
 
 **Optional payment succeeds but the operation fails:** keep the receipt and message hash. Do not pay again until you resolve whether the first request settled.

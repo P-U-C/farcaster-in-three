@@ -18,13 +18,14 @@ services:
       - /srv/in-three/data/snapshot:/app/.rocks.snapshot
       - ./validators.toml:/opt/in-three/validators.toml:ro
       - ./snapchain-entrypoint.sh:/opt/in-three/snapchain-entrypoint.sh:ro
+      - ./snapchain-healthcheck.sh:/opt/in-three/snapchain-healthcheck.sh:ro
     networks: [protocol, node-egress]
     ulimits:
       nofile:
         soft: 65535
         hard: 65535
     healthcheck:
-      test: ["CMD", "/usr/bin/bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/3381 && printf 'GET /v1/info HTTP/1.0\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && IFS= read -r -t 5 status <&3 && [[ \"$$status\" == *\" 200 \"* ]]"]
+      test: ["CMD", "/usr/bin/bash", "/opt/in-three/snapchain-healthcheck.sh"]
       interval: 30s
       timeout: 8s
       retries: 10

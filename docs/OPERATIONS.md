@@ -35,17 +35,25 @@ in-three node status
 in-three node logs
 ```
 
-The first sync takes hours. Before the API opens, status shows:
+Allow up to a day for the first sync. The detached snapshot manager fetches fresh metadata separately for shards 0, 1, and 2. Status shows the active shard, verified chunk count, phase, database size, disk use, and recent progress.
 
-- downloaded chunks and percentage
-- current ETA
-- snapshot and database size
-- disk use
-- recent progress
+Leave it running. If a snapshot rotates during download, the manager discards that shard's staging data and retries from fresh metadata. It installs a shard only after every chunk, archive path, and final manifest generation pass validation.
 
-Do not restart Snapchain while it is downloading or extracting the snapshot. Once ready, `node status` reports shard delay. Below 30 seconds is treated as synced.
+`node status` prints every shard. The node is ready only when shard IDs 0, 1, and 2 all have valid heights and delays below 30 seconds.
 
 Investigate before the 2 TiB disk has less than 15% free space.
+
+## Recover one stale shard
+
+Only use recovery when `node status` prints `RECOVERY REQUIRED` and the exact command:
+
+```bash
+in-three node recover --shard 0
+```
+
+Replace `0` only with the shard number shown. Recovery downloads and verifies a current snapshot while the node keeps serving healthy shards. It then stops Snapchain briefly, swaps only that shard, restarts, validates the result, and rolls back on failure. The operation continues on the server if the terminal closes.
+
+Command three detects the same catastrophic state and runs this recovery automatically before requesting a phrase, password, or payment.
 
 ## Finish command three
 
@@ -145,7 +153,8 @@ A new test account also needs the IdGateway price and a small Optimism gas reser
 | What you see | What to do first |
 | --- | --- |
 | API is waiting for bootstrap | Run `node status` and leave the node running |
-| Snapshot size is not changing | Check the chunk count and recent log line |
+| Snapshot generation rotated | Leave it running; the manager refreshes and retries that shard |
+| `RECOVERY REQUIRED` | Run the exact `node recover --shard N` command shown |
 | Snapchain stopped | Run `node logs` and check free disk |
 | Client returns 503 | Check the node, then run `client logs` |
 | Account or app-key setup stopped | Keep `.state/` and rerun `client create` |

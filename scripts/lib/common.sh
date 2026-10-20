@@ -10,6 +10,8 @@ PROOF_DIR="$STATE_DIR/proof"
 PROOF_EVENTS_FILE="$PROOF_DIR/events.jsonl"
 PROOF_JSON_FILE="$PROOF_DIR/latest.json"
 PROOF_REPORT_FILE="$PROOF_DIR/report.md"
+SNAPCHAIN_READY_DELAY_SECONDS="${SNAPCHAIN_READY_DELAY_SECONDS:-30}"
+SNAPCHAIN_RECOVERY_DELAY_SECONDS="${SNAPCHAIN_RECOVERY_DELAY_SECONDS:-604800}"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -22,6 +24,63 @@ note() {
 
 success() {
   printf '\033[1;32m✓\033[0m %s\n' "$*"
+}
+
+snapchain_readiness_json() {
+  local info="$1"
+  jq -ce \
+    --argjson readyThreshold "$SNAPCHAIN_READY_DELAY_SECONDS" \
+    --argjson recoveryThreshold "$SNAPCHAIN_RECOVERY_DELAY_SECONDS" '
+      (if (.shardInfos? | type) == "array" then .shardInfos else [] end) as $reported
+      | [0, 1, 2] as $expected
+      | [
+          $expected[] as $id
+          | ([$reported[]? | select(.shardId == $id)]) as $matches
+          | ($matches[0] // {}) as $shard
+          | {
+              shardId:$id,
+              present:(($matches | length) == 1),
+              maxHeight:(
+                if (($shard.maxHeight? | type) == "number") and $shard.maxHeight >= 0
+                then $shard.maxHeight
+                else null
+                end
+              ),
+              blockDelay:(
+                if (($shard.blockDelay? | type) == "number") and $shard.blockDelay >= 0
+                then $shard.blockDelay
+                else null
+                end
+              )
+            }
+          | . + {
+              ready:(.present and (.maxHeight != null) and (.blockDelay != null) and (.blockDelay < $readyThreshold)),
+              recoveryRecommended:(.present and (.blockDelay != null) and (.blockDelay >= $recoveryThreshold))
+            }
+        ] as $shards
+      | {
+          ready:([$shards[].ready] | all),
+          readyThreshold:$readyThreshold,
+          recoveryThreshold:$recoveryThreshold,
+          missingShards:[$shards[] | select(.present == false) | .shardId],
+          recoveryShards:[$shards[] | select(.recoveryRecommended) | .shardId],
+          shards:$shards
+        }
+    ' <<<"$info"
+}
+
+snapchain_readiness_lines() {
+  local readiness="$1"
+  jq -r '
+    .shards[]
+    | if .present == false then
+        "shard \(.shardId)      MISSING"
+      elif .blockDelay == null or .maxHeight == null then
+        "shard \(.shardId)      INVALID READINESS DATA"
+      else
+        "shard \(.shardId)      delay \(.blockDelay)s | height \(.maxHeight) | \(if .ready then "READY" elif .recoveryRecommended then "RECOVERY REQUIRED" else "CATCHING UP" end)"
+      end
+  ' <<<"$readiness"
 }
 
 require_command() {

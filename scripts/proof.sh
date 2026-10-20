@@ -69,22 +69,30 @@ if [[ -f "$STATE_FILE" ]]; then
 
   info="$(remote "curl -fsS --max-time 10 http://127.0.0.1:3381/v1/info" 2>/dev/null || true)"
   if [[ -n "$info" ]] && jq -e 'type == "object"' <<<"$info" >/dev/null 2>&1; then
-    node_json="$(jq -c --arg at "$generated_at" '{
-      observed:true,
-      observedAt:$at,
-      currentlyReachable:true,
-      version:(.version // "unknown"),
-      numShards:(.numShards // null),
-      dbApproxBytes:(.dbStats.approxSize // null),
-      shardStatus:[
-        (.shardInfos // [])[] |
-        {
-          shardId:(.shardId // null),
-          blockDelay:(.blockDelay // null),
-          maxBlockHeight:(.maxBlockHeight // null)
-        }
-      ]
-    }' <<<"$info")"
+    readiness="$(snapchain_readiness_json "$info" 2>/dev/null || true)"
+    node_json="$(jq -c \
+      --arg at "$generated_at" \
+      --argjson readiness "${readiness:-null}" \
+      '{
+        observed:true,
+        observedAt:$at,
+        currentlyReachable:true,
+        operationallyReady:($readiness.ready // false),
+        expectedShards:[0,1,2],
+        missingShards:($readiness.missingShards // [0,1,2]),
+        recoveryShards:($readiness.recoveryShards // []),
+        version:(.version // "unknown"),
+        numShards:(.numShards // null),
+        dbApproxBytes:(.dbStats.approxSize // null),
+        shardStatus:[
+          (.shardInfos // [])[] |
+          {
+            shardId:(.shardId // null),
+            blockDelay:(.blockDelay // null),
+            maxBlockHeight:(.maxHeight // .maxBlockHeight // null)
+          }
+        ]
+      }' <<<"$info")"
 
     disk_line="$(remote "df -B1 --output=size,used,avail,pcent /srv/in-three | tail -1" 2>/dev/null || true)"
     read -r disk_size disk_used disk_available disk_percent <<<"$disk_line"
@@ -145,7 +153,7 @@ jq -n   --arg generatedAt "$generated_at"   --arg release "$release"   --arg sou
     writes:$writes,
     timeline:$events,
     interpretation:{
-      nodeReady:"Every reported shard must have blockDelay below 30 seconds.",
+      nodeReady:"Shard IDs 0, 1, and 2 must each exist, report valid heights, and have blockDelay below 30 seconds.",
       writeReceipt:"A message hash proves the owned node accepted a signed message for relay; reading it back proves inclusion.",
       redaction:"Cloud tokens, private keys, recovery phrases, passwords, server IDs, IP addresses, and raw environment files are excluded."
     }
