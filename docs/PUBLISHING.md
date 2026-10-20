@@ -28,6 +28,7 @@ npm ci
 npm run check
 npm run build
 npm audit --audit-level=moderate
+npm run render:film
 node scripts/verify-package.mjs
 npm pack --dry-run --ignore-scripts
 
@@ -38,7 +39,7 @@ docker run --rm in-three-operator:test doctor
 node scripts/visual-check.mjs
 ```
 
-Inspect the generated desktop and mobile screenshots.
+Inspect the generated desktop and mobile screenshots. `npm run render:film` rebuilds the 59-second landscape and vertical films plus the poster from `scripts/video/in-three-film.html`; commit those generated media files with their source.
 
 ## Public verification
 

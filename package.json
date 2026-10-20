@@ -63,6 +63,7 @@
     "dev:client": "npm run dev --workspace @in-three/client",
     "dev:site": "npm run dev --workspace @in-three/site",
     "prepack": "npm run build && node scripts/verify-package.mjs",
+    "render:film": "node scripts/render-film.mjs",
     "test": "npm test --workspace @in-three/client",
     "test:scripts": "bash scripts/test/shell.test.sh && bash scripts/test/snapshot-manager.test.sh"
   },

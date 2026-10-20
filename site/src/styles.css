@@ -31,6 +31,16 @@ body {
   overflow-x: hidden;
 }
 
+html[lang="zh-CN"] body {
+  font-family: "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+html[lang="zh-CN"] h1,
+html[lang="zh-CN"] h2,
+html[lang="zh-CN"] h3 {
+  font-family: "Noto Serif CJK SC", "Songti SC", "STSong", serif;
+}
+
 button,
 input {
   font: inherit;
@@ -113,11 +123,51 @@ summary:focus-visible {
   border-bottom-color: var(--purple);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 12px;
+}
+
 .github-link {
   display: inline-flex;
   align-items: center;
-  justify-self: end;
   gap: 7px;
+}
+
+.language-switch {
+  display: grid;
+  height: 34px;
+  grid-template-columns: 26px 38px 46px;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--white);
+}
+
+.language-switch > svg {
+  justify-self: center;
+  color: var(--purple);
+}
+
+.language-switch button {
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.language-switch button.active {
+  background: var(--ink);
+  color: white;
 }
 
 .menu-button {
@@ -276,6 +326,11 @@ summary:focus-visible {
   font-weight: 400;
 }
 
+html[lang="zh-CN"] .hero h1 {
+  font-size: 72px;
+  line-height: 1.02;
+}
+
 .hero-copy > p {
   max-width: 490px;
   margin: 0;
@@ -430,6 +485,107 @@ summary:focus-visible {
   height: 7px;
   border-radius: 50%;
   background: var(--green);
+}
+
+.film-section {
+  padding: 58px max(4vw, calc((100vw - 1280px) / 2)) 42px;
+  border-bottom: 1px solid var(--ink);
+  background: var(--ink);
+  color: white;
+}
+
+.film-heading {
+  display: grid;
+  width: min(1120px, 100%);
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+  align-items: end;
+  gap: 64px;
+  margin: 0 auto 26px;
+}
+
+.film-heading > div {
+  display: grid;
+  gap: 8px;
+}
+
+.film-heading span {
+  color: var(--cyan);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.film-heading h2 {
+  max-width: 680px;
+  margin: 0;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 42px;
+  font-weight: 440;
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.film-heading p {
+  max-width: 500px;
+  margin: 0;
+  color: #c8c3cc;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.film-frame {
+  width: min(1120px, 100%);
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid #5b5561;
+  background: #0e0c10;
+  box-shadow: 12px 12px 0 var(--purple);
+}
+
+.film-frame video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #0e0c10;
+  object-fit: cover;
+}
+
+.film-footer {
+  display: flex;
+  width: min(1120px, 100%);
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 12px auto 0;
+  color: #aaa4ae;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.film-footer span,
+.film-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.film-footer svg {
+  flex: none;
+  color: var(--purple-light);
+}
+
+.film-footer a {
+  min-height: 40px;
+  border-bottom: 1px solid #716a78;
+  color: white;
+  font-weight: 700;
+}
+
+.film-footer a:hover {
+  border-bottom-color: var(--purple-light);
+  color: var(--purple-light);
 }
 
 .plain-facts {
@@ -917,7 +1073,7 @@ summary:focus-visible {
   gap: 12px;
   margin-top: 18px;
   padding: 17px 20px;
-  border-left: 4px solid var(--orange);
+  border-left: 4px solid var(--purple);
   background: #fff1e9;
 }
 
@@ -1001,7 +1157,7 @@ summary:focus-visible {
 
 .safety-note svg {
   flex: none;
-  color: var(--orange);
+  color: var(--purple-light);
 }
 
 .safety-note strong {
@@ -1318,6 +1474,14 @@ summary:focus-visible {
     font-size: 64px;
   }
 
+  html[lang="zh-CN"] .hero h1 {
+    font-size: 58px;
+  }
+
+  .film-heading {
+    gap: 38px;
+  }
+
   .plain-facts {
     grid-template-columns: 1fr 1fr;
   }
@@ -1357,6 +1521,10 @@ summary:focus-visible {
   .site-header nav,
   .github-link {
     display: none;
+  }
+
+  .header-actions {
+    gap: 8px;
   }
 
   .menu-button {
@@ -1407,6 +1575,10 @@ summary:focus-visible {
     font-size: 56px;
   }
 
+  html[lang="zh-CN"] .hero h1 {
+    font-size: 50px;
+  }
+
   .hero-copy > p {
     font-size: 15px;
   }
@@ -1422,6 +1594,23 @@ summary:focus-visible {
 
   .command-console {
     max-width: none;
+  }
+
+  .film-section {
+    padding: 46px 24px 32px;
+  }
+
+  .film-heading {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .film-heading h2 {
+    font-size: 36px;
+  }
+
+  .film-frame {
+    box-shadow: 8px 8px 0 var(--purple);
   }
 
   .console-command {
@@ -1499,6 +1688,15 @@ summary:focus-visible {
     display: none;
   }
 
+  .language-switch {
+    grid-template-columns: 34px 42px;
+    width: 80px;
+  }
+
+  .language-switch > svg {
+    display: none;
+  }
+
   .hero {
     min-height: 580px;
     padding: 24px 18px 30px;
@@ -1506,6 +1704,10 @@ summary:focus-visible {
 
   .hero h1 {
     font-size: 48px;
+  }
+
+  html[lang="zh-CN"] .hero h1 {
+    font-size: 42px;
   }
 
   .hero-actions {
@@ -1555,6 +1757,33 @@ summary:focus-visible {
 
   .command-console > footer {
     min-height: 30px;
+  }
+
+  .film-section {
+    padding: 38px 16px 26px;
+  }
+
+  .film-heading {
+    margin-bottom: 18px;
+  }
+
+  .film-heading h2 {
+    font-size: 30px;
+  }
+
+  .film-heading p {
+    font-size: 11px;
+  }
+
+  .film-frame {
+    box-shadow: 6px 6px 0 var(--purple);
+  }
+
+  .film-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 8px;
   }
 
   .plain-facts {

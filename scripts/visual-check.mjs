@@ -283,6 +283,61 @@ try {
     throw new Error("one or more top package links has the wrong destination");
   }
 
+  const film = sitePage.locator(".film-frame video");
+  if (!(await film.isVisible())) {
+    throw new Error("protocol film is not visible after the three-command hero");
+  }
+  await film.evaluate(async (element) => {
+    if (!(element instanceof HTMLVideoElement) || element.readyState >= 1) return;
+    await new Promise((resolve, reject) => {
+      element.addEventListener("loadedmetadata", resolve, { once: true });
+      element.addEventListener("error", reject, { once: true });
+    });
+  });
+  const filmDetails = await film.evaluate((element) => {
+    if (!(element instanceof HTMLVideoElement)) return null;
+    return {
+      duration: element.duration,
+      poster: element.poster,
+      tracks: element.querySelectorAll("track").length,
+    };
+  });
+  if (
+    !filmDetails ||
+    Math.abs(filmDetails.duration - 59) > 0.1 ||
+    filmDetails.tracks !== 2 ||
+    !filmDetails.poster.endsWith("/in-three-film-poster.webp")
+  ) {
+    throw new Error(`protocol film metadata is wrong: ${JSON.stringify(filmDetails)}`);
+  }
+  const verticalFilmHref = await sitePage
+    .locator('.film-footer a[download]')
+    .getAttribute("href");
+  if (!verticalFilmHref?.endsWith("/in-three-vertical.mp4")) {
+    throw new Error(`vertical film download is missing: ${verticalFilmHref}`);
+  }
+
+  await sitePage.getByRole("button", { name: "中文", exact: true }).click();
+  await sitePage.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  if (
+    (await sitePage.title()) !== "In Three — 三条命令运行 Farcaster" ||
+    new URL(sitePage.url()).searchParams.get("lang") !== "zh" ||
+    !(await sitePage.locator("h1").innerText()).includes("三步搞定")
+  ) {
+    throw new Error("Chinese localization did not update the page, metadata, and URL");
+  }
+  const chineseDefaultTrack = await sitePage
+    .locator(".film-frame video track[default]")
+    .getAttribute("srclang");
+  if (chineseDefaultTrack !== "zh") {
+    throw new Error(`Chinese film captions are not the default: ${chineseDefaultTrack}`);
+  }
+  await sitePage.getByRole("button", { name: "EN", exact: true }).click();
+  await sitePage.waitForFunction(() => document.documentElement.lang === "en");
+  if (new URL(sitePage.url()).searchParams.has("lang")) {
+    throw new Error("English localization did not restore the canonical URL");
+  }
+
   const npmMethod = sitePage.getByRole("button", { name: /npm CLI/ });
   const dockerMethod = sitePage.getByRole("button", { name: /Docker/ });
   if (await npmMethod.getAttribute("aria-pressed") !== "true") {

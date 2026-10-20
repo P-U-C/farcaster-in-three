@@ -1,0 +1,19 @@
+WEBVTT
+
+00:00.000 --> 00:06.500
+In Three takes you from a machine to a working Farcaster client in three commands.
+
+00:06.500 --> 00:18.000
+First, provision a suitable Ubuntu machine you control. In Three checks CPU, memory, SSH, and two terabytes of free disk.
+
+00:18.000 --> 00:32.000
+Second, start Snapchain. Your node restores and syncs all three shards, then keeps them close to network head.
+
+00:32.000 --> 00:46.000
+Third, create the client. Use a fresh test account or import one you trust, then authorize a gasless, revocable app key.
+
+00:46.000 --> 00:55.000
+The client reads from your node and sends signed writes back to it. Your node validates and relays those messages to validators.
+
+00:55.000 --> 00:59.000
+Your machine. Your node. Your client. Farcaster, in three.

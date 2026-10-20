@@ -2,6 +2,7 @@ import {
   ArrowDown,
   ArrowRight,
   BookOpen,
+  Captions,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -13,6 +14,7 @@ import {
   ExternalLink,
   Github,
   KeyRound,
+  Languages,
   Menu,
   Package,
   Server,
@@ -20,7 +22,8 @@ import {
   Terminal,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { messages, type Locale } from "./i18n";
 
 const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
@@ -31,101 +34,120 @@ const RELEASE = `${REPO}/releases/tag/v0.1.24`;
 type InstallMethod = "npm" | "container";
 type TutorialStageId = "compute" | "snapchain" | "client";
 
-const tutorialStages = [
-  {
-    id: "compute",
-    number: "1",
-    label: "COMPUTE",
-    short: "Prepare a machine",
-    command: "in-three provision",
-    title: "Prepare one machine.",
-    description: "Use an Ubuntu host you already control, or add --hetzner. In Three checks CPU, memory, SSH and 2 TB of free disk, then prepares a resumable workspace.",
-    facts: [
-      ["YOU PROVIDE", "Compute + SSH"],
-      ["IN THREE HANDLES", "Checks + setup"],
-      ["RESULT", "A ready host"],
-    ],
-    href: `${DOCS}/docs/OPERATIONS.md`,
-    linkLabel: "Machine details",
-  },
-  {
-    id: "snapchain",
-    number: "2",
-    label: "SNAPCHAIN",
-    short: "Sync the network",
-    command: "in-three node up",
-    title: "Sync Farcaster yourself.",
-    description: "Snapchain syncs protocol state across all three shards. Your client reads from it and sends signed messages to the same node, which validates and relays them to validators. No hosted Farcaster API key.",
-    facts: [
-      ["SNAPCHAIN MESSAGE", "A signed action"],
-      ["READ NODE", "Your local gateway"],
-      ["VALIDATORS", "Order + finalize"],
-    ],
-    href: `${DOCS}/docs/ARCHITECTURE.md`,
-    linkLabel: "Read and write paths",
-  },
-  {
-    id: "client",
-    number: "3",
-    label: "CLIENT",
-    short: "Open the client",
-    command: "in-three client create",
-    title: "Open a working client.",
-    description: "Create a disposable test account with an FID and storage, or import one you trust. In Three then authorizes a gasless, revocable app key for the feed, casts, follows, reactions and source filters.",
-    facts: [
-      ["FID", "Account number"],
-      ["CUSTODY", "Account owner"],
-      ["APP KEY", "Client permission"],
-    ],
-    href: `${DOCS}/docs/ARCHITECTURE.md#account-and-app-key`,
-    linkLabel: "Accounts, keys + storage",
-  },
-] as const;
-
-const setupCommands: Record<InstallMethod, Array<{ number: string; label: string; command: string; detail: string }>> = {
-  npm: [
-    { number: "1", label: "MACHINE", command: "in-three provision", detail: "Connect your machine, or add --hetzner to create one." },
-    { number: "2", label: "SNAPCHAIN", command: "in-three node up", detail: "Start your node. Leave it running during the first sync." },
-    { number: "3", label: "CLIENT", command: "in-three client create", detail: "Create or connect a test account, then open your client." },
-  ],
+const commandValues: Record<InstallMethod, readonly string[]> = {
+  npm: ["in-three provision", "in-three node up", "in-three client create"],
   container: [
-    { number: "1", label: "MACHINE", command: "./in-three-container provision", detail: "Connect your machine, or add --hetzner to create one." },
-    { number: "2", label: "SNAPCHAIN", command: "./in-three-container node up", detail: "Start your node. Leave it running during the first sync." },
-    { number: "3", label: "CLIENT", command: "./in-three-container client create", detail: "Create or connect a test account, then open your client." },
+    "./in-three-container provision",
+    "./in-three-container node up",
+    "./in-three-container client create",
   ],
 };
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.24/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container:
+    "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.24/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
-const navigation = [
-  { id: "start", label: "Start" },
-  { id: "after", label: "After setup" },
-  { id: "help", label: "Help" },
-];
+const tutorialLinks: Record<TutorialStageId, string> = {
+  compute: `${DOCS}/docs/OPERATIONS.md`,
+  snapchain: `${DOCS}/docs/ARCHITECTURE.md`,
+  client: `${DOCS}/docs/ARCHITECTURE.md#account-and-app-key`,
+};
+
+function initialLocale(): Locale {
+  const query = new URLSearchParams(window.location.search).get("lang");
+  if (query === "zh") return "zh";
+  if (query === "en") return "en";
+  return window.localStorage.getItem("in-three-locale") === "zh" ? "zh" : "en";
+}
 
 function openHetznerHelp() {
   const details = document.getElementById("hetzner-help");
-  if (details instanceof HTMLDetailsElement) {
-    details.open = true;
-  }
+  if (details instanceof HTMLDetailsElement) details.open = true;
 }
 
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [installMethod, setInstallMethod] = useState<InstallMethod>("npm");
-  const [tutorialStageId, setTutorialStageId] = useState<TutorialStageId>("compute");
-  const commands = setupCommands[installMethod];
-  const prefix = installMethod === "npm" ? "in-three" : "./in-three-container";
-  const tutorialStage = tutorialStages.find((stage) => stage.id === tutorialStageId) ?? tutorialStages[0];
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+  const [tutorialStageId, setTutorialStageId] =
+    useState<TutorialStageId>("compute");
+  const copy = messages[locale];
+  const prefix =
+    installMethod === "npm" ? "in-three" : "./in-three-container";
+  const commands = copy.commands.map((item, index) => ({
+    ...item,
+    command: commandValues[installMethod][index] ?? "",
+  }));
+  const tutorialStage =
+    copy.tutorial.stages.find((stage) => stage.id === tutorialStageId) ??
+    copy.tutorial.stages[0];
+  const navigation = [
+    { id: "start", label: copy.nav.start },
+    { id: "after", label: copy.nav.after },
+    { id: "help", label: copy.nav.help },
+  ];
+  const factIcons = [
+    <Server size={18} />,
+    <CheckCircle2 size={18} />,
+    <Clock3 size={18} />,
+    <Cloud size={18} />,
+  ];
+  const docIcons = [
+    <BookOpen size={20} />,
+    <ShieldCheck size={20} />,
+    <Server size={20} />,
+    <CheckCircle2 size={20} />,
+    <Terminal size={20} />,
+  ];
+  const docHrefs = [
+    `${DOCS}/docs/OPERATIONS.md`,
+    `${DOCS}/SECURITY.md`,
+    `${DOCS}/docs/ARCHITECTURE.md`,
+    `${DOCS}/docs/PROOF.md`,
+    `${DOCS}/docs/README.md`,
+  ];
+
+  useEffect(() => {
+    document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+    document.title = copy.meta.title;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute("content", copy.meta.description);
+    document
+      .querySelector('meta[property="og:title"]')
+      ?.setAttribute("content", copy.meta.title);
+    document
+      .querySelector('meta[property="og:description"]')
+      ?.setAttribute("content", copy.meta.description);
+    document
+      .querySelector('meta[name="twitter:title"]')
+      ?.setAttribute("content", copy.meta.title);
+    document
+      .querySelector('meta[name="twitter:description"]')
+      ?.setAttribute("content", copy.meta.description);
+  }, [copy.meta.description, copy.meta.title, locale]);
+
+  function changeLocale(nextLocale: Locale) {
+    setLocale(nextLocale);
+    window.localStorage.setItem("in-three-locale", nextLocale);
+    const url = new URL(window.location.href);
+    if (nextLocale === "en") url.searchParams.delete("lang");
+    else url.searchParams.set("lang", nextLocale);
+    window.history.replaceState({}, "", url);
+  }
 
   function moveTutorialFocus(currentIndex: number, direction: -1 | 1) {
-    const nextIndex = (currentIndex + direction + tutorialStages.length) % tutorialStages.length;
-    const nextStage = tutorialStages[nextIndex] ?? tutorialStages[0];
+    const nextIndex =
+      (currentIndex + direction + copy.tutorial.stages.length) %
+      copy.tutorial.stages.length;
+    const nextStage =
+      copy.tutorial.stages[nextIndex] ?? copy.tutorial.stages[0];
     setTutorialStageId(nextStage.id);
-    window.requestAnimationFrame(() => document.getElementById(`tutorial-tab-${nextStage.id}`)?.focus());
+    window.requestAnimationFrame(() =>
+      document.getElementById(`tutorial-tab-${nextStage.id}`)?.focus(),
+    );
   }
 
   return (
@@ -135,25 +157,70 @@ export function App() {
           <img src="./profile.svg" alt="" width="36" height="36" />
           <strong>IN THREE</strong>
         </a>
-        <nav aria-label="Main navigation">
-          {navigation.map((item) => <a key={item.id} href={`#${item.id}`}>{item.label}</a>)}
+        <nav aria-label={copy.nav.mainLabel}>
+          {navigation.map((item) => (
+            <a key={item.id} href={`#${item.id}`}>
+              {item.label}
+            </a>
+          ))}
         </nav>
-        <a className="github-link" href={REPO} target="_blank" rel="noreferrer">
-          <Github size={17} />
-          <span>Source</span>
-        </a>
-        <button className="menu-button" type="button" title="Open menu" onClick={() => setMenuOpen(true)}>
-          <Menu size={21} />
-        </button>
+        <div className="header-actions">
+          <LanguageSwitch
+            locale={locale}
+            onChange={changeLocale}
+            label={copy.language.label}
+            english={copy.language.english}
+            chinese={copy.language.chinese}
+          />
+          <a
+            className="github-link"
+            href={REPO}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Github size={17} />
+            <span>{copy.nav.source}</span>
+          </a>
+          <button
+            className="menu-button"
+            type="button"
+            title={copy.nav.openMenu}
+            onClick={() => setMenuOpen(true)}
+          >
+            <Menu size={21} />
+          </button>
+        </div>
       </header>
 
-      <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">GET <b>v0.1.24</b></span>
+      <nav className="package-bar" aria-label={copy.nav.packagesLabel}>
+        <span className="package-bar-label">
+          {copy.packages.get} <b>v0.1.24</b>
+        </span>
         <div className="package-links">
-          <PackageLink icon={<Package size={14} />} label="npm" detail="recommended" href={NPM_PACKAGE} />
-          <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
-          <PackageLink icon={<Download size={14} />} label="Release" detail="checksummed" href={RELEASE} />
-          <PackageLink icon={<Github size={14} />} label="Source" detail="MIT" href={REPO} />
+          <PackageLink
+            icon={<Package size={14} />}
+            label="npm"
+            detail={copy.packages.npmDetail}
+            href={NPM_PACKAGE}
+          />
+          <PackageLink
+            icon={<Container size={14} />}
+            label="Docker"
+            detail={copy.packages.dockerDetail}
+            href={CONTAINER_PACKAGE}
+          />
+          <PackageLink
+            icon={<Download size={14} />}
+            label="Release"
+            detail={copy.packages.releaseDetail}
+            href={RELEASE}
+          />
+          <PackageLink
+            icon={<Github size={14} />}
+            label={copy.nav.source}
+            detail={copy.packages.sourceDetail}
+            href={REPO}
+          />
         </div>
       </nav>
 
@@ -161,14 +228,28 @@ export function App() {
         <div className="mobile-menu">
           <header>
             <span>IN THREE</span>
-            <button type="button" title="Close menu" onClick={() => setMenuOpen(false)}><X size={20} /></button>
+            <button
+              type="button"
+              title={copy.nav.closeMenu}
+              onClick={() => setMenuOpen(false)}
+            >
+              <X size={20} />
+            </button>
           </header>
           {navigation.map((item) => (
-            <a key={item.id} href={`#${item.id}`} onClick={() => setMenuOpen(false)}>
-              {item.label}<ChevronRight size={18} />
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              onClick={() => setMenuOpen(false)}
+            >
+              {item.label}
+              <ChevronRight size={18} />
             </a>
           ))}
-          <a href={REPO} target="_blank" rel="noreferrer">Source<ExternalLink size={16} /></a>
+          <a href={REPO} target="_blank" rel="noreferrer">
+            {copy.nav.source}
+            <ExternalLink size={16} />
+          </a>
         </div>
       )}
 
@@ -177,48 +258,126 @@ export function App() {
           <div className="hero-copy">
             <div className="release-line">
               <img src="./profile.svg" alt="" width="54" height="54" />
-              <span>THE THREE-COMMAND FARCASTER TUTORIAL</span>
+              <span>{copy.hero.eyebrow}</span>
             </div>
-            <h1>Farcaster,<br /><em>in three.</em></h1>
-            <p>Run a Snapchain node and browser client from your own machine in three commands. Reads and signed writes go through your node. No hosted Farcaster data API.</p>
+            <h1>
+              {copy.hero.titleLead}
+              <br />
+              <em>{copy.hero.titleAccent}</em>
+            </h1>
+            <p>{copy.hero.body}</p>
             <div className="hero-actions">
-              <a className="primary-link" href="#start">Run the three <ArrowDown size={17} /></a>
-              <a className="text-link" href={REPO} target="_blank" rel="noreferrer">View source <ArrowRight size={16} /></a>
+              <a className="primary-link" href="#start">
+                {copy.hero.primary} <ArrowDown size={17} />
+              </a>
+              <a
+                className="text-link"
+                href={REPO}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {copy.hero.secondary} <ArrowRight size={16} />
+              </a>
             </div>
           </div>
 
-          <div className="command-console" aria-label="The three setup commands">
+          <div
+            className="command-console"
+            aria-label={copy.hero.consoleLabel}
+          >
             <header>
-              <span>~/in-three-node</span>
-              <b>3 COMMANDS</b>
+              <span>{copy.hero.consolePath}</span>
+              <b>{copy.hero.consoleLabel}</b>
             </header>
-            {commands.map((item) => <Command key={item.number} {...item} />)}
+            {commands.map((item) => (
+              <Command
+                key={item.number}
+                {...item}
+                copyLabel={copy.ui.copyCommand}
+                copiedLabel={copy.ui.copied}
+              />
+            ))}
             <footer>
-              <span><i /> YOUR NODE</span>
-              <span>YOUR CLIENT</span>
+              <span>
+                <i /> {copy.hero.node}
+              </span>
+              <span>{copy.hero.client}</span>
             </footer>
           </div>
         </section>
 
-        <section className="plain-facts" aria-label="Before you begin">
-          <div><Server size={18} /><span><b>Bring your machine</b><small>Use an Ubuntu host with 2 TB free.</small></span></div>
-          <div><CheckCircle2 size={18} /><span><b>No account needed</b><small>Step 3 can create a test account.</small></span></div>
-          <div><Clock3 size={18} /><span><b>Allow up to a day</b><small>The first sync runs unattended.</small></span></div>
-          <div><Cloud size={18} /><span><b>Hetzner is optional</b><small>Add --hetzner to create a machine.</small></span></div>
+        <section className="film-section" aria-labelledby="film-title">
+          <div className="film-heading">
+            <div>
+              <span>{copy.film.eyebrow}</span>
+              <h2 id="film-title">{copy.film.title}</h2>
+            </div>
+            <p>{copy.film.body}</p>
+          </div>
+          <div className="film-frame">
+            <video
+              key={locale}
+              controls
+              playsInline
+              preload="metadata"
+              poster="./in-three-film-poster.webp"
+              aria-label={copy.film.playLabel}
+            >
+              <source src="./in-three-film.mp4" type="video/mp4" />
+              <track
+                default={locale === "en"}
+                kind="captions"
+                src="./in-three-film.en.vtt"
+                srcLang="en"
+                label="English"
+              />
+              <track
+                default={locale === "zh"}
+                kind="captions"
+                src="./in-three-film.zh.vtt"
+                srcLang="zh"
+                label="中文"
+              />
+            </video>
+          </div>
+          <div className="film-footer">
+            <span>
+              <Captions size={17} /> {copy.film.caption}
+            </span>
+            <a href="./in-three-vertical.mp4" download>
+              <Download size={16} /> {copy.film.vertical}
+            </a>
+          </div>
+        </section>
+
+        <section className="plain-facts" aria-label={copy.start.eyebrow}>
+          {copy.facts.map((fact, index) => (
+            <div key={fact.title}>
+              {factIcons[index]}
+              <span>
+                <b>{fact.title}</b>
+                <small>{fact.detail}</small>
+              </span>
+            </div>
+          ))}
         </section>
 
         <section className="tutorial-map" aria-labelledby="tutorial-map-title">
           <div className="tutorial-map-inner">
             <header className="tutorial-map-heading">
               <div>
-                <span>THE TUTORIAL</span>
-                <h2 id="tutorial-map-title">What each command does.</h2>
+                <span>{copy.tutorial.eyebrow}</span>
+                <h2 id="tutorial-map-title">{copy.tutorial.title}</h2>
               </div>
-              <p>The quickstart stays short. This is the protocol underneath it.</p>
+              <p>{copy.tutorial.intro}</p>
             </header>
 
-            <div className="tutorial-tabs" role="tablist" aria-label="Three-command tutorial">
-              {tutorialStages.map((stage, index) => {
+            <div
+              className="tutorial-tabs"
+              role="tablist"
+              aria-label={copy.tutorial.tabLabel}
+            >
+              {copy.tutorial.stages.map((stage, index) => {
                 const selected = stage.id === tutorialStageId;
                 return (
                   <button
@@ -243,8 +402,13 @@ export function App() {
                     }}
                   >
                     <b>{stage.number}</b>
-                    <span><strong>{stage.label}</strong><small>{stage.short}</small></span>
-                    {index < tutorialStages.length - 1 && <ArrowRight size={15} aria-hidden="true" />}
+                    <span>
+                      <strong>{stage.label}</strong>
+                      <small>{stage.short}</small>
+                    </span>
+                    {index < copy.tutorial.stages.length - 1 && (
+                      <ArrowRight size={15} aria-hidden="true" />
+                    )}
                   </button>
                 );
               })}
@@ -253,7 +417,7 @@ export function App() {
             <div
               className="tutorial-panel"
               id="tutorial-stage-panel"
-              key={tutorialStage.id}
+              key={`${locale}-${tutorialStage.id}`}
               role="tabpanel"
               aria-labelledby={`tutorial-tab-${tutorialStage.id}`}
             >
@@ -261,13 +425,20 @@ export function App() {
                 <code>{tutorialStage.command}</code>
                 <h3>{tutorialStage.title}</h3>
                 <p>{tutorialStage.description}</p>
-                <a href={tutorialStage.href} target="_blank" rel="noreferrer">
+                <a
+                  href={tutorialLinks[tutorialStage.id]}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {tutorialStage.linkLabel} <ArrowRight size={15} />
                 </a>
               </div>
               <dl>
                 {tutorialStage.facts.map(([term, detail]) => (
-                  <div key={term}><dt>{term}</dt><dd>{detail}</dd></div>
+                  <div key={term}>
+                    <dt>{term}</dt>
+                    <dd>{detail}</dd>
+                  </div>
                 ))}
               </dl>
             </div>
@@ -276,19 +447,36 @@ export function App() {
 
         <section className="start section" id="start">
           <div className="section-intro">
-            <span>START HERE</span>
-            <h2>Install once. Run three.</h2>
+            <span>{copy.start.eyebrow}</span>
+            <h2>{copy.start.title}</h2>
             <p>
-              Use a machine you already own.{" "}
-              <a className="hetzner-jump" href="#hetzner-help" onClick={openHetznerHelp}>
-                Add <strong><code>--hetzner</code></strong> if you want In Three to create one.
+              {copy.start.body}{" "}
+              <a
+                className="hetzner-jump"
+                href="#hetzner-help"
+                onClick={openHetznerHelp}
+              >
+                {locale === "en" ? (
+                  <>
+                    Add <strong><code>--hetzner</code></strong> if you want In
+                    Three to create one.
+                  </>
+                ) : (
+                  <>
+                    如果希望 In Three 自动创建机器，请添加{" "}
+                    <strong><code>--hetzner</code></strong>。
+                  </>
+                )}
               </a>
             </p>
           </div>
 
           <div className="install-method-picker">
-            <span>RUN WITH</span>
-            <div className="install-method-switch" aria-label="Installation method">
+            <span>{copy.start.runWith}</span>
+            <div
+              className="install-method-switch"
+              aria-label={copy.start.methodLabel}
+            >
               <button
                 className={installMethod === "npm" ? "active" : ""}
                 type="button"
@@ -296,7 +484,10 @@ export function App() {
                 onClick={() => setInstallMethod("npm")}
               >
                 <Package size={17} />
-                <span><b>npm CLI</b><small>Node.js 22+</small></span>
+                <span>
+                  <b>{copy.start.npmName}</b>
+                  <small>{copy.start.npmDetail}</small>
+                </span>
               </button>
               <button
                 className={installMethod === "container" ? "active" : ""}
@@ -305,22 +496,39 @@ export function App() {
                 onClick={() => setInstallMethod("container")}
               >
                 <Container size={17} />
-                <span><b>Docker</b><small>isolated package</small></span>
+                <span>
+                  <b>{copy.start.dockerName}</b>
+                  <small>{copy.start.dockerDetail}</small>
+                </span>
               </button>
             </div>
           </div>
 
           <div className="install-block">
-            <span>INSTALL AND CHECK</span>
-            <CodeBlock code={installCommands[installMethod]} />
-            <p>Continue when you see <code>All checks passed.</code></p>
+            <span>{copy.start.install}</span>
+            <CodeBlock
+              code={installCommands[installMethod]}
+              copyLabel={copy.ui.copyCommand}
+              copiedLabel={copy.ui.copied}
+            />
+            <p>
+              {copy.start.continueLead}{" "}
+              <code>{copy.start.passed}</code>
+            </p>
           </div>
 
           <div className="three-steps">
             {commands.map((item) => (
               <article key={item.number}>
-                <header><b>{item.number}</b><span>{item.label}</span></header>
-                <CodeBlock code={item.command} />
+                <header>
+                  <b>{item.number}</b>
+                  <span>{item.label}</span>
+                </header>
+                <CodeBlock
+                  code={item.command}
+                  copyLabel={copy.ui.copyCommand}
+                  copiedLabel={copy.ui.copied}
+                />
                 <p>{item.detail}</p>
               </article>
             ))}
@@ -328,30 +536,40 @@ export function App() {
 
           <div className="keep-note">
             <Terminal size={20} />
-            <p><b>Keep this folder.</b> If setup pauses, rerun the same command from here. In Three resumes instead of starting over.</p>
+            <p>
+              <b>{copy.start.keepTitle}</b> {copy.start.keepBody}
+            </p>
           </div>
         </section>
 
         <section className="guided section-band">
           <div className="section">
             <div className="section-intro light">
-              <span>STEP 3</span>
-              <h2>Your Farcaster account is handled in step 3.</h2>
-              <p>Choose <code>CREATE</code>. In Three makes a fresh test account before opening the client.</p>
+              <span>{copy.guided.eyebrow}</span>
+              <h2>{copy.guided.title}</h2>
+              <p>
+                {copy.guided.bodyLead} <code>CREATE</code>.{" "}
+                {copy.guided.bodyTail}
+              </p>
             </div>
 
             <ol className="guided-steps">
-              <li><b>1</b><span><strong>Press Enter</strong><small>CREATE is already selected.</small></span></li>
-              <li><b>2</b><span><strong>Choose a password</strong><small>Your recovery kit stays encrypted on this machine.</small></span></li>
-              <li><b>3</b><span><strong>Send the quoted OP ETH</strong><small>Use the address and amount shown on screen.</small></span></li>
-              <li><b>4</b><span><strong>Continue</strong><small>In Three registers the account and deploys your client.</small></span></li>
+              {copy.guided.steps.map(([title, detail], index) => (
+                <li key={title}>
+                  <b>{index + 1}</b>
+                  <span>
+                    <strong>{title}</strong>
+                    <small>{detail}</small>
+                  </span>
+                </li>
+              ))}
             </ol>
 
             <div className="safety-note">
               <KeyRound size={22} />
               <div>
-                <strong>Use a new test account.</strong>
-                <p>The server gets a revocable app key, not your recovery phrase. The app key can post, follow, react, and edit the profile. It cannot move funds.</p>
+                <strong>{copy.guided.safetyTitle}</strong>
+                <p>{copy.guided.safetyBody}</p>
               </div>
             </div>
           </div>
@@ -359,124 +577,332 @@ export function App() {
 
         <section className="after section" id="after">
           <div className="section-intro">
-            <span>AFTER SETUP</span>
-            <h2>Open the URL. Make a cast.</h2>
-            <p>Command 3 prints the private client URL and your next action.</p>
+            <span>{copy.after.eyebrow}</span>
+            <h2>{copy.after.title}</h2>
+            <p>{copy.after.body}</p>
           </div>
 
           <div className="after-layout">
             <ol>
-              <li><b>1</b><p>Open the HTTPS URL and sign in.</p></li>
-              <li><b>2</b><p>Publish a test cast.</p></li>
-              <li><b>3</b><p>Read it back from your node.</p></li>
+              {copy.after.steps.map((step, index) => (
+                <li key={step}>
+                  <b>{index + 1}</b>
+                  <p>{step}</p>
+                </li>
+              ))}
             </ol>
             <figure>
-              <img src="./client-preview.webp" alt="Illustrative preview of the In Three Farcaster client" />
-              <figcaption>Illustrative client preview. Shown profiles and casts are synthetic.</figcaption>
+              <img
+                src="./client-preview.webp"
+                alt={copy.after.previewAlt}
+              />
+              <figcaption>{copy.after.previewCaption}</figcaption>
             </figure>
           </div>
 
           <div className="finish-strip">
-            <div><Server size={20} /><span><b>Check the node</b><code>{prefix} node status</code></span></div>
-            <div><Download size={20} /><span><b>Save a receipt</b><code>{prefix} proof</code></span></div>
-            <div><X size={20} /><span><b>Stop the bill</b><code>{prefix} destroy</code></span></div>
+            {copy.after.finish.map(([title, command], index) => {
+              const Icon = [Server, Download, X][index] ?? Server;
+              return (
+                <div key={title}>
+                  <Icon size={20} />
+                  <span>
+                    <b>{title}</b>
+                    <code>
+                      {prefix} {command}
+                    </code>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </section>
 
         <section className="help section" id="help">
           <div className="section-intro">
-            <h2>FAQ</h2>
+            <h2>{copy.help.title}</h2>
           </div>
 
           <div className="quick-answers">
-            <Details id="hetzner-help" question="I need a Hetzner machine.">
+            <Details id="hetzner-help" question={copy.help.hetznerQuestion}>
               <ol>
-                <li><a href="https://console.hetzner.cloud/" target="_blank" rel="noreferrer">Create a Hetzner account and an empty project.</a></li>
-                <li>Open <b>Security → API tokens</b>. Generate a <b>Read &amp; Write</b> token and copy it.</li>
-                <li>Open your account <b>Limits</b>, choose <b>Request change → Limit increase</b>, and request at least <b>2,048 GiB</b> of total Volume storage.</li>
-                <li>Run <code>{prefix} provision --hetzner</code> and paste the token when asked.</li>
+                {copy.help.hetznerSteps.map((step, index) => (
+                  <li key={step}>
+                    {index === 0 ? (
+                      <a
+                        href="https://console.hetzner.cloud/"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {step}
+                      </a>
+                    ) : index === 3 ? (
+                      <>
+                        {copy.help.hetznerSteps[3].split("provision --hetzner")[0]}
+                        <code>{prefix} provision --hetzner</code>
+                        {copy.help.hetznerSteps[3].split("provision --hetzner")[1]}
+                      </>
+                    ) : (
+                      step
+                    )}
+                  </li>
+                ))}
               </ol>
-              <p><a href="https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/" target="_blank" rel="noreferrer">API-token guide</a> · <a href="https://docs.hetzner.com/cloud/general/faq/#are-there-limits-to-the-number-of-resources-i-can-get" target="_blank" rel="noreferrer">quota guide</a></p>
+              <p>
+                <a
+                  href="https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {copy.help.apiGuide}
+                </a>{" "}
+                ·{" "}
+                <a
+                  href="https://docs.hetzner.com/cloud/general/faq/#are-there-limits-to-the-number-of-resources-i-can-get"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {copy.help.quotaGuide}
+                </a>
+              </p>
             </Details>
-            <Details question="The node says it is still syncing.">
-              Leave it running and check <code>{prefix} node status</code>. Ready means all three shards are within 30 seconds. If it prints <code>RECOVERY REQUIRED</code>, run the exact recovery command shown; step 3 can also repair it before account setup.
+            <Details question={copy.help.syncingQuestion}>
+              {copy.help.syncingLead} <code>{prefix} node status</code>.{" "}
+              {copy.help.syncingMiddle} <code>RECOVERY REQUIRED</code>,{" "}
+              {copy.help.syncingTail}
             </Details>
-            <Details question="Step 3 stopped.">
-              Keep the folder and rerun <code>{prefix} client create</code>. Signed recovery data is saved before broadcast.
+            <Details question={copy.help.stoppedQuestion}>
+              {copy.help.stoppedLead}{" "}
+              <code>{prefix} client create</code>. {copy.help.stoppedTail}
             </Details>
-            <Details question="I want Docker instead.">
-              Select Docker above. For your own machine, put a dedicated SSH key in this folder and pass <code>--ssh-key /work/node-key</code> in step 1.
+            <Details question={copy.help.dockerQuestion}>
+              {locale === "en" ? (
+                <>
+                  Select Docker above. For your own machine, put a dedicated SSH
+                  key in this folder and pass{" "}
+                  <code>--ssh-key /work/node-key</code> in step 1.
+                </>
+              ) : (
+                <>
+                  请在上方选择 Docker。使用自己的机器时，把专用 SSH
+                  密钥放进这个目录，并在第 1 步传入{" "}
+                  <code>--ssh-key /work/node-key</code>。
+                </>
+              )}
             </Details>
-            <Details question="I want agent or x402 access.">
-              Finish the normal browser setup first, then use the separate advanced agent guide.
+            <Details question={copy.help.agentQuestion}>
+              {copy.help.agentBody}
             </Details>
           </div>
 
           <div className="docs-list">
-            <DocLink icon={<BookOpen size={20} />} title="Operations" detail="Sync, recovery, upgrades, and teardown" href={`${DOCS}/docs/OPERATIONS.md`} />
-            <DocLink icon={<ShieldCheck size={20} />} title="Security" detail="Keys, recovery files, and exposure" href={`${DOCS}/SECURITY.md`} />
-            <DocLink icon={<Server size={20} />} title="Architecture" detail="How reads and writes move" href={`${DOCS}/docs/ARCHITECTURE.md`} />
-            <DocLink icon={<CheckCircle2 size={20} />} title="Proof" detail="Receipts and verification status" href={`${DOCS}/docs/PROOF.md`} />
-            <DocLink icon={<Terminal size={20} />} title="All documentation" detail="Advanced and contributor references" href={`${DOCS}/docs/README.md`} />
+            {copy.help.docs.map(([title, detail], index) => (
+              <DocLink
+                key={title}
+                icon={docIcons[index]}
+                title={title}
+                detail={detail}
+                href={docHrefs[index] ?? DOCS}
+              />
+            ))}
           </div>
         </section>
 
         <section className="final-cta">
           <img src="./profile.svg" alt="" width="58" height="58" />
           <div>
-            <span>READY?</span>
-            <h2>Run the three.</h2>
+            <span>{copy.final.eyebrow}</span>
+            <h2>{copy.final.title}</h2>
           </div>
-          <a href="#start">Start <ArrowRight size={18} /></a>
+          <a href="#start">
+            {copy.final.action} <ArrowRight size={18} />
+          </a>
         </section>
       </main>
 
       <footer className="site-footer">
         <span>IN THREE</span>
-        <p>Built by Permanent Upper Class.</p>
-        <a href={REPO} target="_blank" rel="noreferrer">MIT source <ExternalLink size={13} /></a>
+        <p>{copy.footer.built}</p>
+        <a href={REPO} target="_blank" rel="noreferrer">
+          {copy.footer.source} <ExternalLink size={13} />
+        </a>
       </footer>
     </>
   );
 }
 
-function Command({ number, label, command }: { number: string; label: string; command: string }) {
+function LanguageSwitch({
+  locale,
+  onChange,
+  label,
+  english,
+  chinese,
+}: {
+  locale: Locale;
+  onChange: (locale: Locale) => void;
+  label: string;
+  english: string;
+  chinese: string;
+}) {
+  return (
+    <div className="language-switch" role="group" aria-label={label}>
+      <Languages size={15} aria-hidden="true" />
+      <button
+        type="button"
+        aria-pressed={locale === "en"}
+        className={locale === "en" ? "active" : ""}
+        onClick={() => onChange("en")}
+      >
+        {english}
+      </button>
+      <button
+        type="button"
+        aria-pressed={locale === "zh"}
+        className={locale === "zh" ? "active" : ""}
+        onClick={() => onChange("zh")}
+      >
+        {chinese}
+      </button>
+    </div>
+  );
+}
+
+function Command({
+  number,
+  label,
+  command,
+  copyLabel,
+  copiedLabel,
+}: {
+  number: string;
+  label: string;
+  command: string;
+  copyLabel: string;
+  copiedLabel: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="console-command">
       <span className="command-number">{number}</span>
-      <div><small>{label}</small><code><i>$</i> {command}</code></div>
-      <button type="button" title={`Copy ${label.toLowerCase()} command`} onClick={async () => {
-        await navigator.clipboard.writeText(command);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1500);
-      }}>{copied ? <Check size={16} /> : <Clipboard size={16} />}</button>
+      <div>
+        <small>{label}</small>
+        <code>
+          <i>$</i> {command}
+        </code>
+      </div>
+      <button
+        type="button"
+        title={copied ? copiedLabel : `${copyLabel}: ${label}`}
+        onClick={async () => {
+          await navigator.clipboard.writeText(command);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        }}
+      >
+        {copied ? <Check size={16} /> : <Clipboard size={16} />}
+      </button>
     </div>
   );
 }
 
-function CodeBlock({ code }: { code: string }) {
+function CodeBlock({
+  code,
+  copyLabel,
+  copiedLabel,
+}: {
+  code: string;
+  copyLabel: string;
+  copiedLabel: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="code-block">
       <code>{code}</code>
-      <button type="button" title="Copy command" onClick={async () => {
-        await navigator.clipboard.writeText(code);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1400);
-      }}>{copied ? <Check size={16} /> : <Clipboard size={16} />}</button>
+      <button
+        type="button"
+        title={copied ? copiedLabel : copyLabel}
+        onClick={async () => {
+          await navigator.clipboard.writeText(code);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1400);
+        }}
+      >
+        {copied ? <Check size={16} /> : <Clipboard size={16} />}
+      </button>
     </div>
   );
 }
 
-function PackageLink({ icon, label, detail, href }: { icon: React.ReactNode; label: string; detail: string; href: string }) {
-  return <a className="package-pill" href={href} target="_blank" rel="noreferrer">{icon}<b>{label}</b><small>{detail}</small><ExternalLink size={12} /></a>;
+function PackageLink({
+  icon,
+  label,
+  detail,
+  href,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  detail: string;
+  href: string;
+}) {
+  return (
+    <a
+      className="package-pill"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {icon}
+      <b>{label}</b>
+      <small>{detail}</small>
+      <ExternalLink size={12} />
+    </a>
+  );
 }
 
-function Details({ id, question, children }: { id?: string; question: string; children: React.ReactNode }) {
-  return <details id={id}><summary>{question}<span>+</span></summary><div className="details-body">{children}</div></details>;
+function Details({
+  id,
+  question,
+  children,
+}: {
+  id?: string;
+  question: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details id={id}>
+      <summary>
+        {question}
+        <span>+</span>
+      </summary>
+      <div className="details-body">{children}</div>
+    </details>
+  );
 }
 
-function DocLink({ icon, title, detail, href }: { icon: React.ReactNode; title: string; detail: string; href: string }) {
-  return <a className="doc-link" href={href} target="_blank" rel="noreferrer">{icon}<span><strong>{title}</strong><small>{detail}</small></span><ArrowRight size={16} /></a>;
+function DocLink({
+  icon,
+  title,
+  detail,
+  href,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  detail: string;
+  href: string;
+}) {
+  return (
+    <a
+      className="doc-link"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {icon}
+      <span>
+        <strong>{title}</strong>
+        <small>{detail}</small>
+      </span>
+      <ArrowRight size={16} />
+    </a>
+  );
 }

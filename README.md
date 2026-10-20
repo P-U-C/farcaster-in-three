@@ -2,7 +2,9 @@
 
 A three-command developer tutorial for running a Snapchain node and browser client from your own machine. Reads and writes go through your node, with no hosted Farcaster data API.
 
-[Website](https://farcaster.permanentupperclass.com/) | [npm](https://www.npmjs.com/package/farcaster-in-three) | [Docker](https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three) | [Source](https://github.com/P-U-C/farcaster-in-three)
+[Website](https://farcaster.permanentupperclass.com/) | [中文教程](https://farcaster.permanentupperclass.com/?lang=zh) | [npm](https://www.npmjs.com/package/farcaster-in-three) | [Docker](https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three) | [Source](https://github.com/P-U-C/farcaster-in-three)
+
+The website includes a captioned 59-second walkthrough after the three-command quickstart.
 
 ## What you need
 
