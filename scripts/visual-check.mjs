@@ -235,6 +235,30 @@ try {
   ) {
     throw new Error("website hero does not state the owned read/write path");
   }
+  if (!(await sitePage.getByText("THE THREE-COMMAND FARCASTER TUTORIAL").isVisible())) {
+    throw new Error("website hero does not identify In Three as a tutorial");
+  }
+  if (!(await sitePage.getByRole("heading", { name: "What each command does." }).isVisible())) {
+    throw new Error("website tutorial map is missing");
+  }
+  const tutorialTabs = sitePage.locator('.tutorial-tabs [role="tab"]');
+  if (await tutorialTabs.count() !== 3) {
+    throw new Error("tutorial map must have three stages");
+  }
+  if (await tutorialTabs.nth(0).getAttribute("aria-selected") !== "true") {
+    throw new Error("compute must be the default tutorial stage");
+  }
+  await tutorialTabs.nth(1).click();
+  const snapchainTutorial = await sitePage.locator(".tutorial-panel").innerText();
+  if (!snapchainTutorial.includes("relays them to validators") || !snapchainTutorial.includes("No hosted Farcaster API key")) {
+    throw new Error("Snapchain tutorial stage omits the corrected owned-node path");
+  }
+  await tutorialTabs.nth(2).click();
+  const clientTutorial = await sitePage.locator(".tutorial-panel").innerText();
+  if (!clientTutorial.includes("gasless, revocable app key") || !clientTutorial.includes("source filters")) {
+    throw new Error("client tutorial stage omits app-key or filtering behavior");
+  }
+  await tutorialTabs.nth(0).click();
   const packagePills = sitePage.locator(".package-pill");
   if (await packagePills.count() !== 4) {
     throw new Error("site must expose npm, container, release, and source links at the top");
@@ -245,7 +269,7 @@ try {
   const expectedPackageHrefs = [
     "https://www.npmjs.com/package/farcaster-in-three",
     "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three",
-    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.20",
+    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.21",
     "https://github.com/P-U-C/farcaster-in-three",
   ];
   if (expectedPackageHrefs.some((href) => !packageHrefs.includes(href))) {
@@ -323,6 +347,20 @@ try {
       throw new Error(`top package link ${index + 1} is hidden on mobile`);
     }
   }
+  for (let index = 0; index < 3; index += 1) {
+    if (!(await tutorialTabs.nth(index).isVisible())) {
+      throw new Error(`tutorial stage ${index + 1} is hidden on mobile`);
+    }
+  }
+  await tutorialTabs.nth(1).click();
+  if (!(await sitePage.locator(".tutorial-panel").innerText()).includes("relays them to validators")) {
+    throw new Error("Snapchain tutorial stage does not work on mobile");
+  }
+  await tutorialTabs.nth(2).click();
+  if (!(await sitePage.locator(".tutorial-panel").innerText()).includes("gasless, revocable app key")) {
+    throw new Error("client tutorial stage does not work on mobile");
+  }
+  await tutorialTabs.nth(0).click();
   if (!(await npmMethod.isVisible()) || !(await dockerMethod.isVisible())) {
     throw new Error("installation method selector is hidden on mobile");
   }

@@ -472,6 +472,234 @@ summary:focus-visible {
   line-height: 1.4;
 }
 
+.tutorial-map {
+  border-bottom: 1px solid var(--ink);
+  background: var(--paper);
+}
+
+.tutorial-map-inner {
+  width: min(1120px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 52px 0 48px;
+}
+
+.tutorial-map-heading {
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 0.62fr);
+  align-items: end;
+  gap: 48px;
+  margin-bottom: 28px;
+}
+
+.tutorial-map-heading > div {
+  display: grid;
+  gap: 8px;
+}
+
+.tutorial-map-heading span {
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.tutorial-map-heading h2 {
+  margin: 0;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 38px;
+  font-weight: 470;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.tutorial-map-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.tutorial-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--ink);
+  background: var(--white);
+}
+
+.tutorial-tabs button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 72px;
+  grid-template-columns: 30px 1fr 18px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 0;
+  border-right: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.tutorial-tabs button:last-child {
+  border-right: 0;
+}
+
+.tutorial-tabs button > b {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid currentColor;
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+}
+
+.tutorial-tabs button > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.tutorial-tabs strong {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+}
+
+.tutorial-tabs small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tutorial-tabs button > svg {
+  color: var(--line);
+}
+
+.tutorial-tabs button:hover {
+  background: #ece8f2;
+}
+
+.tutorial-tabs button.active {
+  background: var(--ink);
+  color: white;
+}
+
+.tutorial-tabs button.active > b {
+  border-color: var(--purple-light);
+  color: var(--purple-light);
+}
+
+.tutorial-tabs button.active small,
+.tutorial-tabs button.active > svg {
+  color: #c8c3cc;
+}
+
+.tutorial-panel {
+  display: grid;
+  min-height: 198px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
+  align-items: stretch;
+  gap: 56px;
+  padding-top: 28px;
+  animation: tutorial-reveal 220ms ease-out;
+}
+
+.tutorial-panel-copy {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+}
+
+.tutorial-panel-copy > code {
+  padding: 5px 8px;
+  background: var(--purple);
+  color: white;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.tutorial-panel-copy h3 {
+  margin: 12px 0 7px;
+  font-family: "Newsreader Variable", Georgia, serif;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.tutorial-panel-copy p {
+  max-width: 650px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tutorial-panel-copy a {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  border-bottom: 1px solid var(--ink);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.tutorial-panel dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  border-left: 1px solid var(--line);
+}
+
+.tutorial-panel dl > div {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 8px;
+  padding: 18px;
+  border-right: 1px solid var(--line);
+}
+
+.tutorial-panel dl > div:last-child {
+  border-right: 0;
+}
+
+.tutorial-panel dt {
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.tutorial-panel dd {
+  margin: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+@keyframes tutorial-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .section {
   width: min(1120px, calc(100% - 48px));
   margin: 0 auto;
@@ -1200,6 +1428,23 @@ summary:focus-visible {
     min-height: 72px;
   }
 
+  .tutorial-map-heading {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .tutorial-panel {
+    min-height: 280px;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .tutorial-panel dl {
+    min-height: 82px;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
   .section {
     width: min(100% - 36px, 700px);
     padding: 70px 0;
@@ -1327,6 +1572,58 @@ summary:focus-visible {
     border-bottom: 0;
   }
 
+  .tutorial-map-inner {
+    width: calc(100% - 32px);
+    padding: 42px 0 38px;
+  }
+
+  .tutorial-map-heading h2 {
+    font-size: 32px;
+  }
+
+  .tutorial-tabs button {
+    min-height: 70px;
+    grid-template-columns: 24px 1fr;
+    gap: 7px;
+    padding: 9px;
+  }
+
+  .tutorial-tabs button > b {
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
+  }
+
+  .tutorial-tabs button > svg,
+  .tutorial-tabs small {
+    display: none;
+  }
+
+  .tutorial-tabs strong {
+    font-size: 8px;
+  }
+
+  .tutorial-panel {
+    min-height: 326px;
+    padding-top: 22px;
+  }
+
+  .tutorial-panel-copy h3 {
+    font-size: 24px;
+  }
+
+  .tutorial-panel dl > div {
+    padding: 12px 8px;
+  }
+
+  .tutorial-panel dt {
+    font-size: 7px;
+  }
+
+  .tutorial-panel dd {
+    font-size: 9px;
+  }
+
   .section {
     width: calc(100% - 32px);
     padding: 58px 0;
@@ -1424,6 +1721,8 @@ summary:focus-visible {
   *,
   *::before,
   *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

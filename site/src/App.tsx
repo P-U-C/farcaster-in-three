@@ -26,9 +26,61 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.20`;
+const RELEASE = `${REPO}/releases/tag/v0.1.21`;
 
 type InstallMethod = "npm" | "container";
+type TutorialStageId = "compute" | "snapchain" | "client";
+
+const tutorialStages = [
+  {
+    id: "compute",
+    number: "1",
+    label: "COMPUTE",
+    short: "Prepare a machine",
+    command: "in-three provision",
+    title: "Prepare one machine.",
+    description: "Use an Ubuntu host you already control, or add --hetzner. In Three checks CPU, memory, SSH and 2 TB of free disk, then prepares a resumable workspace.",
+    facts: [
+      ["YOU PROVIDE", "Compute + SSH"],
+      ["IN THREE HANDLES", "Checks + setup"],
+      ["RESULT", "A ready host"],
+    ],
+    href: `${DOCS}/docs/OPERATIONS.md`,
+    linkLabel: "Machine details",
+  },
+  {
+    id: "snapchain",
+    number: "2",
+    label: "SNAPCHAIN",
+    short: "Sync the network",
+    command: "in-three node up",
+    title: "Sync Farcaster yourself.",
+    description: "Snapchain syncs protocol state across all three shards. Your client reads from it and sends signed messages to the same node, which validates and relays them to validators. No hosted Farcaster API key.",
+    facts: [
+      ["SNAPCHAIN MESSAGE", "A signed action"],
+      ["READ NODE", "Your local gateway"],
+      ["VALIDATORS", "Order + finalize"],
+    ],
+    href: `${DOCS}/docs/ARCHITECTURE.md`,
+    linkLabel: "Read and write paths",
+  },
+  {
+    id: "client",
+    number: "3",
+    label: "CLIENT",
+    short: "Open the client",
+    command: "in-three client create",
+    title: "Open a working client.",
+    description: "Create a disposable test account with an FID and storage, or import one you trust. In Three then authorizes a gasless, revocable app key for the feed, casts, follows, reactions and source filters.",
+    facts: [
+      ["FID", "Account number"],
+      ["CUSTODY", "Account owner"],
+      ["APP KEY", "Client permission"],
+    ],
+    href: `${DOCS}/docs/ARCHITECTURE.md#account-and-app-key`,
+    linkLabel: "Accounts, keys + storage",
+  },
+] as const;
 
 const setupCommands: Record<InstallMethod, Array<{ number: string; label: string; command: string; detail: string }>> = {
   npm: [
@@ -45,7 +97,7 @@ const setupCommands: Record<InstallMethod, Array<{ number: string; label: string
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.20/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.21/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
 const navigation = [
@@ -64,8 +116,17 @@ function openHetznerHelp() {
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [installMethod, setInstallMethod] = useState<InstallMethod>("npm");
+  const [tutorialStageId, setTutorialStageId] = useState<TutorialStageId>("compute");
   const commands = setupCommands[installMethod];
   const prefix = installMethod === "npm" ? "in-three" : "./in-three-container";
+  const tutorialStage = tutorialStages.find((stage) => stage.id === tutorialStageId) ?? tutorialStages[0];
+
+  function moveTutorialFocus(currentIndex: number, direction: -1 | 1) {
+    const nextIndex = (currentIndex + direction + tutorialStages.length) % tutorialStages.length;
+    const nextStage = tutorialStages[nextIndex] ?? tutorialStages[0];
+    setTutorialStageId(nextStage.id);
+    window.requestAnimationFrame(() => document.getElementById(`tutorial-tab-${nextStage.id}`)?.focus());
+  }
 
   return (
     <>
@@ -87,7 +148,7 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">GET <b>v0.1.20</b></span>
+        <span className="package-bar-label">GET <b>v0.1.21</b></span>
         <div className="package-links">
           <PackageLink icon={<Package size={14} />} label="npm" detail="recommended" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
@@ -116,7 +177,7 @@ export function App() {
           <div className="hero-copy">
             <div className="release-line">
               <img src="./profile.svg" alt="" width="54" height="54" />
-              <span>FARCASTER ON YOUR OWN NODE</span>
+              <span>THE THREE-COMMAND FARCASTER TUTORIAL</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
             <p>Run a Snapchain node and browser client from your own machine in three commands. Reads and signed writes go through your node. No hosted Farcaster data API.</p>
@@ -144,6 +205,73 @@ export function App() {
           <div><CheckCircle2 size={18} /><span><b>No account needed</b><small>Step 3 can create a test account.</small></span></div>
           <div><Clock3 size={18} /><span><b>Allow up to a day</b><small>The first sync runs unattended.</small></span></div>
           <div><Cloud size={18} /><span><b>Hetzner is optional</b><small>Add --hetzner to create a machine.</small></span></div>
+        </section>
+
+        <section className="tutorial-map" aria-labelledby="tutorial-map-title">
+          <div className="tutorial-map-inner">
+            <header className="tutorial-map-heading">
+              <div>
+                <span>THE TUTORIAL</span>
+                <h2 id="tutorial-map-title">What each command does.</h2>
+              </div>
+              <p>The quickstart stays short. This is the protocol underneath it.</p>
+            </header>
+
+            <div className="tutorial-tabs" role="tablist" aria-label="Three-command tutorial">
+              {tutorialStages.map((stage, index) => {
+                const selected = stage.id === tutorialStageId;
+                return (
+                  <button
+                    id={`tutorial-tab-${stage.id}`}
+                    key={stage.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    aria-controls="tutorial-stage-panel"
+                    tabIndex={selected ? 0 : -1}
+                    className={selected ? "active" : ""}
+                    onClick={() => setTutorialStageId(stage.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "ArrowRight") {
+                        event.preventDefault();
+                        moveTutorialFocus(index, 1);
+                      }
+                      if (event.key === "ArrowLeft") {
+                        event.preventDefault();
+                        moveTutorialFocus(index, -1);
+                      }
+                    }}
+                  >
+                    <b>{stage.number}</b>
+                    <span><strong>{stage.label}</strong><small>{stage.short}</small></span>
+                    {index < tutorialStages.length - 1 && <ArrowRight size={15} aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className="tutorial-panel"
+              id="tutorial-stage-panel"
+              key={tutorialStage.id}
+              role="tabpanel"
+              aria-labelledby={`tutorial-tab-${tutorialStage.id}`}
+            >
+              <div className="tutorial-panel-copy">
+                <code>{tutorialStage.command}</code>
+                <h3>{tutorialStage.title}</h3>
+                <p>{tutorialStage.description}</p>
+                <a href={tutorialStage.href} target="_blank" rel="noreferrer">
+                  {tutorialStage.linkLabel} <ArrowRight size={15} />
+                </a>
+              </div>
+              <dl>
+                {tutorialStage.facts.map(([term, detail]) => (
+                  <div key={term}><dt>{term}</dt><dd>{detail}</dd></div>
+                ))}
+              </dl>
+            </div>
+          </div>
         </section>
 
         <section className="start section" id="start">

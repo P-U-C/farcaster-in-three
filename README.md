@@ -1,6 +1,6 @@
 # In Three
 
-Run a Snapchain node and browser client from your own machine in three commands. Reads and writes go through your node, with no hosted Farcaster data API.
+A three-command developer tutorial for running a Snapchain node and browser client from your own machine. Reads and writes go through your node, with no hosted Farcaster data API.
 
 [Website](https://farcaster.permanentupperclass.com/) | [npm](https://www.npmjs.com/package/farcaster-in-three) | [Docker](https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three) | [Source](https://github.com/P-U-C/farcaster-in-three)
 
@@ -83,7 +83,7 @@ On Hetzner, `destroy` deletes the server and volume. On a machine you own, it st
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.20/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.21/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```
