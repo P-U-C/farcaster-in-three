@@ -1,6 +1,6 @@
 {
   "name": "farcaster-in-three",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "A three-command tutorial for running your own Farcaster Snapchain node and client.",
   "keywords": [
     "farcaster",

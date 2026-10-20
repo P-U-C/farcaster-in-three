@@ -5,15 +5,21 @@ import type { AddressInfo } from "node:net";
 import { Message, UserDataType } from "../src/farcaster-sdk.js";
 import { FarcasterWriter } from "../src/protocol.js";
 
-test("cast messages are protobuf encoded and relayed through the owned read node", async (context) => {
-  let received = Buffer.alloc(0);
+test("cast messages are relayed with a fresh timestamp for every write", async (context) => {
+  const received: Buffer[] = [];
   let contentType = "";
+  let now = Date.UTC(2026, 9, 20, 6, 0, 0);
+  const originalNow = Date.now;
+  Date.now = () => now;
+  context.after(() => {
+    Date.now = originalNow;
+  });
   const server = createServer((request, response) => {
     contentType = request.headers["content-type"] ?? "";
     const chunks: Buffer[] = [];
     request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
     request.on("end", () => {
-      received = Buffer.concat(chunks);
+      received.push(Buffer.concat(chunks));
       response.setHeader("content-type", "application/json");
       response.end('{"accepted":true}');
     });
@@ -35,12 +41,19 @@ test("cast messages are protobuf encoded and relayed through the owned read node
     cookieSecure: false,
   });
 
-  const result = await writer.cast({ text: "A cast from my own node." });
-  assert.equal(result.node, `http://127.0.0.1:${port}`);
-  assert.equal(result.relay, "accepted");
-  assert.match(result.hash, /^0x[0-9a-f]{40}$/);
+  const first = await writer.cast({ text: "A cast from my own node." });
+  now += 1_000;
+  const second = await writer.cast({ text: "Another cast one second later." });
+
+  assert.equal(first.node, `http://127.0.0.1:${port}`);
+  assert.equal(first.relay, "accepted");
+  assert.match(first.hash, /^0x[0-9a-f]{40}$/);
+  assert.match(second.hash, /^0x[0-9a-f]{40}$/);
   assert.equal(contentType, "application/octet-stream");
-  assert.ok(received.length > 80);
+  assert.equal(received.length, 2);
+  assert.ok(received.every((payload) => payload.length > 80));
+  const timestamps = received.map((payload) => Message.decode(payload).data?.timestamp);
+  assert.deepEqual(timestamps, [183_016_800, 183_016_801]);
 });
 
 test("profile updates use scoped user-data messages through the owned node", async (context) => {

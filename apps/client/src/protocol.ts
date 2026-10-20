@@ -40,16 +40,20 @@ export interface ProfileInput {
 
 export class FarcasterWriter {
   private readonly signer: HubSigner;
-  private readonly dataOptions;
+  private readonly fid: number;
   private readonly writeNodeUrl: string;
 
   constructor(config: AppConfig) {
     this.signer = new NobleEd25519Signer(new Uint8Array(Buffer.from(config.SIGNER_PRIVATE_KEY, "hex")));
-    this.dataOptions = {
-      fid: config.FID,
+    this.fid = config.FID;
+    this.writeNodeUrl = config.WRITE_NODE_URL;
+  }
+
+  private dataOptions() {
+    return {
+      fid: this.fid,
       network: FarcasterNetwork.MAINNET,
     };
-    this.writeNodeUrl = config.WRITE_NODE_URL;
   }
 
   async cast(input: CastInput) {
@@ -70,7 +74,7 @@ export class FarcasterWriter {
             }
           : {}),
       },
-      this.dataOptions,
+      this.dataOptions(),
       this.signer,
     );
     return this.submit(unwrap(result));
@@ -80,14 +84,14 @@ export class FarcasterWriter {
     if (remove) {
       const result = await makeLinkRemove(
         { type: "follow", targetFid },
-        this.dataOptions,
+        this.dataOptions(),
         this.signer,
       );
       return this.submit(unwrap(result));
     }
     const result = await makeLinkAdd(
       { type: "follow", targetFid },
-      this.dataOptions,
+      this.dataOptions(),
       this.signer,
     );
     return this.submit(unwrap(result));
@@ -103,10 +107,10 @@ export class FarcasterWriter {
       },
     };
     if (input.remove) {
-      const result = await makeReactionRemove(body, this.dataOptions, this.signer);
+      const result = await makeReactionRemove(body, this.dataOptions(), this.signer);
       return this.submit(unwrap(result));
     }
-    const result = await makeReactionAdd(body, this.dataOptions, this.signer);
+    const result = await makeReactionAdd(body, this.dataOptions(), this.signer);
     return this.submit(unwrap(result));
   }
 
@@ -123,7 +127,7 @@ export class FarcasterWriter {
       if (value === undefined) continue;
       const result = await makeUserDataAdd(
         { type, value },
-        this.dataOptions,
+        this.dataOptions(),
         this.signer,
       );
       receipts.push({ field, ...(await this.submit(unwrap(result))) });
