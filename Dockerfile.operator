@@ -13,7 +13,7 @@ RUN npm ci \
     && mv "/tmp/release/${package_name}" /tmp/release/in-three.tgz
 
 FROM ${NODE_IMAGE} AS runtime
-ARG VERSION=0.1.21
+ARG VERSION=0.1.22
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="In Three Operator" \
       org.opencontainers.image.description="Containerized operator CLI for a sovereign Farcaster read node and client" \

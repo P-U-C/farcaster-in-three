@@ -513,6 +513,8 @@ profile() {
     die "profile update was rejected; no local secret was changed"
   jq '{ok,updates:[.updates[] | {field,hash,relay}]}' "$response_payload"
   success "Profile messages were accepted by your Snapchain node"
+  cleanup_profile
+  trap - EXIT
 }
 
 status() {

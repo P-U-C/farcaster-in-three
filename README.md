@@ -83,7 +83,7 @@ On Hetzner, `destroy` deletes the server and volume. On a machine you own, it st
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.21/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.22/in-three-container
 chmod +x in-three-container
 ./in-three-container doctor
 ```

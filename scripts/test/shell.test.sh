@@ -569,6 +569,36 @@ done
 rm -rf "$container_fixture"
 container_fixture=""
 
+profile_fixture="$(mktemp -d)"
+mkdir -p "$profile_fixture/tmp" "$profile_fixture/state"
+printf '%s\n' 'fixture-password' > "$profile_fixture/password"
+chmod 600 "$profile_fixture/password"
+if ! (
+  export TMPDIR="$profile_fixture/tmp"
+  export IN_THREE_ROOT="$ROOT"
+  export IN_THREE_STATE_DIR="$profile_fixture/state"
+  export IN_THREE_COMMAND="in-three"
+  source "$ROOT/scripts/client.sh"
+  load_state() { CLIENT_DOMAIN="client.example"; }
+  require_command() { :; }
+  curl() {
+    case "$*" in
+      *'/api/me'*)
+        printf '%s\n' '{"fid":3356243}'
+        ;;
+      *'/api/profile'*)
+        printf '%s\n' '{"ok":true,"updates":[{"field":"bio","hash":"0x1111111111111111111111111111111111111111","relay":"accepted"}]}'
+        ;;
+    esac
+  }
+  profile --password-file "$profile_fixture/password" --bio "Fixture tutorial bio" >/dev/null
+  [[ -z "$(find "$TMPDIR" -type f -print -quit)" ]]
+); then
+  fail "profile update did not exit cleanly and securely delete temporary files"
+fi
+rm -rf "$profile_fixture"
+profile_fixture=""
+
 package_fixture="$(mktemp -d)"
 package_version="$(cd "$package_fixture" && node "$ROOT/bin/in-three.mjs" --version)"
 [[ "$package_version" == "$release_version" ]] ||
