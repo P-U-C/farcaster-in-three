@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { resolve } from "node:path";
@@ -68,6 +69,18 @@ if (/npm run build/.test(dockerfile)) {
 }
 if (!/apps\/client\/dist/.test(dockerfile)) {
   throw new Error("runtime Dockerfile does not copy prebuilt client assets");
+}
+
+const setupSmoke = spawnSync(
+  process.execPath,
+  [resolve(root, "apps/client/dist/server/setup.js")],
+  { encoding: "utf8" },
+);
+if (
+  setupSmoke.status !== 1 ||
+  !setupSmoke.stderr.includes("Setup failed: --output is required")
+) {
+  throw new Error("prebuilt setup CLI does not execute its entrypoint");
 }
 
 process.stdout.write("package artifacts are complete and prebuilt\n");

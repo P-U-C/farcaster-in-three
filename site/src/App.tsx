@@ -26,7 +26,7 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.16`;
+const RELEASE = `${REPO}/releases/tag/v0.1.17`;
 
 type InstallMethod = "npm" | "container";
 
@@ -45,7 +45,7 @@ const setupCommands: Record<InstallMethod, Array<{ number: string; label: string
 
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
-  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.16/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+  container: "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.17/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
 };
 
 const navigation = [
@@ -87,7 +87,7 @@ export function App() {
       </header>
 
       <nav className="package-bar" aria-label="Packages and release links">
-        <span className="package-bar-label">GET <b>v0.1.16</b></span>
+        <span className="package-bar-label">GET <b>v0.1.17</b></span>
         <div className="package-links">
           <PackageLink icon={<Package size={14} />} label="npm" detail="recommended" href={NPM_PACKAGE} />
           <PackageLink icon={<Container size={14} />} label="Docker" detail="amd64 + arm64" href={CONTAINER_PACKAGE} />
