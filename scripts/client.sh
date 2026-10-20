@@ -442,8 +442,10 @@ profile() {
   for command in node curl jq mktemp; do
     require_command "$command"
   done
-  [[ -r "$IN_THREE_ROOT/apps/client/dist/server/profile.js" ]] ||
-    die "profile utility is missing; reinstall farcaster-in-three"
+  if [[ "$claim_name" == "true" ]]; then
+    [[ -r "$IN_THREE_ROOT/apps/client/dist/server/profile.js" ]] ||
+      die "profile utility is missing; reinstall farcaster-in-three"
+  fi
 
   local cookie_jar login_payload profile_payload me_payload response_payload fid
   cookie_jar="$(mktemp)"

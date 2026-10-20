@@ -575,7 +575,7 @@ printf '%s\n' 'fixture-password' > "$profile_fixture/password"
 chmod 600 "$profile_fixture/password"
 if ! (
   export TMPDIR="$profile_fixture/tmp"
-  export IN_THREE_ROOT="$ROOT"
+  export IN_THREE_ROOT="$profile_fixture/package-root"
   export IN_THREE_STATE_DIR="$profile_fixture/state"
   export IN_THREE_COMMAND="in-three"
   source "$ROOT/scripts/client.sh"
