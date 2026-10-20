@@ -119,7 +119,7 @@ export function App() {
               <span>FARCASTER ON YOUR OWN NODE</span>
             </div>
             <h1>Farcaster,<br /><em>in three.</em></h1>
-            <p>Run a Snapchain node and browser client from your own machine in three commands. No hosted Farcaster data API.</p>
+            <p>Run a Snapchain node and browser client from your own machine in three commands. Reads and signed writes go through your node. No hosted Farcaster data API.</p>
             <div className="hero-actions">
               <a className="primary-link" href="#start">Run the three <ArrowDown size={17} /></a>
               <a className="text-link" href={REPO} target="_blank" rel="noreferrer">View source <ArrowRight size={16} /></a>

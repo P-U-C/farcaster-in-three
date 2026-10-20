@@ -28,6 +28,7 @@ const mock = createServer((request, response) => {
     return json(response, {
       version: "0.14.3",
       shardInfos: [
+        { shardId: 0, blockDelay: 2 },
         { shardId: 1, blockDelay: 3 },
         { shardId: 2, blockDelay: 4 },
       ],
@@ -59,7 +60,7 @@ const mock = createServer((request, response) => {
   if (url.pathname === "/v1/castsByFid") {
     const base = 182_000_000 - fid;
     const texts = new Map([
-      [ownerFid, ["Node sync finished at 14:32 UTC. Both shard delays are under five seconds.", "Testing the first cast from the delegated app key."]],
+      [ownerFid, ["Node sync finished at 14:32 UTC. All three shard delays are under five seconds.", "Testing the first cast from the delegated app key."]],
       [followedFids[0], ["The setup log now reports snapshot size while the HTTP API is unavailable."]],
       [followedFids[1], ["Documented exact recovery after an uncertain gasless signer submission."]],
       [followedFids[2], ["The mobile client can follow an FID without opening a desktop sidebar."]],
@@ -227,6 +228,13 @@ try {
   });
   await sitePage.setViewportSize({ width: 1440, height: 1000 });
   await sitePage.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
+  const heroText = await sitePage.locator(".hero-copy > p").innerText();
+  if (
+    !heroText.includes("Reads and signed writes go through your node") ||
+    !heroText.includes("No hosted Farcaster data API")
+  ) {
+    throw new Error("website hero does not state the owned read/write path");
+  }
   const packagePills = sitePage.locator(".package-pill");
   if (await packagePills.count() !== 4) {
     throw new Error("site must expose npm, container, release, and source links at the top");

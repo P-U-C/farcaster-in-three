@@ -1,21 +1,16 @@
 # Architecture
 
-In Three gives the browser one path for reads and writes:
+In Three gives the browser one owned path for reads and writes:
 
 ```text
-browser
-   |
-   v
-client service
-   |
-   v
-your Snapchain node
-   |
-   v
-Farcaster validators
+browser <-> client service
+               |
+               +-- read queries ----------> your Snapchain node
+               |
+               +-- signed write messages -> your Snapchain node -> validator peers
 ```
 
-The browser does not use a hosted Farcaster data API. The client reads from your node and sends signed actions back to that same node.
+The browser does not use a hosted Farcaster data API. The client reads from your node and sends signed actions back to that same node. The node validates accepted writes and relays them to validator peers.
 
 ## Reads and writes
 
