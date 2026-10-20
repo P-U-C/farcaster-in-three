@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FARCASTER_CAST_MAX_BYTES } from "../src/limits.js";
 import {
   groupSources,
   toggleSourceGroup,
@@ -449,6 +450,11 @@ function Composer({
   const [text, setText] = useState("");
   const [embedUrl, setEmbedUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const textBytes = useMemo(
+    () => new TextEncoder().encode(text.trim()).byteLength,
+    [text],
+  );
+  const textIsTooLong = textBytes > FARCASTER_CAST_MAX_BYTES;
 
   async function publish(event: FormEvent) {
     event.preventDefault();
@@ -483,7 +489,7 @@ function Composer({
               value={text}
               onChange={(event) => setText(event.target.value)}
               placeholder="What’s happening?"
-              maxLength={1024}
+              maxLength={FARCASTER_CAST_MAX_BYTES}
               autoFocus
             />
             <input
@@ -495,8 +501,10 @@ function Composer({
           </div>
         </div>
         <footer>
-          <span className={text.length > 960 ? "near-limit" : ""}>{text.length} / 1024</span>
-          <button type="submit" disabled={!text.trim() || busy}>
+          <span className={textBytes > 280 ? "near-limit" : ""}>
+            {textBytes} / {FARCASTER_CAST_MAX_BYTES} bytes
+          </span>
+          <button type="submit" disabled={!text.trim() || textIsTooLong || busy}>
             {busy ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />}
             Publish
           </button>

@@ -1,0 +1,1 @@
+export const FARCASTER_CAST_MAX_BYTES = 320;

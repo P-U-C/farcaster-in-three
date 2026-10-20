@@ -5,6 +5,7 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import { createSession, verifyPassword, verifySession } from "./auth.js";
 import { loadConfig, type AppConfig } from "./config.js";
+import { FARCASTER_CAST_MAX_BYTES } from "./limits.js";
 import { FarcasterWriter } from "./protocol.js";
 import { SnapchainReader } from "./snapchain.js";
 import type { FeedCast, Source } from "./types.js";
@@ -38,8 +39,15 @@ const profileSchema = z
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
     message: "Provide at least one profile field",
   });
-const castSchema = z.object({
-  text: z.string().trim().min(1).max(1024),
+export const castSchema = z.object({
+  text: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(
+      (value) => Buffer.byteLength(value, "utf8") <= FARCASTER_CAST_MAX_BYTES,
+      `Must be at most ${FARCASTER_CAST_MAX_BYTES} UTF-8 bytes`,
+    ),
   embedUrl: z.string().url().max(2048).optional(),
   parentCastId: z
     .object({
@@ -226,6 +234,7 @@ export function createApp(config: AppConfig = loadConfig()) {
   app.patch("/api/profile", async (context) => {
     const input = profileSchema.parse(await context.req.json());
     const updates = await writer.updateProfile(input);
+    reader.invalidateProfile(config.FID);
     for (const update of updates) {
       recordMessageReceipt(`profile_${update.field}`, update.hash);
     }

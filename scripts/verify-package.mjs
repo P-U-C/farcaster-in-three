@@ -16,6 +16,7 @@ const required = [
   "README.md",
   "apps/client/Dockerfile",
   "apps/client/dist/server/setup.js",
+  "apps/client/dist/server/profile.js",
   "apps/client/dist/server/server.js",
   "apps/client/dist/server/agent-gateway.js",
   "apps/client/dist/server/deployment-service.js",
@@ -81,6 +82,19 @@ if (
   !setupSmoke.stderr.includes("Setup failed: --output is required")
 ) {
   throw new Error("prebuilt setup CLI does not execute its entrypoint");
+}
+
+const profileSmoke = spawnSync(
+  process.execPath,
+  [resolve(root, "apps/client/dist/server/profile.js")],
+  { encoding: "utf8" },
+);
+if (
+  profileSmoke.status !== 1 ||
+  !profileSmoke.stderr.includes("Profile setup failed: --fid must be a positive integer") ||
+  profileSmoke.stderr.includes("\nSetup failed:")
+) {
+  throw new Error("prebuilt profile CLI starts more than its own entrypoint");
 }
 
 process.stdout.write("package artifacts are complete and prebuilt\n");

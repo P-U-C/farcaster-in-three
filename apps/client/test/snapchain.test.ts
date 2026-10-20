@@ -122,3 +122,32 @@ test("feed data and client attribution come only from the configured read node",
   assert.equal(gaslessRequestFid, 77);
   assert.ok(requested.every((path) => path.startsWith("/v1/")));
 });
+
+test("profile cache can be invalidated after a local profile write", async (context) => {
+  let username = "before";
+  const server = createServer((_request, response) =>
+    json(response, {
+      messages: [
+        {
+          data: {
+            userDataBody: {
+              type: "USER_DATA_TYPE_USERNAME",
+              value: username,
+            },
+          },
+        },
+      ],
+    }),
+  );
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  context.after(() => server.close());
+  const port = (server.address() as AddressInfo).port;
+  const reader = new SnapchainReader(`http://127.0.0.1:${port}`);
+
+  assert.equal((await reader.profile(37)).username, "before");
+  username = "after";
+  assert.equal((await reader.profile(37)).username, "before");
+  reader.invalidateProfile(37);
+  assert.equal((await reader.profile(37)).username, "after");
+});

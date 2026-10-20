@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { hashPassword } from "../src/auth.js";
-import { createApp } from "../src/server.js";
+import { castSchema, createApp } from "../src/server.js";
 
 test("login is cookie based and rate limited", async () => {
   const passwordHash = await hashPassword("a sufficiently long password");
@@ -52,6 +52,13 @@ test("login is cookie based and rate limited", async () => {
   });
   assert.equal(blocked.status, 429);
   assert.ok(Number(blocked.headers.get("retry-after")) > 0);
+});
+
+test("cast validation enforces Snapchain's 320-byte limit", () => {
+  assert.equal(castSchema.safeParse({ text: "a".repeat(320) }).success, true);
+  assert.equal(castSchema.safeParse({ text: "a".repeat(321) }).success, false);
+  assert.equal(castSchema.safeParse({ text: "🙂".repeat(80) }).success, true);
+  assert.equal(castSchema.safeParse({ text: "🙂".repeat(81) }).success, false);
 });
 
 test("profile writes require an authenticated browser session", async () => {

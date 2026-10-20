@@ -1,3 +1,5 @@
+import { FARCASTER_CAST_MAX_BYTES } from "./limits.js";
+
 export interface AgentContractOptions {
   origin: string;
   readPrice: string;
@@ -171,7 +173,12 @@ export function createAgentOpenApi(options: AgentContractOptions) {
             additionalProperties: false,
             required: ["text"],
             properties: {
-              text: { type: "string", minLength: 1, maxLength: 1024 },
+              text: {
+                type: "string",
+                minLength: 1,
+                maxLength: FARCASTER_CAST_MAX_BYTES,
+                description: `At most ${FARCASTER_CAST_MAX_BYTES} UTF-8 bytes`,
+              },
               embedUrl: { type: "string", format: "uri", maxLength: 2048 },
               parentCastId: castIdSchema(),
             },

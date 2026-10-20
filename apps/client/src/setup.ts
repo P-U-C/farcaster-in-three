@@ -6,6 +6,7 @@ import {
   scrypt as scryptCallback,
 } from "node:crypto";
 import { chmod, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { basename } from "node:path";
 import { generateJwt } from "@coinbase/cdp-sdk/auth";
 import { parseArgs, promisify } from "node:util";
 import * as ed from "@noble/ed25519";
@@ -1530,7 +1531,7 @@ export function readHidden(
   });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (/^setup\.(?:js|ts)$/.test(basename(process.argv[1] ?? ""))) {
   main().catch((error) => {
     console.error(`\nSetup failed: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

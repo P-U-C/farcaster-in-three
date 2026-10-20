@@ -82,6 +82,10 @@ export class SnapchainReader {
     return value;
   }
 
+  invalidateProfile(fid: number): void {
+    this.profileCache.delete(fid);
+  }
+
   async profile(fid: number): Promise<Profile> {
     const cached = this.profileCache.get(fid);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
