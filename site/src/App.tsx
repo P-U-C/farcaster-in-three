@@ -1,5 +1,6 @@
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowRight,
   BookOpen,
   Captions,
@@ -7,8 +8,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clipboard,
-  Clock3,
-  Cloud,
   Container,
   Download,
   ExternalLink,
@@ -16,6 +15,8 @@ import {
   KeyRound,
   Languages,
   Menu,
+  Monitor,
+  Network,
   Package,
   Server,
   ShieldCheck,
@@ -32,7 +33,6 @@ const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/pack
 const RELEASE = `${REPO}/releases/tag/v0.1.24`;
 
 type InstallMethod = "npm" | "container";
-type TutorialStageId = "compute" | "snapchain" | "client";
 
 const commandValues: Record<InstallMethod, readonly string[]> = {
   npm: ["in-three provision", "in-three node up", "in-three client create"],
@@ -47,12 +47,6 @@ const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
   container:
     "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.24/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
-};
-
-const tutorialLinks: Record<TutorialStageId, string> = {
-  compute: `${DOCS}/docs/OPERATIONS.md`,
-  snapchain: `${DOCS}/docs/ARCHITECTURE.md`,
-  client: `${DOCS}/docs/ARCHITECTURE.md#account-and-app-key`,
 };
 
 function initialLocale(): Locale {
@@ -71,8 +65,6 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [installMethod, setInstallMethod] = useState<InstallMethod>("npm");
   const [locale, setLocale] = useState<Locale>(initialLocale);
-  const [tutorialStageId, setTutorialStageId] =
-    useState<TutorialStageId>("compute");
   const copy = messages[locale];
   const prefix =
     installMethod === "npm" ? "in-three" : "./in-three-container";
@@ -80,19 +72,10 @@ export function App() {
     ...item,
     command: commandValues[installMethod][index] ?? "",
   }));
-  const tutorialStage =
-    copy.tutorial.stages.find((stage) => stage.id === tutorialStageId) ??
-    copy.tutorial.stages[0];
   const navigation = [
     { id: "start", label: copy.nav.start },
     { id: "after", label: copy.nav.after },
     { id: "help", label: copy.nav.help },
-  ];
-  const factIcons = [
-    <Server size={18} />,
-    <CheckCircle2 size={18} />,
-    <Clock3 size={18} />,
-    <Cloud size={18} />,
   ];
   const docIcons = [
     <BookOpen size={20} />,
@@ -136,18 +119,6 @@ export function App() {
     if (nextLocale === "en") url.searchParams.delete("lang");
     else url.searchParams.set("lang", nextLocale);
     window.history.replaceState({}, "", url);
-  }
-
-  function moveTutorialFocus(currentIndex: number, direction: -1 | 1) {
-    const nextIndex =
-      (currentIndex + direction + copy.tutorial.stages.length) %
-      copy.tutorial.stages.length;
-    const nextStage =
-      copy.tutorial.stages[nextIndex] ?? copy.tutorial.stages[0];
-    setTutorialStageId(nextStage.id);
-    window.requestAnimationFrame(() =>
-      document.getElementById(`tutorial-tab-${nextStage.id}`)?.focus(),
-    );
   }
 
   return (
@@ -350,97 +321,69 @@ export function App() {
           </div>
         </section>
 
-        <section className="plain-facts" aria-label={copy.start.eyebrow}>
-          {copy.facts.map((fact, index) => (
-            <div key={fact.title}>
-              {factIcons[index]}
-              <span>
-                <b>{fact.title}</b>
-                <small>{fact.detail}</small>
-              </span>
-            </div>
-          ))}
-        </section>
-
-        <section className="tutorial-map" aria-labelledby="tutorial-map-title">
-          <div className="tutorial-map-inner">
-            <header className="tutorial-map-heading">
-              <div>
-                <span>{copy.tutorial.eyebrow}</span>
-                <h2 id="tutorial-map-title">{copy.tutorial.title}</h2>
-              </div>
-              <p>{copy.tutorial.intro}</p>
+        <section className="system-map" aria-labelledby="system-map-title">
+          <div className="system-map-inner">
+            <header className="system-map-heading">
+              <span>{copy.system.eyebrow}</span>
+              <h2 id="system-map-title">{copy.system.title}</h2>
+              <p>{copy.system.body}</p>
             </header>
 
-            <div
-              className="tutorial-tabs"
-              role="tablist"
-              aria-label={copy.tutorial.tabLabel}
-            >
-              {copy.tutorial.stages.map((stage, index) => {
-                const selected = stage.id === tutorialStageId;
-                return (
-                  <button
-                    id={`tutorial-tab-${stage.id}`}
-                    key={stage.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={selected}
-                    aria-controls="tutorial-stage-panel"
-                    tabIndex={selected ? 0 : -1}
-                    className={selected ? "active" : ""}
-                    onClick={() => setTutorialStageId(stage.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "ArrowRight") {
-                        event.preventDefault();
-                        moveTutorialFocus(index, 1);
-                      }
-                      if (event.key === "ArrowLeft") {
-                        event.preventDefault();
-                        moveTutorialFocus(index, -1);
-                      }
-                    }}
-                  >
-                    <b>{stage.number}</b>
-                    <span>
-                      <strong>{stage.label}</strong>
-                      <small>{stage.short}</small>
-                    </span>
-                    {index < copy.tutorial.stages.length - 1 && (
-                      <ArrowRight size={15} aria-hidden="true" />
-                    )}
-                  </button>
-                );
-              })}
+            <div className="system-flow" aria-label={copy.system.diagramLabel}>
+              <div className="system-node">
+                <Monitor size={28} aria-hidden="true" />
+                <span>
+                  <b>{copy.system.client}</b>
+                  <small>{copy.system.clientDetail}</small>
+                </span>
+              </div>
+              <div className="system-link">
+                <span>
+                  <ArrowLeft size={16} aria-hidden="true" />
+                  {copy.system.read}
+                </span>
+                <span>
+                  {copy.system.write}
+                  <ArrowRight size={16} aria-hidden="true" />
+                </span>
+              </div>
+              <div className="system-node owned-node">
+                <img src="./profile.svg" alt="" width="34" height="34" />
+                <span>
+                  <b>{copy.system.node}</b>
+                  <small>{copy.system.nodeDetail}</small>
+                </span>
+                <em>{copy.system.owned}</em>
+              </div>
+              <div className="system-link">
+                <span>
+                  <ArrowLeft size={16} aria-hidden="true" />
+                  {copy.system.sync}
+                </span>
+                <span>
+                  {copy.system.relay}
+                  <ArrowRight size={16} aria-hidden="true" />
+                </span>
+              </div>
+              <div className="system-node">
+                <Network size={28} aria-hidden="true" />
+                <span>
+                  <b>{copy.system.network}</b>
+                  <small>{copy.system.networkDetail}</small>
+                </span>
+              </div>
             </div>
 
-            <div
-              className="tutorial-panel"
-              id="tutorial-stage-panel"
-              key={`${locale}-${tutorialStage.id}`}
-              role="tabpanel"
-              aria-labelledby={`tutorial-tab-${tutorialStage.id}`}
-            >
-              <div className="tutorial-panel-copy">
-                <code>{tutorialStage.command}</code>
-                <h3>{tutorialStage.title}</h3>
-                <p>{tutorialStage.description}</p>
-                <a
-                  href={tutorialLinks[tutorialStage.id]}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {tutorialStage.linkLabel} <ArrowRight size={15} />
-                </a>
-              </div>
-              <dl>
-                {tutorialStage.facts.map(([term, detail]) => (
-                  <div key={term}>
-                    <dt>{term}</dt>
-                    <dd>{detail}</dd>
-                  </div>
-                ))}
-              </dl>
+            <div className="system-note">
+              <KeyRound size={18} aria-hidden="true" />
+              <p>{copy.system.note}</p>
+              <a
+                href={`${DOCS}/docs/ARCHITECTURE.md`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {copy.system.link} <ArrowRight size={14} />
+              </a>
             </div>
           </div>
         </section>
@@ -665,6 +608,53 @@ export function App() {
                   {copy.help.quotaGuide}
                 </a>
               </p>
+            </Details>
+            <Details id="self-healing-help" question={copy.help.healingQuestion}>
+              <p>{copy.help.healingLead}</p>
+              <ol className="healing-flow">
+                {copy.help.healingSteps.map(([stage, detail]) => (
+                  <li key={stage}>
+                    <b>{stage}</b>
+                    <span>{detail}</span>
+                  </li>
+                ))}
+              </ol>
+              <p>{copy.help.healingTail}</p>
+              <p>
+                <a
+                  href="https://github.com/farcasterxyz/snapchain/issues/1044"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {copy.help.healingIssue}
+                </a>{" "}
+                ·{" "}
+                <a
+                  href="https://github.com/farcasterxyz/snapchain/pull/1065"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {copy.help.healingPr}
+                </a>{" "}
+                ·{" "}
+                <a
+                  href={`${DOCS}/docs/OPERATIONS.md#recover-one-stale-shard`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {copy.help.healingGuide}
+                </a>
+              </p>
+            </Details>
+            <Details id="concepts-help" question={copy.help.conceptsQuestion}>
+              <dl className="concept-list">
+                {copy.help.concepts.map(([term, detail]) => (
+                  <div key={term}>
+                    <dt>{term}</dt>
+                    <dd>{detail}</dd>
+                  </div>
+                ))}
+              </dl>
             </Details>
             <Details question={copy.help.syncingQuestion}>
               {copy.help.syncingLead} <code>{prefix} node status</code>.{" "}

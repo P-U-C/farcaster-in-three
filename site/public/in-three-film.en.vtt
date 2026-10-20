@@ -1,19 +1,19 @@
 WEBVTT
 
-00:00.000 --> 00:06.500
-In Three takes you from a machine to a working Farcaster client in three commands.
+00:00.000 --> 00:06.000
+In Three builds one owned path from your machine to Farcaster.
 
-00:06.500 --> 00:18.000
-First, provision a suitable Ubuntu machine you control. In Three checks CPU, memory, SSH, and two terabytes of free disk.
+00:06.000 --> 00:18.000
+Command one prepares the machine. Command two turns it into a Snapchain node. Command three opens your client.
 
-00:18.000 --> 00:32.000
-Second, start Snapchain. Your node restores and syncs all three shards, then keeps them close to network head.
+00:18.000 --> 00:30.000
+The node catches up one shard at a time, verifies each snapshot, and then follows new blocks.
 
-00:32.000 --> 00:46.000
-Third, create the client. Use a fresh test account or import one you trust, then authorize a gasless, revocable app key.
+00:30.000 --> 00:39.000
+Your recovery phrase stays encrypted on your machine. The client gets a revocable app key.
 
-00:46.000 --> 00:55.000
-The client reads from your node and sends signed writes back to it. Your node validates and relays those messages to validators.
+00:39.000 --> 00:55.000
+When you cast, the client signs. Your node verifies and relays. Validators order it, and the updated feed returns through your node.
 
 00:55.000 --> 00:59.000
-Your machine. Your node. Your client. Farcaster, in three.
+Your client. Your node. Farcaster, in three.

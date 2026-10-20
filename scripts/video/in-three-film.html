@@ -2,739 +2,1075 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>In Three — one cast, one owned path</title>
   <style>
     :root {
-      font-family: Arial, Helvetica, sans-serif;
-      color: #fffefa;
-      background: #121014;
-      letter-spacing: 0;
-      --ink: #121014;
-      --paper: #f4f1eb;
+      color-scheme: dark;
+      --ink: #f7f3ec;
+      --muted: #aaa4ae;
+      --dim: #68616e;
+      --line: #3b3540;
+      --panel: #17131a;
+      --panel-2: #211a26;
       --purple: #7950be;
       --purple-light: #c4abf2;
       --cyan: #43b8bd;
-      --green: #42d487;
-      --line: #5b5561;
+      --green: #48b778;
+      --duration: 59s;
+      font-family: Arial, Helvetica, sans-serif;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
-    html, body {
+    html,
+    body {
       width: 100%;
       height: 100%;
       margin: 0;
       overflow: hidden;
-      background: var(--ink);
+      background: #0e0c10;
+      color: var(--ink);
     }
 
     body::before {
       position: fixed;
       inset: 0;
-      background-image:
-        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-      background-size: 64px 64px;
+      background:
+        linear-gradient(rgba(121, 80, 190, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(121, 80, 190, 0.07) 1px, transparent 1px);
+      background-size: 42px 42px;
       content: "";
-    }
-
-    body:not(.play) *,
-    body:not(.play) *::before,
-    body:not(.play) *::after {
-      animation-play-state: paused !important;
+      mask-image: linear-gradient(to bottom, black, transparent 90%);
     }
 
     .chrome {
       position: fixed;
-      z-index: 30;
-      inset: 0;
-      pointer-events: none;
+      z-index: 20;
+      top: 0;
+      right: 0;
+      left: 0;
+      height: 54px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(14, 12, 16, 0.88);
+      font-family: "Courier New", monospace;
     }
 
     .topline {
-      position: absolute;
-      top: 34px;
-      left: 44px;
-      right: 44px;
       display: flex;
+      height: 49px;
       align-items: center;
       justify-content: space-between;
-      color: #aaa4ae;
-      font-family: monospace;
-      font-size: 13px;
+      padding: 0 28px;
+      color: var(--muted);
+      font-size: 10px;
       font-weight: 700;
     }
 
-    .topline b { color: var(--cyan); }
+    .topline b {
+      color: var(--purple-light);
+    }
 
     .progress {
-      position: absolute;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      height: 8px;
-      background: #312d34;
+      height: 4px;
+      background: #241e29;
     }
 
     .progress i {
       display: block;
-      width: 100%;
+      width: 0;
       height: 100%;
       background: var(--purple);
-      transform: scaleX(0);
-      transform-origin: left;
-      animation: progress 59s linear forwards;
+    }
+
+    .play .progress i {
+      animation: progress var(--duration) linear forwards;
     }
 
     .scene {
       position: absolute;
-      inset: 0;
+      inset: 54px 0 0;
       display: grid;
-      align-items: center;
-      padding: 84px 92px 64px;
+      align-content: center;
+      padding: 46px max(6vw, calc((100vw - 1120px) / 2));
       opacity: 0;
     }
 
-    .scene-tag {
-      position: absolute;
-      top: 96px;
-      left: 92px;
+    .scene-head {
+      display: grid;
+      justify-items: start;
+      gap: 8px;
+      margin-bottom: 38px;
+    }
+
+    .scene-head span,
+    .eyebrow {
       color: var(--purple-light);
-      font-family: monospace;
-      font-size: 14px;
+      font-family: "Courier New", monospace;
+      font-size: 11px;
       font-weight: 700;
+      letter-spacing: 0;
     }
 
-    .brand {
-      grid-template-columns: 0.55fr 1fr;
-      gap: 70px;
-      animation: brand-scene 59s linear forwards;
+    .scene-head h2 {
+      max-width: 900px;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 52px;
+      font-weight: 400;
+      line-height: 0.98;
+      letter-spacing: 0;
     }
 
-    .brand img {
-      width: 300px;
-      height: 300px;
-      border: 2px solid var(--paper);
+    .intro {
+      grid-template-columns: auto 1fr;
+      place-content: center;
+      align-items: center;
+      gap: 58px;
+    }
+
+    .intro img {
+      width: 178px;
+      height: 178px;
+      border: 2px solid var(--ink);
       box-shadow: 18px 18px 0 var(--purple);
-      animation: logo-enter 59s cubic-bezier(.2, .7, .2, 1) forwards;
     }
 
-    .brand h1,
+    .intro h1,
     .end h1 {
       margin: 0;
-      font-family: Georgia, serif;
-      font-size: 100px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 72px;
       font-weight: 400;
       line-height: 0.92;
       letter-spacing: 0;
     }
 
-    .brand h1 em,
+    .intro h1 em,
     .end h1 em {
       color: var(--purple-light);
+      font-style: italic;
       font-weight: 400;
     }
 
-    .brand p {
-      margin: 34px 0 0;
-      color: #aaa4ae;
-      font-family: monospace;
-      font-size: 18px;
-    }
-
-    .compute {
-      grid-template-columns: 1fr 0.85fr;
-      gap: 62px;
-      animation: compute-scene 59s linear forwards;
-    }
-
-    .terminal {
-      border: 2px solid var(--paper);
-      background: #18151c;
-      box-shadow: 14px 14px 0 var(--purple);
-    }
-
-    .terminal header,
-    .browser header {
-      display: flex;
-      height: 52px;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 20px;
-      border-bottom: 1px solid var(--line);
-      color: #aaa4ae;
-      font-family: monospace;
+    .intro p {
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-family: "Courier New", monospace;
       font-size: 12px;
+      font-weight: 700;
     }
 
-    .terminal code {
-      display: block;
-      padding: 54px 34px;
-      font-family: monospace;
-      font-size: 25px;
-      line-height: 1.6;
-      white-space: nowrap;
+    .build-flow {
+      display: grid;
+      grid-template-columns: 1fr 74px 1fr 74px 1fr;
+      align-items: center;
     }
 
-    .terminal code i {
-      color: var(--green);
-      font-style: normal;
-    }
-
-    .cursor {
-      display: inline-block;
-      width: 12px;
-      height: 28px;
-      margin-left: 5px;
-      background: var(--purple-light);
-      vertical-align: -5px;
-      animation: blink 800ms steps(2, jump-none) infinite;
-    }
-
-    .server-visual {
+    .build-step {
       position: relative;
       display: grid;
-      gap: 14px;
-      padding: 26px;
+      min-height: 250px;
+      align-content: space-between;
+      padding: 24px;
       border: 1px solid var(--line);
+      background: rgba(23, 19, 26, 0.9);
+      opacity: 0;
+      transform: translateY(18px);
     }
 
-    .server-row {
+    .build-step > b {
       display: grid;
-      height: 58px;
-      grid-template-columns: 18px 1fr auto;
-      align-items: center;
-      gap: 16px;
-      padding: 0 18px;
-      border: 1px solid #6a6470;
-      background: #1d1a20;
-      font-family: monospace;
-      font-size: 13px;
-    }
-
-    .server-row i {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 16px rgba(66, 212, 135, .8);
-    }
-
-    .server-row span { color: #aaa4ae; }
-    .server-row b { color: var(--cyan); }
-
-    .chain {
-      animation: chain-scene 59s linear forwards;
-    }
-
-    .chain-wrap {
-      display: grid;
-      width: 100%;
-      align-content: center;
-      gap: 22px;
-    }
-
-    .chain-command {
-      width: fit-content;
-      padding: 13px 18px;
+      width: 34px;
+      height: 34px;
+      place-items: center;
       border: 1px solid var(--purple-light);
-      background: #18151c;
-      color: white;
-      font-family: monospace;
-      font-size: 22px;
+      color: var(--purple-light);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+    }
+
+    .build-step strong {
+      display: block;
+      margin-bottom: 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 27px;
+      font-weight: 400;
+    }
+
+    .build-step code {
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+    }
+
+    .build-arrow {
+      position: relative;
+      height: 1px;
+      background: var(--line);
+      opacity: 0;
+    }
+
+    .build-arrow::after {
+      position: absolute;
+      top: -4px;
+      right: 0;
+      width: 7px;
+      height: 7px;
+      border-top: 1px solid var(--purple-light);
+      border-right: 1px solid var(--purple-light);
+      content: "";
+      transform: rotate(45deg);
+    }
+
+    .machine-mark,
+    .browser-mark,
+    .node-mark {
+      display: grid;
+      height: 96px;
+      place-items: center;
+    }
+
+    .machine-mark i {
+      display: block;
+      width: 112px;
+      height: 68px;
+      border: 1px solid var(--dim);
+      background:
+        linear-gradient(90deg, var(--purple) 35%, transparent 35%) 16px 16px / 78px 6px no-repeat,
+        linear-gradient(90deg, var(--green) 62%, transparent 62%) 16px 31px / 78px 6px no-repeat,
+        linear-gradient(90deg, var(--cyan) 48%, transparent 48%) 16px 46px / 78px 6px no-repeat;
+    }
+
+    .node-mark {
+      position: relative;
+    }
+
+    .node-mark img {
+      width: 70px;
+      height: 70px;
+    }
+
+    .node-mark i {
+      position: absolute;
+      width: 110px;
+      height: 110px;
+      border: 1px solid rgba(196, 171, 242, 0.3);
+      border-radius: 50%;
+    }
+
+    .browser-mark i {
+      display: block;
+      width: 122px;
+      height: 78px;
+      border: 1px solid var(--dim);
+      background:
+        linear-gradient(var(--purple), var(--purple)) 12px 24px / 20px 42px no-repeat,
+        linear-gradient(#39313f, #39313f) 43px 24px / 66px 8px no-repeat,
+        linear-gradient(#2c2630, #2c2630) 43px 40px / 54px 8px no-repeat,
+        linear-gradient(#2c2630, #2c2630) 43px 56px / 61px 8px no-repeat;
+    }
+
+    .sync-layout {
+      display: grid;
+      grid-template-columns: 0.72fr 1.4fr;
+      align-items: center;
+      gap: 80px;
+    }
+
+    .network-orbit {
+      position: relative;
+      width: 290px;
+      height: 290px;
+      justify-self: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+    }
+
+    .network-orbit::before,
+    .network-orbit::after {
+      position: absolute;
+      border: 1px solid rgba(196, 171, 242, 0.25);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .network-orbit::before {
+      inset: 38px;
+    }
+
+    .network-orbit::after {
+      inset: 78px;
+    }
+
+    .network-orbit img {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 78px;
+      height: 78px;
+      transform: translate(-50%, -50%);
+    }
+
+    .peer {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      border: 2px solid #0e0c10;
+      border-radius: 50%;
+      background: var(--purple-light);
+    }
+
+    .peer:nth-child(2) { top: 12%; left: 45%; }
+    .peer:nth-child(3) { top: 46%; right: 5%; background: var(--cyan); }
+    .peer:nth-child(4) { bottom: 10%; left: 48%; background: var(--green); }
+    .peer:nth-child(5) { top: 48%; left: 4%; }
+
+    .shards {
+      display: grid;
+      gap: 20px;
     }
 
     .shard {
       display: grid;
-      height: 94px;
-      grid-template-columns: 110px 1fr 90px;
+      grid-template-columns: 82px 1fr 58px;
       align-items: center;
-      gap: 18px;
-      border-top: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-      font-family: monospace;
+      gap: 15px;
     }
 
-    .shard > b {
-      color: var(--purple-light);
-      font-size: 17px;
+    .shard > b,
+    .shard > span {
+      font-family: "Courier New", monospace;
+      font-size: 10px;
     }
-
-    .blocks {
-      position: relative;
-      display: flex;
-      overflow: hidden;
-      gap: 12px;
-      padding: 12px 0;
-    }
-
-    .blocks i {
-      display: block;
-      width: 48px;
-      height: 48px;
-      flex: none;
-      border: 1px solid #79727f;
-      background: #28242c;
-      animation: blocks 2.8s linear infinite;
-    }
-
-    .blocks i:nth-child(2n) { background: var(--purple); }
-    .blocks i:nth-child(3n) { border-color: var(--cyan); }
 
     .shard > span {
       color: var(--green);
-      font-size: 14px;
       text-align: right;
     }
 
-    .client {
-      animation: client-scene 59s linear forwards;
+    .rail {
+      height: 38px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      background: var(--panel);
     }
 
-    .client-layout {
+    .rail i {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background:
+        repeating-linear-gradient(90deg, var(--purple) 0 20px, transparent 20px 27px);
+      transform: scaleX(0.08);
+      transform-origin: left;
+    }
+
+    .sync-note {
+      margin: 28px 0 0 97px;
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+    }
+
+    .identity-layout {
       display: grid;
-      grid-template-columns: 0.72fr 120px 1.2fr;
+      grid-template-columns: 1fr 170px 1fr;
       align-items: center;
-      gap: 30px;
+      gap: 34px;
     }
 
-    .identity {
+    .identity-side {
       display: grid;
+      min-height: 250px;
+      align-content: center;
       justify-items: center;
       gap: 18px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
     }
 
-    .identity img {
-      width: 180px;
-      height: 180px;
-      border: 2px solid var(--paper);
-    }
-
-    .identity b,
-    .identity span {
-      font-family: monospace;
-    }
-
-    .identity b { color: white; }
-    .identity span { color: var(--purple-light); }
-
-    .key-path {
-      position: relative;
-      height: 2px;
-      background: var(--line);
-    }
-
-    .key-path::before {
-      position: absolute;
-      top: -12px;
-      left: 0;
-      width: 26px;
-      height: 26px;
-      border: 2px solid var(--cyan);
-      border-radius: 50%;
-      background: var(--ink);
-      content: "";
-      animation: key-travel 3s ease-in-out infinite;
-    }
-
-    .key-path::after {
-      position: absolute;
-      top: -32px;
-      left: 50%;
-      color: var(--cyan);
-      content: "APP KEY";
-      font-family: monospace;
+    .identity-side b {
+      font-family: "Courier New", monospace;
       font-size: 11px;
-      transform: translateX(-50%);
     }
 
-    .browser {
-      border: 2px solid var(--paper);
-      background: var(--paper);
-      color: var(--ink);
-      box-shadow: 14px 14px 0 var(--purple);
-    }
-
-    .browser header {
-      border-bottom-color: #bdb7bf;
-      color: #68636d;
-    }
-
-    .browser-body {
-      display: grid;
-      min-height: 270px;
-      grid-template-columns: 0.36fr 1fr;
-    }
-
-    .browser-nav {
-      border-right: 1px solid #cfc9d1;
-      background: #ebe7ee;
-    }
-
-    .browser-feed {
-      display: grid;
-      align-content: start;
-      gap: 16px;
-      padding: 26px;
-    }
-
-    .cast {
-      display: grid;
-      grid-template-columns: 38px 1fr;
-      gap: 13px;
-      padding-bottom: 18px;
-      border-bottom: 1px solid #cfc9d1;
-    }
-
-    .cast i {
-      width: 38px;
-      height: 38px;
-      background: var(--purple);
-    }
-
-    .cast span {
-      display: grid;
-      gap: 8px;
-    }
-
-    .cast b {
-      width: 42%;
-      height: 8px;
-      background: #514b56;
-    }
-
-    .cast small {
-      width: 92%;
-      height: 7px;
-      background: #b9b3bb;
-    }
-
-    .paths {
-      animation: paths-scene 59s linear forwards;
-    }
-
-    .path-grid {
-      display: grid;
-      width: 100%;
-      grid-template-columns: 0.8fr 1.15fr 0.8fr;
-      align-items: center;
-      gap: 42px;
-    }
-
-    .endpoint {
-      display: grid;
-      min-height: 210px;
-      place-items: center;
-      align-content: center;
-      gap: 14px;
-      border: 1px solid var(--line);
-      background: #1a171d;
-      font-family: monospace;
-    }
-
-    .endpoint b {
-      font-size: 18px;
-    }
-
-    .endpoint span {
-      color: #aaa4ae;
+    .identity-side span {
+      color: var(--muted);
       font-size: 12px;
     }
 
-    .node-core {
+    .vault {
       position: relative;
-      display: grid;
-      width: 290px;
-      height: 290px;
-      place-items: center;
-      justify-self: center;
-      border: 2px solid var(--purple-light);
-      border-radius: 50%;
+      width: 100px;
+      height: 100px;
+      border: 1px solid var(--dim);
+      background: var(--panel);
     }
 
-    .node-core::before,
-    .node-core::after {
+    .vault::before {
       position: absolute;
-      border: 1px solid #5b5561;
+      inset: 22px;
+      border: 1px solid var(--purple-light);
       border-radius: 50%;
       content: "";
-      animation: pulse 2.8s ease-out infinite;
     }
 
-    .node-core::before { inset: 28px; }
-    .node-core::after { inset: 58px; animation-delay: 1.2s; }
-
-    .node-core img {
-      z-index: 2;
-      width: 106px;
-      height: 106px;
-    }
-
-    .node-core b {
+    .vault::after {
       position: absolute;
-      bottom: 37px;
-      color: var(--purple-light);
-      font-family: monospace;
-      font-size: 13px;
+      top: 48px;
+      left: 48px;
+      width: 22px;
+      height: 1px;
+      background: var(--purple-light);
+      content: "";
+      transform-origin: left;
+      transform: rotate(-35deg);
     }
 
-    .path-label {
+    .key-transfer {
+      position: relative;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .key-transfer::after {
       position: absolute;
-      padding: 8px 12px;
-      border: 1px solid currentColor;
-      background: var(--ink);
-      font-family: monospace;
+      top: -8px;
+      left: 0;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--purple-light);
+      border-radius: 50%;
+      content: "";
+      box-shadow: 12px 0 0 -7px var(--purple-light), 20px 0 0 -7px var(--purple-light);
+    }
+
+    .client-window {
+      width: 190px;
+      height: 124px;
+      border: 1px solid var(--dim);
+      background:
+        linear-gradient(var(--purple), var(--purple)) 14px 35px / 27px 72px no-repeat,
+        linear-gradient(#37303d, #37303d) 54px 35px / 118px 12px no-repeat,
+        linear-gradient(#29232e, #29232e) 54px 57px / 98px 12px no-repeat,
+        linear-gradient(#29232e, #29232e) 54px 79px / 110px 12px no-repeat;
+    }
+
+    .journey-layout {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: center;
+      gap: 180px;
+      min-height: 300px;
+      --travel-x: calc(200% + 360px);
+      --travel-y: 0px;
+    }
+
+    .journey-layout::before,
+    .journey-layout::after {
+      position: absolute;
+      z-index: -1;
+      top: 50%;
+      right: 15%;
+      left: 15%;
+      height: 1px;
+      content: "";
+    }
+
+    .journey-layout::before {
+      background: var(--line);
+    }
+
+    .journey-layout::after {
+      background: linear-gradient(90deg, transparent, var(--purple-light), transparent);
+      opacity: 0;
+    }
+
+    .journey-node {
+      display: grid;
+      min-height: 210px;
+      align-content: center;
+      justify-items: center;
+      gap: 16px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: rgba(14, 12, 16, 0.86);
+      text-align: center;
+    }
+
+    .journey-node > b {
+      font-family: "Courier New", monospace;
+      font-size: 10px;
+    }
+
+    .journey-node > span {
+      color: var(--muted);
       font-size: 11px;
     }
 
-    .path-label.read {
-      top: 42%;
-      left: 25%;
-      color: var(--cyan);
-      animation: path-left 2.4s ease-in-out infinite;
+    .cast-box {
+      width: 178px;
+      padding: 16px;
+      border: 1px solid var(--dim);
+      background: var(--panel);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 17px;
+      text-align: left;
     }
 
-    .path-label.write {
-      top: 58%;
-      right: 25%;
-      color: var(--green);
-      animation: path-right 2.4s ease-in-out infinite;
+    .cast-box::after {
+      display: block;
+      width: 58%;
+      height: 5px;
+      margin-top: 12px;
+      background: var(--purple);
+      content: "";
+    }
+
+    .journey-node img {
+      width: 92px;
+      height: 92px;
+      border: 1px solid var(--ink);
+    }
+
+    .validators {
+      display: flex;
+      height: 100px;
+      align-items: end;
+      gap: 10px;
+    }
+
+    .validators i {
+      display: block;
+      width: 30px;
+      border: 1px solid var(--dim);
+      background: var(--panel-2);
+    }
+
+    .validators i:nth-child(1) { height: 68px; }
+    .validators i:nth-child(2) { height: 100px; border-color: var(--purple-light); }
+    .validators i:nth-child(3) { height: 82px; }
+
+    .cast-packet,
+    .return-packet {
+      position: absolute;
+      z-index: 5;
+      top: calc(50% - 9px);
+      left: calc(15% - 9px);
+      display: grid;
+      width: 18px;
+      height: 18px;
+      place-items: center;
+      border: 2px solid #0e0c10;
+      border-radius: 50%;
+      background: var(--purple-light);
+      box-shadow: 0 0 0 5px rgba(121, 80, 190, 0.22);
+      opacity: 0;
+    }
+
+    .return-packet {
+      right: calc(15% - 9px);
+      left: auto;
+      background: var(--cyan);
+      box-shadow: 0 0 0 5px rgba(67, 184, 189, 0.18);
+    }
+
+    .journey-state {
+      position: absolute;
+      right: 0;
+      bottom: 8px;
+      left: 0;
+      display: flex;
+      justify-content: center;
+      gap: 44px;
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 9px;
+    }
+
+    .journey-state b {
+      color: var(--purple-light);
     }
 
     .end {
+      place-content: center;
       justify-items: center;
       text-align: center;
-      animation: end-scene 59s linear forwards;
     }
 
     .end img {
-      width: 200px;
-      height: 200px;
-      margin-bottom: 36px;
-      border: 2px solid var(--paper);
-      box-shadow: 14px 14px 0 var(--purple);
+      width: 116px;
+      height: 116px;
+      margin-bottom: 30px;
+      border: 1px solid var(--ink);
+      box-shadow: 12px 12px 0 var(--purple);
     }
 
-    .end h1 { font-size: 86px; }
+    .end h1 {
+      font-size: 64px;
+    }
+
     .end p {
-      margin: 28px 0 0;
-      color: var(--cyan);
-      font-family: monospace;
-      font-size: 18px;
+      margin: 24px 0 0;
+      color: var(--muted);
+      font-family: "Courier New", monospace;
+      font-size: 11px;
     }
 
-    @keyframes progress { to { transform: scaleX(1); } }
-    @keyframes blink { 50% { opacity: 0; } }
-    @keyframes blocks { from { transform: translateX(-60px); } to { transform: translateX(0); } }
-    @keyframes key-travel { 0%, 100% { left: 0; } 50% { left: calc(100% - 26px); } }
-    @keyframes pulse { 0% { opacity: 1; transform: scale(.86); } 100% { opacity: 0; transform: scale(1.18); } }
-    @keyframes path-left { 0%, 100% { transform: translateX(24px); } 50% { transform: translateX(-24px); } }
-    @keyframes path-right { 0%, 100% { transform: translateX(-24px); } 50% { transform: translateX(24px); } }
+    .play .intro { animation: intro-scene var(--duration) linear forwards; }
+    .play .build { animation: build-scene var(--duration) linear forwards; }
+    .play .sync { animation: sync-scene var(--duration) linear forwards; }
+    .play .identity { animation: identity-scene var(--duration) linear forwards; }
+    .play .journey { animation: journey-scene var(--duration) linear forwards; }
+    .play .end { animation: end-scene var(--duration) linear forwards; }
 
-    @keyframes brand-scene {
-      0%, 8% { opacity: 1; }
-      10%, 100% { opacity: 0; }
+    .play .build-step:nth-child(1) { animation: step-one var(--duration) ease-out forwards; }
+    .play .build-step:nth-child(3) { animation: step-two var(--duration) ease-out forwards; }
+    .play .build-step:nth-child(5) { animation: step-three var(--duration) ease-out forwards; }
+    .play .build-arrow:nth-child(2) { animation: arrow-one var(--duration) linear forwards; }
+    .play .build-arrow:nth-child(4) { animation: arrow-two var(--duration) linear forwards; }
+    .play .network-orbit { animation: orbit-turn 12s linear infinite; }
+    .play .network-orbit img { animation: orbit-counter 12s linear infinite; }
+    .play .rail i { animation: shard-fill var(--duration) ease-out forwards; }
+    .play .key-transfer::after { animation: key-move var(--duration) ease-in-out forwards; }
+    .play .journey-layout::after { animation: path-glow var(--duration) linear forwards; }
+    .play .cast-packet { animation: cast-travel var(--duration) ease-in-out forwards; }
+    .play .return-packet { animation: return-travel var(--duration) ease-in-out forwards; }
+
+    @keyframes progress { to { width: 100%; } }
+    @keyframes intro-scene {
+      0%, 1% { opacity: 0; transform: scale(0.985); }
+      3%, 8% { opacity: 1; transform: scale(1); }
+      10% { opacity: 0; transform: scale(1.01); }
+      100% { opacity: 0; }
     }
-
-    @keyframes logo-enter {
-      0% { opacity: 0; transform: scale(.86) rotate(-4deg); }
-      3%, 100% { opacity: 1; transform: scale(1) rotate(0); }
-    }
-
-    @keyframes compute-scene {
+    @keyframes build-scene {
       0%, 8% { opacity: 0; }
-      11%, 29% { opacity: 1; }
-      32%, 100% { opacity: 0; }
+      10%, 29% { opacity: 1; }
+      31%, 100% { opacity: 0; }
     }
-
-    @keyframes chain-scene {
+    @keyframes sync-scene {
       0%, 29% { opacity: 0; }
-      32%, 52% { opacity: 1; }
-      55%, 100% { opacity: 0; }
+      31%, 49% { opacity: 1; }
+      51%, 100% { opacity: 0; }
     }
-
-    @keyframes client-scene {
-      0%, 52% { opacity: 0; }
-      55%, 76% { opacity: 1; }
-      79%, 100% { opacity: 0; }
+    @keyframes identity-scene {
+      0%, 49% { opacity: 0; }
+      51%, 65% { opacity: 1; }
+      67%, 100% { opacity: 0; }
     }
-
-    @keyframes paths-scene {
-      0%, 76% { opacity: 0; }
-      79%, 91% { opacity: 1; }
+    @keyframes journey-scene {
+      0%, 65% { opacity: 0; }
+      67%, 92% { opacity: 1; }
       94%, 100% { opacity: 0; }
     }
-
     @keyframes end-scene {
-      0%, 91% { opacity: 0; }
-      94%, 100% { opacity: 1; }
+      0%, 92% { opacity: 0; transform: scale(0.98); }
+      94%, 100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes step-one {
+      0%, 9% { opacity: 0; transform: translateY(18px); }
+      12%, 100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes step-two {
+      0%, 15% { opacity: 0; transform: translateY(18px); }
+      18%, 100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes step-three {
+      0%, 21% { opacity: 0; transform: translateY(18px); }
+      24%, 100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes arrow-one {
+      0%, 14% { opacity: 0; transform: scaleX(0); }
+      18%, 100% { opacity: 1; transform: scaleX(1); }
+    }
+    @keyframes arrow-two {
+      0%, 20% { opacity: 0; transform: scaleX(0); }
+      24%, 100% { opacity: 1; transform: scaleX(1); }
+    }
+    @keyframes orbit-turn { to { transform: rotate(360deg); } }
+    @keyframes orbit-counter { to { transform: translate(-50%, -50%) rotate(-360deg); } }
+    @keyframes shard-fill {
+      0%, 31% { transform: scaleX(0.08); }
+      46%, 100% { transform: scaleX(1); }
+    }
+    @keyframes key-move {
+      0%, 52% { left: 0; }
+      61%, 100% { left: calc(100% - 18px); }
+    }
+    @keyframes path-glow {
+      0%, 68% { opacity: 0; }
+      72%, 91% { opacity: 1; }
+      94%, 100% { opacity: 0; }
+    }
+    @keyframes cast-travel {
+      0%, 70% { opacity: 0; transform: translate(0, 0); }
+      72% { opacity: 1; transform: translate(0, 0); }
+      84% { opacity: 1; transform: translate(var(--travel-x), var(--travel-y)); }
+      86%, 100% { opacity: 0; transform: translate(var(--travel-x), var(--travel-y)); }
+    }
+    @keyframes return-travel {
+      0%, 84% { opacity: 0; transform: translate(0, 0); }
+      86% { opacity: 1; transform: translate(0, 0); }
+      92% { opacity: 1; transform: translate(calc(-1 * var(--travel-x)), calc(-1 * var(--travel-y))); }
+      94%, 100% { opacity: 0; transform: translate(calc(-1 * var(--travel-x)), calc(-1 * var(--travel-y))); }
     }
 
-    @media (max-aspect-ratio: 1 / 1) {
-      body::before { background-size: 54px 54px; }
+    @media (orientation: portrait) {
+      .chrome {
+        height: 70px;
+      }
 
       .topline {
-        top: 42px;
-        left: 38px;
-        right: 38px;
-        font-size: 11px;
+        height: 64px;
+        padding: 0 34px;
+        font-size: 13px;
       }
 
       .scene {
-        padding: 110px 54px 80px;
+        inset: 70px 0 0;
+        padding: 72px 64px;
       }
 
-      .scene-tag {
-        top: 112px;
-        left: 54px;
+      .scene-head {
+        margin-bottom: 52px;
       }
 
-      .brand {
+      .scene-head span,
+      .eyebrow {
+        font-size: 15px;
+      }
+
+      .scene-head h2 {
+        font-size: 64px;
+      }
+
+      .intro {
         grid-template-columns: 1fr;
-        align-content: center;
         justify-items: start;
-        gap: 74px;
-      }
-
-      .brand img {
-        width: 260px;
-        height: 260px;
-      }
-
-      .brand h1 { font-size: 82px; }
-
-      .compute {
-        grid-template-columns: 1fr;
-        align-content: center;
         gap: 70px;
       }
 
-      .terminal code {
-        padding: 48px 28px;
-        font-size: 21px;
+      .intro img {
+        width: 220px;
+        height: 220px;
       }
 
-      .chain-wrap { gap: 34px; }
-      .shard {
-        height: 120px;
-        grid-template-columns: 92px 1fr;
+      .intro h1,
+      .end h1 {
+        font-size: 82px;
       }
-      .shard > span { grid-column: 1 / -1; text-align: left; }
 
-      .client-layout {
+      .intro p,
+      .end p {
+        font-size: 15px;
+      }
+
+      .build-flow {
         grid-template-columns: 1fr;
+        gap: 18px;
+      }
+
+      .build-step {
+        min-height: 225px;
+        grid-template-columns: 48px 1fr;
+        align-items: center;
         align-content: center;
-        gap: 48px;
+        gap: 26px;
+        padding: 24px 30px;
       }
 
-      .identity img {
-        width: 156px;
-        height: 156px;
+      .build-step > div:last-child {
+        grid-column: 1 / -1;
       }
 
-      .key-path {
-        width: 68%;
+      .machine-mark,
+      .browser-mark,
+      .node-mark {
+        grid-row: 1;
+        grid-column: 2;
+        height: 92px;
+      }
+
+      .build-step > b {
+        grid-row: 1;
+      }
+
+      .build-arrow {
+        display: none;
+      }
+
+      .build-step strong {
+        font-size: 34px;
+      }
+
+      .build-step code {
+        font-size: 14px;
+      }
+
+      .sync-layout {
+        grid-template-columns: 1fr;
+        gap: 54px;
+      }
+
+      .network-orbit {
+        width: 300px;
+        height: 300px;
+      }
+
+      .shard {
+        grid-template-columns: 96px 1fr 70px;
+      }
+
+      .shard > b,
+      .shard > span {
+        font-size: 13px;
+      }
+
+      .rail {
+        height: 48px;
+      }
+
+      .sync-note {
+        margin: 28px 0 0;
+        font-size: 14px;
+        text-align: center;
+      }
+
+      .identity-layout {
+        grid-template-columns: 1fr;
+        gap: 22px;
+      }
+
+      .identity-side {
+        min-height: 280px;
+      }
+
+      .identity-side b {
+        font-size: 14px;
+      }
+
+      .identity-side span {
+        font-size: 16px;
+      }
+
+      .key-transfer {
+        width: 1px;
+        height: 110px;
         justify-self: center;
       }
 
-      .browser-body { min-height: 350px; }
-
-      .path-grid {
-        grid-template-columns: 1fr;
-        align-content: center;
-        gap: 42px;
+      .key-transfer::after {
+        top: 0;
+        left: -8px;
       }
 
-      .endpoint { min-height: 180px; }
-      .node-core { width: 250px; height: 250px; }
-      .path-label.read { top: 30%; left: 9%; }
-      .path-label.write { top: 69%; right: 9%; }
+      .client-window {
+        width: 260px;
+        height: 168px;
+        background:
+          linear-gradient(var(--purple), var(--purple)) 18px 46px / 37px 98px no-repeat,
+          linear-gradient(#37303d, #37303d) 74px 46px / 160px 16px no-repeat,
+          linear-gradient(#29232e, #29232e) 74px 76px / 132px 16px no-repeat,
+          linear-gradient(#29232e, #29232e) 74px 106px / 148px 16px no-repeat;
+      }
+
+      .journey-layout {
+        grid-template-columns: 1fr;
+        gap: 88px;
+        min-height: 830px;
+        --travel-x: 0px;
+        --travel-y: 654px;
+      }
+
+      .journey-layout::before,
+      .journey-layout::after {
+        top: 15%;
+        right: auto;
+        bottom: 15%;
+        left: 50%;
+        width: 1px;
+        height: auto;
+      }
+
+      .journey-layout::after {
+        background: linear-gradient(transparent, var(--purple-light), transparent);
+      }
+
+      .journey-node {
+        min-height: 210px;
+      }
+
+      .cast-packet,
+      .return-packet {
+        top: calc(15% - 9px);
+        left: calc(50% - 9px);
+      }
+
+      .return-packet {
+        top: auto;
+        right: auto;
+        bottom: calc(15% - 9px);
+      }
+
+      .journey-state {
+        display: none;
+      }
+
+      .cast-box {
+        width: 230px;
+        font-size: 21px;
+      }
+
+      .journey-node > b {
+        font-size: 13px;
+      }
+
+      .journey-node > span {
+        font-size: 15px;
+      }
+
+      .end {
+        padding-right: 44px;
+        padding-left: 44px;
+      }
 
       .end img {
-        width: 190px;
-        height: 190px;
+        width: 160px;
+        height: 160px;
       }
 
-      .end h1 { font-size: 68px; }
-      .end p { font-size: 14px; }
+      .end h1 {
+        font-size: 76px;
+      }
+
+      @keyframes key-move {
+        0%, 52% { top: 0; }
+        61%, 100% { top: calc(100% - 18px); }
+      }
     }
   </style>
 </head>
 <body>
   <div class="chrome">
-    <div class="topline"><span>IN THREE / PROTOCOL FILM</span><b>00:59</b></div>
+    <div class="topline"><span>IN THREE / ONE CAST</span><b>00:59</b></div>
     <div class="progress"><i></i></div>
   </div>
 
-  <section class="scene brand">
+  <section class="scene intro">
     <img src="../../site/public/profile.svg" alt="" />
     <div>
-      <h1>FARCASTER,<br /><em>IN THREE.</em></h1>
-      <p>01 / 02 / 03</p>
+      <span class="eyebrow">A 59-SECOND SYSTEM TOUR</span>
+      <h1>ONE CAST.<br /><em>ONE OWNED PATH.</em></h1>
+      <p>BUILT IN THREE COMMANDS</p>
     </div>
   </section>
 
-  <section class="scene compute">
-    <span class="scene-tag">01 / COMPUTE</span>
-    <div class="terminal">
-      <header><span>~/in-three-node</span><span>SSH</span></header>
-      <code><i>$</i> in-three provision<span class="cursor"></span></code>
-    </div>
-    <div class="server-visual">
-      <div class="server-row"><i></i><span>CPU</span><b>READY</b></div>
-      <div class="server-row"><i></i><span>MEMORY</span><b>READY</b></div>
-      <div class="server-row"><i></i><span>DISK / 2 TB</span><b>READY</b></div>
-      <div class="server-row"><i></i><span>SSH</span><b>READY</b></div>
+  <section class="scene build">
+    <header class="scene-head">
+      <span>01 / BUILD THE PATH</span>
+      <h2>Three commands. Three parts.</h2>
+    </header>
+    <div class="build-flow">
+      <article class="build-step">
+        <b>1</b>
+        <div class="machine-mark"><i></i></div>
+        <div><strong>Machine</strong><code>in-three provision</code></div>
+      </article>
+      <i class="build-arrow"></i>
+      <article class="build-step">
+        <b>2</b>
+        <div class="node-mark"><i></i><img src="../../site/public/profile.svg" alt="" /></div>
+        <div><strong>Node</strong><code>in-three node up</code></div>
+      </article>
+      <i class="build-arrow"></i>
+      <article class="build-step">
+        <b>3</b>
+        <div class="browser-mark"><i></i></div>
+        <div><strong>Client</strong><code>in-three client create</code></div>
+      </article>
     </div>
   </section>
 
-  <section class="scene chain">
-    <span class="scene-tag">02 / SNAPCHAIN</span>
-    <div class="chain-wrap">
-      <code class="chain-command">$ in-three node up</code>
-      <div class="shard"><b>SHARD 0</b><div class="blocks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>+1s</span></div>
-      <div class="shard"><b>SHARD 1</b><div class="blocks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>+1s</span></div>
-      <div class="shard"><b>SHARD 2</b><div class="blocks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>+3s</span></div>
-    </div>
-  </section>
-
-  <section class="scene client">
-    <span class="scene-tag">03 / CLIENT</span>
-    <div class="client-layout">
-      <div class="identity">
+  <section class="scene sync">
+    <header class="scene-head">
+      <span>02 / CATCH UP</span>
+      <h2>Your node learns Farcaster.</h2>
+    </header>
+    <div class="sync-layout">
+      <div class="network-orbit">
         <img src="../../site/public/profile.svg" alt="" />
-        <b>FID 3356243</b>
-        <span>CUSTODY</span>
+        <i class="peer"></i><i class="peer"></i><i class="peer"></i><i class="peer"></i>
       </div>
-      <div class="key-path"></div>
-      <div class="browser">
-        <header><span>IN THREE</span><span>LOCAL NODE</span></header>
-        <div class="browser-body">
-          <div class="browser-nav"></div>
-          <div class="browser-feed">
-            <div class="cast"><i></i><span><b></b><small></small><small></small></span></div>
-            <div class="cast"><i></i><span><b></b><small></small><small></small></span></div>
-            <div class="cast"><i></i><span><b></b><small></small><small></small></span></div>
-          </div>
+      <div>
+        <div class="shards">
+          <div class="shard"><b>SHARD 0</b><div class="rail"><i></i></div><span>READY</span></div>
+          <div class="shard"><b>SHARD 1</b><div class="rail"><i></i></div><span>READY</span></div>
+          <div class="shard"><b>SHARD 2</b><div class="rail"><i></i></div><span>READY</span></div>
         </div>
+        <p class="sync-note">HISTORY IN · NEW BLOCKS FOLLOW</p>
       </div>
     </div>
   </section>
 
-  <section class="scene paths">
-    <span class="scene-tag">READ + WRITE / ONE NODE</span>
-    <div class="path-grid">
-      <div class="endpoint"><b>CLIENT</b><span>FEED / CAST / FOLLOW</span></div>
-      <div class="node-core"><img src="../../site/public/profile.svg" alt="" /><b>SNAPCHAIN</b></div>
-      <div class="endpoint"><b>VALIDATORS</b><span>ORDER / FINALIZE</span></div>
+  <section class="scene identity">
+    <header class="scene-head">
+      <span>03 / OPEN THE CLIENT</span>
+      <h2>Ownership stays local.</h2>
+    </header>
+    <div class="identity-layout">
+      <div class="identity-side">
+        <div class="vault"></div>
+        <b>RECOVERY PHRASE</b>
+        <span>Encrypted on your machine</span>
+      </div>
+      <div class="key-transfer"></div>
+      <div class="identity-side">
+        <div class="client-window"></div>
+        <b>REVOCABLE APP KEY</b>
+        <span>Runs the client</span>
+      </div>
     </div>
-    <span class="path-label read">READ</span>
-    <span class="path-label write">SIGNED WRITE</span>
+  </section>
+
+  <section class="scene journey">
+    <header class="scene-head">
+      <span>NOW FOLLOW ONE CAST</span>
+      <h2>Sign. Verify. Relay.</h2>
+    </header>
+    <div class="journey-layout">
+      <div class="journey-node">
+        <div class="cast-box">Hello from my node.</div>
+        <b>YOUR CLIENT</b>
+        <span>Signs the action</span>
+      </div>
+      <div class="journey-node">
+        <img src="../../site/public/profile.svg" alt="" />
+        <b>YOUR NODE</b>
+        <span>Verifies + relays</span>
+      </div>
+      <div class="journey-node">
+        <div class="validators"><i></i><i></i><i></i></div>
+        <b>VALIDATORS</b>
+        <span>Order + finalize</span>
+      </div>
+      <i class="cast-packet"></i>
+      <i class="return-packet"></i>
+      <div class="journey-state">
+        <span><b>→</b> SIGNED WRITE</span>
+        <span><b>←</b> UPDATED FEED</span>
+      </div>
+    </div>
   </section>
 
   <section class="scene end">
     <img src="../../site/public/profile.svg" alt="" />
-    <h1>OWN THE NODE.<br /><em>OPEN THE CLIENT.</em></h1>
+    <h1>YOUR CLIENT.<br />YOUR NODE.<br /><em>FARCASTER.</em></h1>
     <p>farcaster.permanentupperclass.com</p>
   </section>
 </body>

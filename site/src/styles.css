@@ -588,272 +588,172 @@ html[lang="zh-CN"] .hero h1 {
   color: var(--purple-light);
 }
 
-.plain-facts {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border-bottom: 1px solid var(--ink);
-  background: var(--white);
-}
-
-.plain-facts > div {
-  display: flex;
-  min-height: 88px;
-  align-items: center;
-  gap: 12px;
-  padding: 18px max(20px, 2.5vw);
-  border-right: 1px solid var(--line);
-}
-
-.plain-facts > div:last-child {
-  border-right: 0;
-}
-
-.plain-facts svg {
-  flex: none;
-  color: var(--purple);
-}
-
-.plain-facts span {
-  display: grid;
-  gap: 3px;
-}
-
-.plain-facts b {
-  font-size: 12px;
-}
-
-.plain-facts small {
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.4;
-}
-
-.tutorial-map {
+.system-map {
   border-bottom: 1px solid var(--ink);
   background: var(--paper);
 }
 
-.tutorial-map-inner {
+.system-map-inner {
   width: min(1120px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 52px 0 48px;
+  padding: 64px 0 54px;
 }
 
-.tutorial-map-heading {
+.system-map-heading {
   display: grid;
-  grid-template-columns: 1fr minmax(280px, 0.62fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr);
   align-items: end;
-  gap: 48px;
-  margin-bottom: 28px;
+  gap: 12px 64px;
+  margin-bottom: 34px;
 }
 
-.tutorial-map-heading > div {
-  display: grid;
-  gap: 8px;
-}
-
-.tutorial-map-heading span {
+.system-map-heading > span {
+  grid-column: 1 / -1;
   color: var(--purple);
   font-family: "IBM Plex Mono", monospace;
   font-size: 9px;
   font-weight: 700;
 }
 
-.tutorial-map-heading h2 {
+.system-map-heading h2 {
   margin: 0;
   font-family: "Newsreader Variable", Georgia, serif;
-  font-size: 38px;
+  font-size: 42px;
   font-weight: 470;
   line-height: 1;
   letter-spacing: 0;
 }
 
-.tutorial-map-heading p {
+.system-map-heading p {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.55;
 }
 
-.tutorial-tabs {
+.system-flow {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border: 1px solid var(--ink);
-  background: var(--white);
+  grid-template-columns:
+    minmax(150px, 1fr)
+    minmax(118px, 0.72fr)
+    minmax(170px, 1.08fr)
+    minmax(118px, 0.72fr)
+    minmax(150px, 1fr);
+  align-items: stretch;
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
 }
 
-.tutorial-tabs button {
-  position: relative;
+.system-node {
   display: grid;
   min-width: 0;
-  min-height: 72px;
-  grid-template-columns: 30px 1fr 18px;
+  min-height: 126px;
+  grid-template-columns: auto 1fr;
+  align-content: center;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  border: 0;
-  border-right: 1px solid var(--ink);
-  background: transparent;
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-  transition: background 160ms ease, color 160ms ease;
+  gap: 14px;
+  padding: 22px;
 }
 
-.tutorial-tabs button:last-child {
-  border-right: 0;
-}
-
-.tutorial-tabs button > b {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 1px solid currentColor;
+.system-node > svg {
   color: var(--purple);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 10px;
 }
 
-.tutorial-tabs button > span {
+.system-node > span {
   display: grid;
-  min-width: 0;
-  gap: 3px;
+  gap: 5px;
 }
 
-.tutorial-tabs strong {
+.system-node b {
   font-family: "IBM Plex Mono", monospace;
-  font-size: 9px;
-}
-
-.tutorial-tabs small {
-  overflow: hidden;
-  color: var(--muted);
   font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.tutorial-tabs button > svg {
-  color: var(--line);
+.system-node small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
-.tutorial-tabs button:hover {
-  background: #ece8f2;
-}
-
-.tutorial-tabs button.active {
+.owned-node {
+  position: relative;
+  border-right: 1px solid var(--ink);
+  border-left: 1px solid var(--ink);
   background: var(--ink);
   color: white;
 }
 
-.tutorial-tabs button.active > b {
-  border-color: var(--purple-light);
-  color: var(--purple-light);
+.owned-node img {
+  border: 1px solid white;
 }
 
-.tutorial-tabs button.active small,
-.tutorial-tabs button.active > svg {
+.owned-node small {
   color: #c8c3cc;
 }
 
-.tutorial-panel {
-  display: grid;
-  min-height: 198px;
-  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
-  align-items: stretch;
-  gap: 56px;
-  padding-top: 28px;
-  animation: tutorial-reveal 220ms ease-out;
-}
-
-.tutorial-panel-copy {
-  display: grid;
-  align-content: start;
-  justify-items: start;
-}
-
-.tutorial-panel-copy > code {
-  padding: 5px 8px;
+.owned-node em {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  padding: 4px 6px;
   background: var(--purple);
-  color: white;
-  font-size: 9px;
-  font-weight: 600;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 700;
 }
 
-.tutorial-panel-copy h3 {
-  margin: 12px 0 7px;
-  font-family: "Newsreader Variable", Georgia, serif;
-  font-size: 26px;
-  font-weight: 500;
-  line-height: 1.05;
-  letter-spacing: 0;
-}
-
-.tutorial-panel-copy p {
-  max-width: 650px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.tutorial-panel-copy a {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  gap: 7px;
-  margin-top: 9px;
-  border-bottom: 1px solid var(--ink);
-  font-size: 10px;
-  font-weight: 750;
-}
-
-.tutorial-panel dl {
+.system-link {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  margin: 0;
-  border-left: 1px solid var(--line);
-}
-
-.tutorial-panel dl > div {
-  display: grid;
-  min-width: 0;
   align-content: center;
-  gap: 8px;
-  padding: 18px;
-  border-right: 1px solid var(--line);
+  gap: 13px;
+  padding: 18px 10px;
+  color: var(--muted);
 }
 
-.tutorial-panel dl > div:last-child {
-  border-right: 0;
-}
-
-.tutorial-panel dt {
-  color: var(--purple);
+.system-link span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
   font-family: "IBM Plex Mono", monospace;
   font-size: 8px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
-.tutorial-panel dd {
+.system-link svg {
+  flex: none;
+  color: var(--purple);
+}
+
+.system-note {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 0 0;
+}
+
+.system-note > svg {
+  color: var(--purple);
+}
+
+.system-note p {
   margin: 0;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 10px;
-  line-height: 1.45;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
-@keyframes tutorial-reveal {
-  from {
-    opacity: 0;
-    transform: translateY(7px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.system-note a {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--ink);
+  font-size: 10px;
+  font-weight: 750;
 }
 
 .section {
@@ -1331,6 +1231,68 @@ html[lang="zh-CN"] .hero h1 {
   padding: 3px 0 3px 5px;
 }
 
+.healing-flow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 18px 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  list-style: none;
+}
+
+.healing-flow li {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  padding: 14px;
+  border-right: 1px solid var(--line);
+}
+
+.healing-flow li:last-child {
+  border-right: 0;
+}
+
+.healing-flow b {
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 8px;
+}
+
+.healing-flow span {
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.concept-list {
+  margin: 0;
+}
+
+.concept-list > div {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.concept-list > div:last-child {
+  border-bottom: 0;
+}
+
+.concept-list dt {
+  color: var(--purple);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.concept-list dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+}
+
 .details-body a {
   color: var(--purple);
   font-weight: 700;
@@ -1482,18 +1444,6 @@ html[lang="zh-CN"] .hero h1 {
     gap: 38px;
   }
 
-  .plain-facts {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .plain-facts > div:nth-child(2) {
-    border-right: 0;
-  }
-
-  .plain-facts > div:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--line);
-  }
-
   .guided-steps {
     grid-template-columns: 1fr 1fr;
   }
@@ -1617,21 +1567,55 @@ html[lang="zh-CN"] .hero h1 {
     min-height: 72px;
   }
 
-  .tutorial-map-heading {
+  .system-map-heading {
     grid-template-columns: 1fr;
     gap: 10px;
   }
 
-  .tutorial-panel {
-    min-height: 280px;
-    grid-template-columns: 1fr;
-    gap: 20px;
+  .system-map-heading > span {
+    grid-column: auto;
   }
 
-  .tutorial-panel dl {
-    min-height: 82px;
-    border-top: 1px solid var(--line);
-    border-left: 0;
+  .system-flow {
+    grid-template-columns: 1fr;
+    border: 1px solid var(--ink);
+  }
+
+  .system-node {
+    min-height: 96px;
+  }
+
+  .owned-node {
+    border: 0;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+  }
+
+  .system-link {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    padding: 12px 18px;
+  }
+
+  .system-link span {
+    justify-content: center;
+  }
+
+  .system-link span:first-child svg,
+  .system-link span:last-child svg {
+    transform: rotate(90deg);
+  }
+
+  .healing-flow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .healing-flow li:nth-child(2) {
+    border-right: 0;
+  }
+
+  .healing-flow li:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
   }
 
   .section {
@@ -1786,71 +1770,40 @@ html[lang="zh-CN"] .hero h1 {
     padding-top: 8px;
   }
 
-  .plain-facts {
-    grid-template-columns: 1fr;
-  }
-
-  .plain-facts > div,
-  .plain-facts > div:nth-child(2) {
-    min-height: 72px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .plain-facts > div:last-child {
-    border-bottom: 0;
-  }
-
-  .tutorial-map-inner {
+  .system-map-inner {
     width: calc(100% - 32px);
     padding: 42px 0 38px;
   }
 
-  .tutorial-map-heading h2 {
+  .system-map-heading {
+    margin-bottom: 24px;
+  }
+
+  .system-map-heading h2 {
     font-size: 32px;
   }
 
-  .tutorial-tabs button {
-    min-height: 70px;
-    grid-template-columns: 24px 1fr;
-    gap: 7px;
-    padding: 9px;
+  .system-node {
+    min-height: 82px;
+    padding: 16px;
   }
 
-  .tutorial-tabs button > b {
-    width: 24px;
-    height: 24px;
-    font-size: 9px;
+  .system-link {
+    gap: 12px;
+    padding: 10px 8px;
   }
 
-  .tutorial-tabs button > svg,
-  .tutorial-tabs small {
-    display: none;
-  }
-
-  .tutorial-tabs strong {
-    font-size: 8px;
-  }
-
-  .tutorial-panel {
-    min-height: 326px;
-    padding-top: 22px;
-  }
-
-  .tutorial-panel-copy h3 {
-    font-size: 24px;
-  }
-
-  .tutorial-panel dl > div {
-    padding: 12px 8px;
-  }
-
-  .tutorial-panel dt {
+  .system-link span {
     font-size: 7px;
   }
 
-  .tutorial-panel dd {
-    font-size: 9px;
+  .system-note {
+    grid-template-columns: auto 1fr;
+  }
+
+  .system-note a {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 
   .section {
@@ -1903,6 +1856,25 @@ html[lang="zh-CN"] .hero h1 {
 
   .guided-steps li:last-child {
     border-bottom: 0;
+  }
+
+  .healing-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .healing-flow li,
+  .healing-flow li:nth-child(2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .healing-flow li:last-child {
+    border-bottom: 0;
+  }
+
+  .concept-list > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .docs-list {

@@ -245,27 +245,25 @@ try {
   if (!(await sitePage.getByText("THE THREE-COMMAND FARCASTER TUTORIAL").isVisible())) {
     throw new Error("website hero does not identify In Three as a tutorial");
   }
-  if (!(await sitePage.getByRole("heading", { name: "What each command does." }).isVisible())) {
-    throw new Error("website tutorial map is missing");
+  if (!(await sitePage.getByRole("heading", { name: "Your client. Your node. The network." }).isVisible())) {
+    throw new Error("website system map is missing");
   }
-  const tutorialTabs = sitePage.locator('.tutorial-tabs [role="tab"]');
-  if (await tutorialTabs.count() !== 3) {
-    throw new Error("tutorial map must have three stages");
+  const systemNodes = sitePage.locator(".system-node");
+  if (await systemNodes.count() !== 3) {
+    throw new Error("system map must show the client, owned node, and validators");
   }
-  if (await tutorialTabs.nth(0).getAttribute("aria-selected") !== "true") {
-    throw new Error("compute must be the default tutorial stage");
+  const systemMapText = (await sitePage.locator(".system-map").innerText()).toLowerCase();
+  if (
+    !systemMapText.includes("signed action") ||
+    !systemMapText.includes("verify, store, relay") ||
+    !systemMapText.includes("order, finalize")
+  ) {
+    throw new Error("system map does not explain the owned read/write path");
   }
-  await tutorialTabs.nth(1).click();
-  const snapchainTutorial = await sitePage.locator(".tutorial-panel").innerText();
-  if (!snapchainTutorial.includes("relays them to validators") || !snapchainTutorial.includes("No hosted Farcaster API key")) {
-    throw new Error("Snapchain tutorial stage omits the corrected owned-node path");
+  const systemLabel = await sitePage.locator(".system-flow").getAttribute("aria-label");
+  if (!systemLabel?.includes("owned Snapchain node") || !systemLabel.includes("Farcaster validators")) {
+    throw new Error("system map is missing an accessible architecture description");
   }
-  await tutorialTabs.nth(2).click();
-  const clientTutorial = await sitePage.locator(".tutorial-panel").innerText();
-  if (!clientTutorial.includes("gasless, revocable app key") || !clientTutorial.includes("source filters")) {
-    throw new Error("client tutorial stage omits app-key or filtering behavior");
-  }
-  await tutorialTabs.nth(0).click();
   const packagePills = sitePage.locator(".package-pill");
   if (await packagePills.count() !== 4) {
     throw new Error("site must expose npm, container, release, and source links at the top");
@@ -332,6 +330,8 @@ try {
   if (chineseDefaultTrack !== "zh") {
     throw new Error(`Chinese film captions are not the default: ${chineseDefaultTrack}`);
   }
+  await sitePage.screenshot({ path: "/tmp/in-three-site-zh-desktop.png", fullPage: true });
+  await assertNoOverflow(sitePage, "Chinese site desktop");
   await sitePage.getByRole("button", { name: "EN", exact: true }).click();
   await sitePage.waitForFunction(() => document.documentElement.lang === "en");
   if (new URL(sitePage.url()).searchParams.has("lang")) {
@@ -356,6 +356,41 @@ try {
   if (!(await sitePage.getByRole("heading", { name: "FAQ" }).isVisible())) {
     throw new Error("website FAQ heading is missing");
   }
+  const healingHelp = sitePage.locator("#self-healing-help");
+  if (await healingHelp.getAttribute("open") !== null) {
+    throw new Error("self-healing explanation must use progressive disclosure");
+  }
+  await healingHelp.locator("summary").click();
+  if (
+    (await healingHelp.locator(".healing-flow li").count()) !== 4 ||
+    !(await healingHelp.innerText()).includes("discard only that shard") ||
+    !(await healingHelp.innerText()).includes("before asking for keys or funds")
+  ) {
+    throw new Error("self-healing FAQ does not explain targeted snapshot recovery");
+  }
+  const healingIssueHref = await healingHelp
+    .getByRole("link", { name: "Upstream snapshot issue" })
+    .getAttribute("href");
+  if (healingIssueHref !== "https://github.com/farcasterxyz/snapchain/issues/1044") {
+    throw new Error(`self-healing FAQ has the wrong upstream evidence link: ${healingIssueHref}`);
+  }
+  const readinessPrHref = await healingHelp
+    .getByRole("link", { name: "All-shard readiness PR" })
+    .getAttribute("href");
+  if (readinessPrHref !== "https://github.com/farcasterxyz/snapchain/pull/1065") {
+    throw new Error(`self-healing FAQ has the wrong readiness PR link: ${readinessPrHref}`);
+  }
+  const conceptsHelp = sitePage.locator("#concepts-help");
+  await conceptsHelp.locator("summary").click();
+  if ((await conceptsHelp.locator(".concept-list > div").count()) !== 5) {
+    throw new Error("protocol glossary does not cover all five beginner concepts");
+  }
+  await healingHelp.evaluate((element) => {
+    if (element instanceof HTMLDetailsElement) element.open = false;
+  });
+  await conceptsHelp.evaluate((element) => {
+    if (element instanceof HTMLDetailsElement) element.open = false;
+  });
   const hetznerHelp = sitePage.locator("#hetzner-help");
   if (await hetznerHelp.getAttribute("open") !== null) {
     throw new Error("Hetzner help must be folded by default");
@@ -410,19 +445,13 @@ try {
     }
   }
   for (let index = 0; index < 3; index += 1) {
-    if (!(await tutorialTabs.nth(index).isVisible())) {
-      throw new Error(`tutorial stage ${index + 1} is hidden on mobile`);
+    if (!(await systemNodes.nth(index).isVisible())) {
+      throw new Error(`system node ${index + 1} is hidden on mobile`);
     }
   }
-  await tutorialTabs.nth(1).click();
-  if (!(await sitePage.locator(".tutorial-panel").innerText()).includes("relays them to validators")) {
-    throw new Error("Snapchain tutorial stage does not work on mobile");
+  if (!(await healingHelp.locator("summary").isVisible())) {
+    throw new Error("self-healing FAQ is hidden on mobile");
   }
-  await tutorialTabs.nth(2).click();
-  if (!(await sitePage.locator(".tutorial-panel").innerText()).includes("gasless, revocable app key")) {
-    throw new Error("client tutorial stage does not work on mobile");
-  }
-  await tutorialTabs.nth(0).click();
   if (!(await npmMethod.isVisible()) || !(await dockerMethod.isVisible())) {
     throw new Error("installation method selector is hidden on mobile");
   }
@@ -443,6 +472,10 @@ try {
   await sitePage.evaluate(() => window.scrollTo(0, 0));
   await sitePage.screenshot({ path: "/tmp/in-three-site-mobile.png", fullPage: true });
   await assertNoOverflow(sitePage, "site mobile");
+  await sitePage.getByRole("button", { name: "中文", exact: true }).click();
+  await sitePage.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  await sitePage.screenshot({ path: "/tmp/in-three-site-zh-mobile.png", fullPage: true });
+  await assertNoOverflow(sitePage, "Chinese site mobile");
 
   await new Promise((resolve) => setTimeout(resolve, 100));
   const receiptLog = clientLogs.join("");
@@ -462,6 +495,8 @@ try {
   console.log("/tmp/in-three-client-mobile.png");
   console.log("/tmp/in-three-site-desktop.png");
   console.log("/tmp/in-three-site-mobile.png");
+  console.log("/tmp/in-three-site-zh-desktop.png");
+  console.log("/tmp/in-three-site-zh-mobile.png");
 } catch (error) {
   console.error(clientLogs.join(""));
   throw error;
