@@ -98,6 +98,7 @@ Run the same three commands with `./in-three-container` instead of `in-three`. F
 - [Security](SECURITY.md): keys and recovery files
 - [Architecture](docs/ARCHITECTURE.md): read and write paths
 - [Proof](docs/PROOF.md): run receipts
+- [Agent runbook](https://farcaster.permanentupperclass.com/agent.md): guarded setup for coding agents
 - [All documentation](docs/README.md)
 
 ## Development

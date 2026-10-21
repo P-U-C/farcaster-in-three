@@ -385,10 +385,45 @@ try {
   if ((await conceptsHelp.locator(".concept-list > div").count()) !== 5) {
     throw new Error("protocol glossary does not cover all five beginner concepts");
   }
+  const agentHelp = sitePage.locator("#agent-help");
+  await agentHelp.locator("summary").click();
+  if (
+    !(await agentHelp.innerText()).includes("must hand control back") ||
+    !(await agentHelp.locator(".code-block").innerText()).includes("/agent.md")
+  ) {
+    throw new Error("agent FAQ does not expose the guarded public handoff");
+  }
+  const agentRunbookHref = await agentHelp
+    .getByRole("link", { name: "Agent runbook" })
+    .getAttribute("href");
+  if (agentRunbookHref !== "./agent.md") {
+    throw new Error("agent FAQ has the wrong public runbook link");
+  }
+  const agentResponse = await sitePage.request.get("http://127.0.0.1:4173/agent.md");
+  const agentText = await agentResponse.text();
+  if (
+    !agentResponse.ok() ||
+    !agentText.includes("Non-negotiable boundaries") ||
+    !agentText.includes("in-three client create")
+  ) {
+    throw new Error("public agent runbook is missing or incomplete");
+  }
+  const llmsResponse = await sitePage.request.get("http://127.0.0.1:4173/llms.txt");
+  const llmsText = await llmsResponse.text();
+  if (
+    !llmsResponse.ok() ||
+    !llmsText.includes("/agent.md") ||
+    !llmsText.includes("Core commands")
+  ) {
+    throw new Error("llms discovery file is missing or incomplete");
+  }
   await healingHelp.evaluate((element) => {
     if (element instanceof HTMLDetailsElement) element.open = false;
   });
   await conceptsHelp.evaluate((element) => {
+    if (element instanceof HTMLDetailsElement) element.open = false;
+  });
+  await agentHelp.evaluate((element) => {
     if (element instanceof HTMLDetailsElement) element.open = false;
   });
   const hetznerHelp = sitePage.locator("#hetzner-help");
@@ -451,6 +486,9 @@ try {
   }
   if (!(await healingHelp.locator("summary").isVisible())) {
     throw new Error("self-healing FAQ is hidden on mobile");
+  }
+  if (!(await agentHelp.locator("summary").isVisible())) {
+    throw new Error("agent handoff is hidden on mobile");
   }
   if (!(await npmMethod.isVisible()) || !(await dockerMethod.isVisible())) {
     throw new Error("installation method selector is hidden on mobile");

@@ -11,7 +11,7 @@ npm uses GitHub OIDC trusted publishing. GHCR is public.
 ## Release checklist
 
 1. Choose `X.Y.Z`.
-2. Update package versions, `in-three-container`, `Dockerfile.operator`, README, website, voucher, operations guide, and agent skill together.
+2. Update package versions, `in-three-container`, `Dockerfile.operator`, README, website, voucher, operations guide, agent skill, and public `agent.md` together.
 3. Run the full verification suite.
 4. Commit the release.
 5. Create the signed or annotated tag `vX.Y.Z` on that commit.

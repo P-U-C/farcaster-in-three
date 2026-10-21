@@ -1,0 +1,32 @@
+# In Three
+
+> A three-command developer tutorial for running an owned Farcaster Snapchain node and browser client. Reads and signed writes go through the operator's node without a hosted Farcaster data API.
+
+## Start here
+
+- Human tutorial: https://farcaster.permanentupperclass.com/
+- Simplified Chinese tutorial: https://farcaster.permanentupperclass.com/?lang=zh
+- Agent runbook: https://farcaster.permanentupperclass.com/agent.md
+- Source: https://github.com/P-U-C/farcaster-in-three
+- npm: https://www.npmjs.com/package/farcaster-in-three
+- Container: https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three
+
+## Core commands
+
+    in-three provision
+    in-three node up
+    in-three client create
+
+Use an existing suitable Ubuntu machine by default. Hetzner is optional through `in-three provision --hetzner`.
+
+## Safety
+
+Never request or expose a recovery phrase, browser password, cloud token, SSH private key, or payment key. Require human approval before spend, account funding, any Farcaster write, or teardown. Use a disposable test account.
+
+## References
+
+- Operations: https://github.com/P-U-C/farcaster-in-three/blob/main/docs/OPERATIONS.md
+- Security: https://github.com/P-U-C/farcaster-in-three/blob/main/SECURITY.md
+- Architecture: https://github.com/P-U-C/farcaster-in-three/blob/main/docs/ARCHITECTURE.md
+- Agent and x402 API: https://github.com/P-U-C/farcaster-in-three/blob/main/docs/AGENT-API.md
+- Full Agent Skill: https://github.com/P-U-C/farcaster-in-three/tree/main/skills/in-three

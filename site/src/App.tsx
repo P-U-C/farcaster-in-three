@@ -31,6 +31,8 @@ const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
 const RELEASE = `${REPO}/releases/tag/v0.1.24`;
+const AGENT_PROMPT =
+  "Set up In Three using https://farcaster.permanentupperclass.com/agent.md";
 
 type InstallMethod = "npm" | "container";
 
@@ -680,8 +682,24 @@ export function App() {
                 </>
               )}
             </Details>
-            <Details question={copy.help.agentQuestion}>
-              {copy.help.agentBody}
+            <Details id="agent-help" question={copy.help.agentQuestion}>
+              <p>{copy.help.agentBody}</p>
+              <CodeBlock
+                code={AGENT_PROMPT}
+                copyLabel={copy.ui.copyCommand}
+                copiedLabel={copy.ui.copied}
+              />
+              <p>
+                <a href="./agent.md">{copy.help.agentGuide}</a>{" "}
+                ·{" "}
+                <a
+                  href={`${DOCS}/docs/AGENT-API.md`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {copy.help.agentCommerce}
+                </a>
+              </p>
             </Details>
           </div>
 
