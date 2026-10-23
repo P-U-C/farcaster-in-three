@@ -265,8 +265,8 @@ try {
     throw new Error("system map is missing an accessible architecture description");
   }
   const packagePills = sitePage.locator(".package-pill");
-  if (await packagePills.count() !== 4) {
-    throw new Error("site must expose npm, container, release, and source links at the top");
+  if (await packagePills.count() !== 5) {
+    throw new Error("site must expose npm, container, release, proof, and source links at the top");
   }
   const packageHrefs = await packagePills.evaluateAll((links) =>
     links.map((link) => link.getAttribute("href")),
@@ -275,6 +275,7 @@ try {
     "https://www.npmjs.com/package/farcaster-in-three",
     "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three",
     "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.24",
+    "https://github.com/P-U-C/farcaster-in-three/blob/main/docs/PROOF.md",
     "https://github.com/P-U-C/farcaster-in-three",
   ];
   if (expectedPackageHrefs.some((href) => !packageHrefs.includes(href))) {
@@ -474,7 +475,7 @@ try {
 
   await sitePage.setViewportSize({ width: 390, height: 844 });
   await sitePage.reload({ waitUntil: "networkidle" });
-  for (let index = 0; index < 4; index += 1) {
+  for (let index = 0; index < 5; index += 1) {
     if (!(await packagePills.nth(index).isVisible())) {
       throw new Error(`top package link ${index + 1} is hidden on mobile`);
     }

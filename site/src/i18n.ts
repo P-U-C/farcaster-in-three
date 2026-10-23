@@ -13,7 +13,7 @@ const en = {
     openMenu: "Open menu",
     closeMenu: "Close menu",
     mainLabel: "Main navigation",
-    packagesLabel: "Packages and release links",
+    packagesLabel: "Packages, source, and live proof",
   },
   language: {
     label: "Language",
@@ -25,6 +25,8 @@ const en = {
     npmDetail: "recommended",
     dockerDetail: "amd64 + arm64",
     releaseDetail: "checksummed",
+    proofLabel: "Proof",
+    proofDetail: "mainnet run",
     sourceDetail: "MIT",
   },
   hero: {
@@ -195,7 +197,7 @@ const zh = {
     openMenu: "打开菜单",
     closeMenu: "关闭菜单",
     mainLabel: "主导航",
-    packagesLabel: "软件包与版本链接",
+    packagesLabel: "软件包、源码与主网实测",
   },
   language: {
     label: "语言",
@@ -207,6 +209,8 @@ const zh = {
     npmDetail: "推荐",
     dockerDetail: "amd64 + arm64",
     releaseDetail: "含校验值",
+    proofLabel: "实测",
+    proofDetail: "主网运行",
     sourceDetail: "MIT",
   },
   hero: {

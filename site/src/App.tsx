@@ -31,6 +31,7 @@ const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
 const RELEASE = `${REPO}/releases/tag/v0.1.24`;
+const LIVE_PROOF = `${DOCS}/docs/PROOF.md`;
 const AGENT_PROMPT =
   "Set up In Three using https://farcaster.permanentupperclass.com/agent.md";
 
@@ -187,6 +188,12 @@ export function App() {
             label="Release"
             detail={copy.packages.releaseDetail}
             href={RELEASE}
+          />
+          <PackageLink
+            icon={<CheckCircle2 size={14} />}
+            label={copy.packages.proofLabel}
+            detail={copy.packages.proofDetail}
+            href={LIVE_PROOF}
           />
           <PackageLink
             icon={<Github size={14} />}
