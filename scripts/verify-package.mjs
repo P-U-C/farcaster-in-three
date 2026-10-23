@@ -54,11 +54,15 @@ if (packageJson.dependencies?.["@celo/buy"] !== "0.8.3") {
 const readme = await readFile(resolve(root, "README.md"), "utf8");
 const npmInstall = readme.indexOf("npm install --global farcaster-in-three");
 const containerInstall = readme.indexOf("curl -fsSLO");
-if (npmInstall < 0 || containerInstall < 0 || npmInstall > containerInstall) {
-  throw new Error("package README must lead with the npm quickstart");
+if (npmInstall < 0 || containerInstall < 0 || containerInstall > npmInstall) {
+  throw new Error("package README must lead with the clean-host container quickstart");
 }
-if (!readme.includes("in-three provision\nin-three node up\nin-three client create")) {
-  throw new Error("package README must show the three npm commands");
+if (
+  !readme.includes(
+    "./in-three-container provision\n./in-three-container node up\n./in-three-container client create",
+  )
+) {
+  throw new Error("package README must show the three container commands");
 }
 if (!readme.includes(`/v${packageJson.version}/in-three-container`)) {
   throw new Error("package README container link must match the package version");

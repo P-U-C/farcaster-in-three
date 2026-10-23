@@ -30,7 +30,7 @@ const REPO = "https://github.com/P-U-C/farcaster-in-three";
 const DOCS = `${REPO}/blob/main`;
 const NPM_PACKAGE = "https://www.npmjs.com/package/farcaster-in-three";
 const CONTAINER_PACKAGE = "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three";
-const RELEASE = `${REPO}/releases/tag/v0.1.24`;
+const RELEASE = `${REPO}/releases/tag/v0.1.25`;
 const LIVE_PROOF = `${DOCS}/docs/PROOF.md`;
 const AGENT_PROMPT =
   "Set up In Three using https://farcaster.permanentupperclass.com/agent.md";
@@ -49,7 +49,7 @@ const commandValues: Record<InstallMethod, readonly string[]> = {
 const installCommands: Record<InstallMethod, string> = {
   npm: "npm install --global farcaster-in-three\nmkdir in-three-node && cd in-three-node\nin-three doctor",
   container:
-    "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.24/in-three-container\nchmod +x in-three-container\n./in-three-container doctor",
+    "mkdir in-three-node && cd in-three-node\ncurl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.25/in-three-container\nchmod +x in-three-container\n./in-three-container doctor --install-docker",
 };
 
 function initialLocale(): Locale {
@@ -66,7 +66,7 @@ function openHetznerHelp() {
 
 export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [installMethod, setInstallMethod] = useState<InstallMethod>("npm");
+  const [installMethod, setInstallMethod] = useState<InstallMethod>("container");
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const copy = messages[locale];
   const prefix =
@@ -168,7 +168,7 @@ export function App() {
 
       <nav className="package-bar" aria-label={copy.nav.packagesLabel}>
         <span className="package-bar-label">
-          {copy.packages.get} <b>v0.1.24</b>
+          {copy.packages.get} <b>v0.1.25</b>
         </span>
         <div className="package-links">
           <PackageLink
@@ -430,18 +430,6 @@ export function App() {
               aria-label={copy.start.methodLabel}
             >
               <button
-                className={installMethod === "npm" ? "active" : ""}
-                type="button"
-                aria-pressed={installMethod === "npm"}
-                onClick={() => setInstallMethod("npm")}
-              >
-                <Package size={17} />
-                <span>
-                  <b>{copy.start.npmName}</b>
-                  <small>{copy.start.npmDetail}</small>
-                </span>
-              </button>
-              <button
                 className={installMethod === "container" ? "active" : ""}
                 type="button"
                 aria-pressed={installMethod === "container"}
@@ -451,6 +439,18 @@ export function App() {
                 <span>
                   <b>{copy.start.dockerName}</b>
                   <small>{copy.start.dockerDetail}</small>
+                </span>
+              </button>
+              <button
+                className={installMethod === "npm" ? "active" : ""}
+                type="button"
+                aria-pressed={installMethod === "npm"}
+                onClick={() => setInstallMethod("npm")}
+              >
+                <Package size={17} />
+                <span>
+                  <b>{copy.start.npmName}</b>
+                  <small>{copy.start.npmDetail}</small>
                 </span>
               </button>
             </div>
@@ -675,19 +675,7 @@ export function App() {
               <code>{prefix} client create</code>. {copy.help.stoppedTail}
             </Details>
             <Details question={copy.help.dockerQuestion}>
-              {locale === "en" ? (
-                <>
-                  Select Docker above. For your own machine, put a dedicated SSH
-                  key in this folder and pass{" "}
-                  <code>--ssh-key /work/node-key</code> in step 1.
-                </>
-              ) : (
-                <>
-                  请在上方选择 Docker。使用自己的机器时，把专用 SSH
-                  密钥放进这个目录，并在第 1 步传入{" "}
-                  <code>--ssh-key /work/node-key</code>。
-                </>
-              )}
+              <p>{copy.help.dockerBody}</p>
             </Details>
             <Details id="agent-help" question={copy.help.agentQuestion}>
               <p>{copy.help.agentBody}</p>

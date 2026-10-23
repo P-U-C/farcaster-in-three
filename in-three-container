@@ -1,19 +1,126 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.1.24"
+VERSION="0.1.25"
 DEFAULT_IMAGE="puc/farcaster-in-three:${VERSION}"
 IMAGE="${IN_THREE_IMAGE:-$DEFAULT_IMAGE}"
 RELEASE_BASE="${IN_THREE_RELEASE_BASE:-https://github.com/P-U-C/farcaster-in-three/releases/download/v${VERSION}}"
 
-command -v docker >/dev/null 2>&1 || {
-  printf 'error: Docker is required\n' >&2
-  exit 1
+install_docker=false
+forward_args=()
+for argument in "$@"; do
+  if [[ "$argument" == "--install-docker" ]]; then
+    install_docker=true
+  else
+    forward_args+=("$argument")
+  fi
+done
+set -- "${forward_args[@]}"
+
+DOCKER=()
+
+select_docker() {
+  command -v docker >/dev/null 2>&1 || return 1
+
+  if docker info >/dev/null 2>&1; then
+    DOCKER=(docker)
+    return 0
+  fi
+
+  if [[ "$(uname -s)" == "Linux" ]] && command -v sudo >/dev/null 2>&1; then
+    if sudo -n docker info >/dev/null 2>&1; then
+      DOCKER=(sudo -n docker)
+      return 0
+    fi
+    if [[ -t 0 ]] && sudo -v && sudo -n docker info >/dev/null 2>&1; then
+      DOCKER=(sudo -n docker)
+      return 0
+    fi
+  fi
+
+  return 1
 }
-docker info >/dev/null 2>&1 || {
-  printf 'error: Docker is installed but the daemon is unavailable\n' >&2
-  exit 1
+
+install_ubuntu_docker() {
+  if [[ "$(uname -s)" != "Linux" ]] || ! command -v apt-get >/dev/null 2>&1; then
+    printf '%s\n' \
+      'error: automatic Docker installation supports Ubuntu and Debian only' \
+      'Install Docker Desktop or Docker Engine, then rerun this command.' >&2
+    exit 1
+  fi
+
+  local root=()
+  if (( EUID != 0 )); then
+    command -v sudo >/dev/null 2>&1 || {
+      printf 'error: sudo is required to install Docker on this machine\n' >&2
+      exit 1
+    }
+    if [[ -t 0 ]]; then
+      sudo -v
+    elif ! sudo -n true >/dev/null 2>&1; then
+      printf '%s\n' \
+        'error: Docker installation needs sudo approval' \
+        'Run this command in a terminal, or install Docker first.' >&2
+      exit 1
+    fi
+    root=(sudo -n)
+  fi
+
+  printf 'Installing Docker for the In Three container path (npm is not required)...\n'
+  "${root[@]}" apt-get update
+  "${root[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io ca-certificates curl gzip
+  hash -r
+
+  if command -v systemctl >/dev/null 2>&1; then
+    "${root[@]}" systemctl enable --now docker
+  elif command -v service >/dev/null 2>&1; then
+    "${root[@]}" service docker start
+  else
+    printf 'error: Docker was installed, but its service could not be started automatically\n' >&2
+    exit 1
+  fi
 }
+
+if ! select_docker; then
+  if [[ "$install_docker" == true ]]; then
+    if command -v docker >/dev/null 2>&1 && [[ "$(uname -s)" != "Linux" ]]; then
+      printf '%s\n' \
+        'error: Docker is installed, but its daemon is unavailable' \
+        'Start Docker Desktop, then rerun this command.' >&2
+      exit 1
+    fi
+    install_ubuntu_docker
+  elif ! command -v docker >/dev/null 2>&1; then
+    if [[ -t 0 && -t 1 ]]; then
+      printf '%s\n' 'Docker is not installed. npm is not required for this path.'
+      printf 'Install Docker now with the Ubuntu/Debian package? [y/N] '
+      answer=""
+      read -r answer || true
+      case "$answer" in
+        y|Y|yes|YES|Yes) install_ubuntu_docker ;;
+        *)
+          printf 'Stopped. Rerun with: ./in-three-container doctor --install-docker\n' >&2
+          exit 1
+          ;;
+      esac
+    else
+      printf '%s\n' \
+        'error: Docker is not installed; npm is not required for this path' \
+        'Run: ./in-three-container doctor --install-docker' >&2
+      exit 1
+    fi
+  else
+    printf '%s\n' \
+      'error: Docker is installed, but the daemon is unavailable or inaccessible' \
+      'Start Docker, then rerun this command.' >&2
+    exit 1
+  fi
+
+  select_docker || {
+    printf 'error: Docker was installed, but the daemon is still unavailable\n' >&2
+    exit 1
+  }
+fi
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -30,7 +137,7 @@ sha256_file() {
 
 load_release_image() {
   [[ -z "${IN_THREE_IMAGE:-}" ]] || return 0
-  docker image inspect "$IMAGE" >/dev/null 2>&1 && return 0
+  "${DOCKER[@]}" image inspect "$IMAGE" >/dev/null 2>&1 && return 0
 
   local arch asset cache_dir archive checksum expected actual
   case "$(uname -m)" in
@@ -79,8 +186,8 @@ load_release_image() {
   fi
 
   printf 'Loading verified In Three %s container...\n' "$VERSION"
-  gzip -dc "$archive" | docker load >/dev/null
-  docker image inspect "$IMAGE" >/dev/null 2>&1 || {
+  gzip -dc "$archive" | "${DOCKER[@]}" load >/dev/null
+  "${DOCKER[@]}" image inspect "$IMAGE" >/dev/null 2>&1 || {
     printf 'error: release archive did not contain %s\n' "$IMAGE" >&2
     exit 1
   }
@@ -128,4 +235,4 @@ if [[ "${1:-}" == "buy" ]]; then
   args+=(--entrypoint buy)
 fi
 
-exec docker "${args[@]}" "$IMAGE" "$@"
+exec "${DOCKER[@]}" "${args[@]}" "$IMAGE" "$@"

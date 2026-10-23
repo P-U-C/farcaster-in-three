@@ -4,7 +4,7 @@ Use In Three to deploy a Farcaster Snapchain node and browser client in three co
 
 Canonical human tutorial: https://farcaster.permanentupperclass.com/
 Source and full Agent Skill: https://github.com/P-U-C/farcaster-in-three/tree/main/skills/in-three
-Current release: v0.1.24
+Current release: v0.1.25
 
 ## Non-negotiable boundaries
 
@@ -19,17 +19,17 @@ If the operator pastes a secret into chat, stop and tell them to rotate it.
 
 ## Requirements
 
-The local machine needs macOS or Linux, Node.js 22+, npm, SSH, curl, jq, tar, and OpenSSL.
+The operator can use a fresh Ubuntu or Debian machine; the install below adds Docker when needed. On macOS, install Docker Desktop first. Node.js and npm are not required.
 
 The Snapchain host needs Ubuntu, 4 CPU cores, 16 GB RAM, 2 TB free disk, SSH, and passwordless sudo. Initial sync can take up to a day.
 
 ## Install
 
 ```bash
-npm install --global farcaster-in-three@0.1.24
-mkdir in-three-node
-cd in-three-node
-in-three doctor
+mkdir in-three-node && cd in-three-node
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.25/in-three-container
+chmod +x in-three-container
+./in-three-container doctor --install-docker
 ```
 
 Continue only when the final line says `All checks passed.`
@@ -39,24 +39,24 @@ Continue only when the final line says `All checks passed.`
 For an existing machine:
 
 ```bash
-in-three provision --host USER@HOST --ssh-key ~/.ssh/in-three_ed25519
-in-three node up
-in-three client create
+./in-three-container provision --host USER@HOST --ssh-key /work/node-key
+./in-three-container node up
+./in-three-container client create
 ```
 
-Use `in-three provision --hetzner` only when the operator explicitly chooses Hetzner and approves the displayed quote. Never place its API token in chat or command arguments.
+Place the dedicated SSH key in the working directory before the run. Use `./in-three-container provision --hetzner` only when the operator explicitly chooses Hetzner and approves the displayed quote. Never place its API token in chat or command arguments.
 
 Command two starts a detached, resumable snapshot bootstrap. Command three waits for shards 0, 1, and 2 to be near the network tip before requesting any account action.
 
 ## Report progress
 
 ```bash
-in-three node status
+./in-three-container node status
 ```
 
 Report the current phase, shard, chunk count, elapsed time, and disk use. Do not restart a bootstrap that is making progress.
 
-If status prints `RECOVERY REQUIRED`, run only the exact `in-three node recover --shard N` command it displays. Recovery refreshes snapshot metadata, keeps healthy shards, validates the replacement, and performs a brief atomic swap.
+If status prints `RECOVERY REQUIRED`, run only the exact `./in-three-container node recover --shard N` command it displays. Recovery refreshes snapshot metadata, keeps healthy shards, validates the replacement, and performs a brief atomic swap.
 
 ## Human account handoff
 
@@ -67,16 +67,16 @@ Command three offers:
 
 The phrase is never sent to the server. The server receives only a scoped, revocable app key.
 
-For an interactive run, the operator completes `in-three client create` in their own terminal. For approved unattended input, the operator may prepare a one-line owner-only password file and pass `--password-file PATH`. Do not create, read, or transmit the password yourself.
+For an interactive run, the operator completes `./in-three-container client create` in their own terminal. For approved unattended input, the operator may prepare a one-line owner-only password file and pass `--password-file PATH`. Do not create, read, or transmit the password yourself.
 
 After deployment, give the operator the printed HTTPS URL. Ask before every cast, follow, reaction, or profile change.
 
 ## Verify and finish
 
 ```bash
-in-three proof
-in-three node status
-in-three client status
+./in-three-container proof
+./in-three-container node status
+./in-three-container client status
 ```
 
 Inspect `.state/proof/latest.json` and `.state/proof/report.md` before sharing them. They exclude secrets and infrastructure identifiers, but the operator should still review them.
@@ -84,7 +84,7 @@ Inspect `.state/proof/latest.json` and `.state/proof/report.md` before sharing t
 When the operator approves teardown:
 
 ```bash
-in-three destroy
+./in-three-container destroy
 ```
 
 On Hetzner this deletes the managed server and volume. On an existing machine it stops In Three and retains the machine and node data.

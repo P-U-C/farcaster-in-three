@@ -28,12 +28,12 @@ Do not introduce payment credentials into the basic path.
 
 ```bash
 mkdir in-three-node && cd in-three-node
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.24/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.25/in-three-container
 chmod +x in-three-container
-./in-three-container doctor
+./in-three-container doctor --install-docker
 ```
 
-The launcher uses the checksummed release image, runs without a Docker socket mount, and mounts only the working directory.
+On fresh Ubuntu or Debian, `--install-docker` installs and starts the distribution Docker package. Node.js and npm are not required. The launcher uses the checksummed release image, runs without a Docker socket mount, and mounts only the working directory.
 
 ## Basic deployment
 

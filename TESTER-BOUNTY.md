@@ -23,7 +23,7 @@ A slot is reserved only after the announcement author confirms it. One person or
 ## Human-led run
 
 1. Start on a clean macOS or Linux machine.
-2. Use release `v0.1.24` and a new, empty Hetzner project.
+2. Use release `v0.1.25` and a new, empty Hetzner project.
 3. Follow [VOUCHER.md](VOUCHER.md).
 4. Sync the node and open the browser client.
 5. Publish a cast, follow an FID, and add a reaction.
@@ -35,7 +35,7 @@ A slot is reserved only after the announcement author confirms it. One person or
 
 1. Start with a clean machine and a new Hetzner project; create the disposable Farcaster account inside `client create`.
 2. Give the agent this repository and [`skills/in-three/SKILL.md`](skills/in-three/SKILL.md).
-3. Ask it to complete the same [independent test](VOUCHER.md) using release `v0.1.24`.
+3. Ask it to complete the same [independent test](VOUCHER.md) using release `v0.1.25`.
 4. Keep the recovery phrase, cloud token, wallet keys, and spending confirmations out of agent chat. The human operator must handle secret prompts directly.
 5. Record the agent, model, tool versions, initial prompt, commands, errors, retries, and every human intervention.
 6. Publish the resulting cast and an honest public report.

@@ -49,14 +49,14 @@ Public report URL:
 ```bash
 mkdir in-three-test
 cd in-three-test
-curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.24/in-three-container
+curl -fsSLO https://raw.githubusercontent.com/P-U-C/farcaster-in-three/v0.1.25/in-three-container
 chmod +x in-three-container
-./in-three-container doctor
+./in-three-container doctor --install-docker
 ```
 
-Record the output. Confirm the downloaded launcher contains `VERSION="0.1.24"`.
+Record the output. Confirm the downloaded launcher contains `VERSION="0.1.25"`. On a fresh Ubuntu or Debian host, the final line installs and starts Docker; Node.js and npm are not required.
 
-The first operational command downloads the matching public amd64 or arm64 container release and checks its SHA-256 before loading it.
+The launcher downloads the matching public amd64 or arm64 container release and checks its SHA-256 before loading it.
 
 ## 2. Run the three commands
 

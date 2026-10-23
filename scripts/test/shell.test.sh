@@ -472,6 +472,73 @@ fi
 grep -F 'args+=(--entrypoint buy)' "$ROOT/in-three-container" >/dev/null ||
   fail "container launcher cannot dispatch the bundled usebuy.ai CLI"
 
+missing_docker_fixture="$container_fixture/missing-docker"
+mkdir -p "$missing_docker_fixture/bin"
+ln -s "$(command -v bash)" "$missing_docker_fixture/bin/bash"
+missing_docker_output="$missing_docker_fixture/output"
+if PATH="$missing_docker_fixture/bin" "$ROOT/in-three-container" doctor \
+  >"$missing_docker_output" 2>&1; then
+  fail "container launcher accepted a host without Docker"
+fi
+grep -F './in-three-container doctor --install-docker' "$missing_docker_output" >/dev/null ||
+  fail "missing-Docker error does not provide the exact bootstrap command"
+grep -F 'npm is not required' "$missing_docker_output" >/dev/null ||
+  fail "missing-Docker error implies that npm is also required"
+
+bootstrap_fixture="$container_fixture/bootstrap"
+mkdir -p "$bootstrap_fixture/bin" "$bootstrap_fixture/work"
+for tool in bash env id uname; do
+  ln -s "$(command -v "$tool")" "$bootstrap_fixture/bin/$tool"
+done
+export BOOTSTRAP_BIN="$bootstrap_fixture/bin"
+export BOOTSTRAP_LOG="$bootstrap_fixture/calls"
+: > "$BOOTSTRAP_LOG"
+cat > "$bootstrap_fixture/bin/sudo" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${1:-}" == "-n" ]] && shift
+[[ "${1:-}" == "true" ]] && exit 0
+exec "$@"
+EOF
+cat > "$bootstrap_fixture/bin/apt-get" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'apt-get <%s>\n' "$*" >> "$BOOTSTRAP_LOG"
+if [[ " $* " == *" install "* ]]; then
+  /bin/cat > "$BOOTSTRAP_BIN/docker" <<'DOCKER'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "info" ]]; then
+  exit 0
+fi
+printf 'docker <%s>\n' "$*" >> "$BOOTSTRAP_LOG"
+DOCKER
+  /bin/chmod +x "$BOOTSTRAP_BIN/docker"
+fi
+EOF
+cat > "$bootstrap_fixture/bin/systemctl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'systemctl <%s>\n' "$*" >> "$BOOTSTRAP_LOG"
+EOF
+chmod +x "$bootstrap_fixture/bin/sudo" "$bootstrap_fixture/bin/apt-get" \
+  "$bootstrap_fixture/bin/systemctl"
+(
+  cd "$bootstrap_fixture/work"
+  PATH="$bootstrap_fixture/bin" \
+  IN_THREE_IMAGE='in-three-operator:test' \
+    "$ROOT/in-three-container" doctor --install-docker
+)
+grep -F 'apt-get <install -y docker.io ca-certificates curl gzip>' "$BOOTSTRAP_LOG" >/dev/null ||
+  fail "fresh-host bootstrap did not install the pinned runtime prerequisites"
+grep -F 'systemctl <enable --now docker>' "$BOOTSTRAP_LOG" >/dev/null ||
+  fail "fresh-host bootstrap did not enable and start Docker"
+grep -F 'doctor' "$BOOTSTRAP_LOG" >/dev/null ||
+  fail "fresh-host bootstrap did not continue into doctor"
+if grep -F -- '--install-docker' "$BOOTSTRAP_LOG" >/dev/null; then
+  fail "container-only bootstrap flag leaked into the operator CLI"
+fi
+
 case "$(uname -m)" in
   x86_64|amd64) release_arch="amd64" ;;
   arm64|aarch64) release_arch="arm64" ;;

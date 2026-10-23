@@ -13,11 +13,11 @@
 
 ## Core commands
 
-    in-three provision
-    in-three node up
-    in-three client create
+    ./in-three-container provision
+    ./in-three-container node up
+    ./in-three-container client create
 
-Use an existing suitable Ubuntu machine by default. Hetzner is optional through `in-three provision --hetzner`.
+Use an existing suitable Ubuntu machine by default. Hetzner is optional through `./in-three-container provision --hetzner`.
 
 ## Safety
 

@@ -18,9 +18,9 @@ Open another page only when you need it:
 ## The normal path
 
 ```bash
-in-three provision
-in-three node up
-in-three client create
+./in-three-container provision
+./in-three-container node up
+./in-three-container client create
 ```
 
 If a command pauses, keep the working directory and rerun that same command. In Three saves recovery state before signed actions.

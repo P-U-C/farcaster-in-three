@@ -274,7 +274,7 @@ try {
   const expectedPackageHrefs = [
     "https://www.npmjs.com/package/farcaster-in-three",
     "https://github.com/orgs/P-U-C/packages/container/package/farcaster-in-three",
-    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.24",
+    "https://github.com/P-U-C/farcaster-in-three/releases/tag/v0.1.25",
     "https://github.com/P-U-C/farcaster-in-three/blob/main/docs/PROOF.md",
     "https://github.com/P-U-C/farcaster-in-three",
   ];
@@ -340,12 +340,16 @@ try {
   }
 
   const npmMethod = sitePage.getByRole("button", { name: /npm CLI/ });
-  const dockerMethod = sitePage.getByRole("button", { name: /Docker/ });
-  if (await npmMethod.getAttribute("aria-pressed") !== "true") {
-    throw new Error("npm must be the default website install method");
+  const containerMethod = sitePage.getByRole("button", { name: /Container/ });
+  if (await containerMethod.getAttribute("aria-pressed") !== "true") {
+    throw new Error("the clean-machine container path must be the default install method");
   }
+  if (!(await sitePage.locator(".install-block").innerText()).includes("./in-three-container doctor --install-docker")) {
+    throw new Error("website clean-machine quickstart is missing");
+  }
+  await npmMethod.click();
   if (!(await sitePage.locator(".install-block").innerText()).includes("npm install --global farcaster-in-three")) {
-    throw new Error("website npm quickstart is missing");
+    throw new Error("website npm alternative is missing");
   }
   const stepNumbers = await sitePage.locator(".three-steps article header b").allTextContents();
   if (JSON.stringify(stepNumbers) !== JSON.stringify(["1", "2", "3"])) {
@@ -405,7 +409,7 @@ try {
   if (
     !agentResponse.ok() ||
     !agentText.includes("Non-negotiable boundaries") ||
-    !agentText.includes("in-three client create")
+    !agentText.includes("./in-three-container client create")
   ) {
     throw new Error("public agent runbook is missing or incomplete");
   }
@@ -460,8 +464,8 @@ try {
   if (finalCtaColor !== "rgb(121, 80, 190)") {
     throw new Error(`final call-to-action is not purple: ${finalCtaColor}`);
   }
-  await dockerMethod.click();
-  if (!(await sitePage.locator(".install-block").innerText()).includes("./in-three-container doctor")) {
+  await containerMethod.click();
+  if (!(await sitePage.locator(".install-block").innerText()).includes("./in-three-container doctor --install-docker")) {
     throw new Error("website Docker quickstart does not switch in");
   }
   if (!(await sitePage.locator(".three-steps").innerText()).includes("./in-three-container provision")) {
@@ -491,7 +495,7 @@ try {
   if (!(await agentHelp.locator("summary").isVisible())) {
     throw new Error("agent handoff is hidden on mobile");
   }
-  if (!(await npmMethod.isVisible()) || !(await dockerMethod.isVisible())) {
+  if (!(await npmMethod.isVisible()) || !(await containerMethod.isVisible())) {
     throw new Error("installation method selector is hidden on mobile");
   }
   await hetznerJump.click();
@@ -505,7 +509,7 @@ try {
     }
     window.history.replaceState(null, "", window.location.pathname);
   });
-  await dockerMethod.click();
+  await containerMethod.click();
   await assertNoOverflow(sitePage, "site mobile Docker method");
   await npmMethod.click();
   await sitePage.evaluate(() => window.scrollTo(0, 0));
